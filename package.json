@@ -1,0 +1,20 @@
+{
+  "name": "project-mma-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FitLife - Trợ Lý Sức Khỏe & Thể Lực (MMA Fitness App Monorepo: Frontend + Backend)",
+  "scripts": {
+    "start:fe": "cd frontend && npm start",
+    "start:be": "cd backend && npm start",
+    "web": "cd frontend && npm run web"
+  },
+  "keywords": [
+    "fitness",
+    "react-native",
+    "expo",
+    "express",
+    "rest-api"
+  ],
+  "author": "FitLife Team",
+  "license": "MIT"
+}
