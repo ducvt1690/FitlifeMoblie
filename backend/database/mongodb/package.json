@@ -1,0 +1,16 @@
+{
+  "name": "fitlife-mongodb-database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MongoDB Atlas schema, indexes and seed data for FitLife; independent of the API",
+  "engines": { "node": ">=20.19.0" },
+  "scripts": {
+    "db:init": "node scripts/cli.js init",
+    "db:seed": "node scripts/cli.js seed",
+    "db:seed:demo": "node scripts/cli.js demo",
+    "db:verify": "node scripts/cli.js verify",
+    "test": "node --test --test-concurrency=1 test/database.test.js"
+  },
+  "dependencies": { "mongodb": "^7.7.0" },
+  "devDependencies": { "mongodb-memory-server": "^11.3.0" }
+}

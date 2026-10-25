@@ -1,0 +1,24 @@
+{
+  "quest_templates": [
+    { "quest_key": "q_weight", "quest_title": "Ghi nhận cân nặng", "reward_coins": 10 },
+    { "quest_key": "q_water", "quest_title": "Ghi nhận nước uống", "reward_coins": 10 },
+    { "quest_key": "q_meals", "quest_title": "Ghi nhận bữa ăn", "reward_coins": 10 },
+    { "quest_key": "q_sleep", "quest_title": "Ghi nhận giấc ngủ", "reward_coins": 10 },
+    { "quest_key": "q_mood", "quest_title": "Ghi nhận tâm trạng", "reward_coins": 10 },
+    { "quest_key": "q_bowel", "quest_title": "Ghi nhận tiêu hóa", "reward_coins": 10 },
+    { "quest_key": "q_workout", "quest_title": "Ghi nhận buổi tập", "reward_coins": 10 }
+  ],
+  "reward_items": [
+    { "item_id": "10000000-0000-4000-8000-000000000001", "title": "Huy hiệu Người Mới Nhập Môn", "category": "badge", "cost_coins": 0, "icon": "ribbon-outline", "is_available": true },
+    { "item_id": "10000000-0000-4000-8000-000000000002", "title": "Chiến Binh Thủy Hỏa", "category": "badge", "cost_coins": 50, "icon": "water-outline", "is_available": true },
+    { "item_id": "10000000-0000-4000-8000-000000000003", "title": "Vua Tabata Đốt Mỡ", "category": "badge", "cost_coins": 100, "icon": "flame-outline", "is_available": true },
+    { "item_id": "10000000-0000-4000-8000-000000000004", "title": "Bậc Thầy Kỷ Luật 7 Ngày", "category": "badge", "cost_coins": 200, "icon": "trophy-outline", "is_available": true },
+    { "item_id": "10000000-0000-4000-8000-000000000005", "title": "Giao diện Rừng Xanh", "category": "theme", "cost_coins": 120, "icon": "color-palette-outline", "is_available": true },
+    { "item_id": "10000000-0000-4000-8000-000000000006", "title": "Voucher minh họa - không có giá trị đổi thực tế", "category": "voucher", "cost_coins": 300, "icon": "ticket-outline", "is_available": false }
+  ],
+  "challenges": [
+    { "challenge_id": "20000000-0000-4000-8000-000000000001", "title": "7 ngày ghi nhận nước uống", "description": "Dữ liệu mẫu: điểm danh ghi nhận nước uống trong 7 ngày. Quy tắc ngày liên tiếp do backend triển khai sau.", "target_days": 7, "reward_coins": 70, "badge_icon": "water-outline", "is_active": true },
+    { "challenge_id": "20000000-0000-4000-8000-000000000002", "title": "14 ngày vận động", "description": "Dữ liệu mẫu: ghi nhận vận động trong 14 ngày.", "target_days": 14, "reward_coins": 140, "badge_icon": "barbell-outline", "is_active": true },
+    { "challenge_id": "20000000-0000-4000-8000-000000000003", "title": "30 ngày ghi nhận giấc ngủ", "description": "Dữ liệu mẫu: theo dõi giấc ngủ trong 30 ngày.", "target_days": 30, "reward_coins": 300, "badge_icon": "bed-outline", "is_active": true }
+  ]
+}

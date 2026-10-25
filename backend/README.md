@@ -45,5 +45,8 @@ Server sẽ khởi chạy tại: `http://localhost:5000`
 ---
 
 ## 3. Cơ sở dữ liệu (Database)
-File định nghĩa cấu trúc bảng (DDL SQL) nằm tại:
-👉 `backend/database/schema.sql` (Chạy được trên PostgreSQL, MySQL, SQLite).
+
+Database mới dùng **MongoDB Atlas**, gồm 13 collection, validator, index và dữ liệu mẫu.
+Xem [hướng dẫn tạo cluster và khởi tạo database](database/mongodb/README.md).
+
+Bộ database hoạt động độc lập trong `backend/database/mongodb`; backend/API hiện tại vẫn dùng kho JSON cũ và sẽ được kết nối MongoDB ở giai đoạn sau. `backend/database/schema.sql` là thiết kế SQL trước đây.
