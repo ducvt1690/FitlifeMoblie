@@ -192,17 +192,16 @@ Mọi lỗi: `{ "success": false, "message": "..." }`. Response không bao giờ
 ## D. Test nhanh bằng Postman (không cần viết code FE)
 
 1. Backend đang chạy (phần B).
-2. Import: `backend/postman/FitLife-Auth.postman_collection.json` + `backend/postman/FitLife-Local.postman_environment.example.json`.
-3. Copy file example thành `FitLife-Local.local.json`, điền `email`/`password` thật (file `.local.json` đã bị Git bỏ qua).
-4. **Run collection** 11 request theo thứ tự: health → me không token (401) → case lỗi (400) → login sai (401) → login đúng (200) → me (200) → logout (204) → me bằng token cũ (401) → logout lặp (204).
+2. Tạo request `POST http://localhost:5000/api/auth/login`, chọn Body → raw → JSON, gửi `email` và `password` của tài khoản trên Atlas.
+3. Lấy `token` từ response, gửi `GET http://localhost:5000/api/auth/me` với header `Authorization: Bearer <token>` → cần `200`.
+4. Gửi `POST http://localhost:5000/api/auth/logout` với cùng header → cần `204`. Gọi lại `/me` bằng token đó → cần `401`.
 
-Kết quả đúng: **11/11 request, 37/37 assertion PASS**.
+Cấu hình collection và environment Postman được giữ riêng trên máy, không nằm trong Git. Không chia sẻ mật khẩu hoặc token trong file cấu hình.
 
 ---
 
 ## Tài liệu liên quan
 
 - [README.md](README.md) — tài liệu kỹ thuật chi tiết Backend.
-- [postman/README.md](postman/README.md) — hướng dẫn Postman desktop + CLI.
 - [database/mongodb/README.md](database/mongodb/README.md) — khởi tạo, seed, migration database.
 - [database/mongodb/ROLE_CONTRACT.md](database/mongodb/ROLE_CONTRACT.md) — hợp đồng role user/trainer/admin.

@@ -11,6 +11,11 @@ yarn-error.log*
 **/.env
 **/.env*.local
 
+# Local Postman requests, environments and workspace settings
+/.postman/
+/postman/
+/backend/postman/
+
 # Database runtime files
 backend/fitlife_db.json
 *.sqlite

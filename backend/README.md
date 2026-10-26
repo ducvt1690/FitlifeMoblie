@@ -81,12 +81,12 @@ Các lỗi trả JSON `{ "success": false, "message": "..." }`. Login dùng cùn
 
 Token là chuỗi ngẫu nhiên, không phải JWT và không cần `JWT_SECRET`. Collection `auth_sessions` lưu SHA-256 của token cùng `user_id`, `created_at`, `expires_at`; không lưu raw token. Có unique index cho token hash và TTL index dọn phiên hết hạn. API vẫn kiểm tra expiry trực tiếp vì TTL cleanup không chạy tức thời. Collection này phục vụ runtime, nằm ngoài 16 collection nghiệp vụ.
 
-`GET /` liệt kê API hiện có. `GET /health` kiểm tra kết nối MongoDB bằng ping. Public register và danh sách users không được cung cấp trong đợt này. Public register và danh sách users không được cung cấp trong đợt này. Frontend hiện vẫn dùng auth local, chưa nối vào các endpoint mới.
+`GET /` liệt kê API hiện có. `GET /health` kiểm tra kết nối MongoDB bằng ping. Public register và danh sách users không được cung cấp trong đợt này. Frontend hiện vẫn dùng auth local, chưa nối vào các endpoint mới.
 
 ## Kiểm thử
 
 `npm test` chạy kiểm thử tích hợp với MongoDB replica set tạm, không đọc `.env` hoặc kết nối Atlas. Lần chạy đầu có thể tải MongoDB binary. Bộ test kiểm tra phiên, thu hồi token, expiry, account bị khóa và các lỗi xác thực; không chứng minh frontend đã tích hợp.
 
-Để chạy cùng API thật trên Atlas bằng Postman, import collection và environment mẫu theo [hướng dẫn Postman](postman/README.md). Collection có request và assertion cho login → me → logout → token bị thu hồi; điền thông tin đăng nhập chỉ ở environment local.
+Có thể dùng Postman tạo request theo các endpoint ở trên để kiểm tra API thật: login → me → logout → token bị thu hồi. Cấu hình Postman được giữ riêng trên máy và bỏ qua Git; điền thông tin đăng nhập chỉ ở environment local.
 
 Tài liệu liên quan: [sử dụng database/Compass](database/README.md), [schema và migration](database/mongodb/README.md), [role và quyền cần triển khai tiếp](database/mongodb/ROLE_CONTRACT.md).
