@@ -1,0 +1,365 @@
+{
+  "info": {
+    "name": "FitLife Auth — Atlas login/logout",
+    "description": "Local regression collection for the real Node.js + Express backend using MongoDB Atlas. Run all requests in order. Supply email/password only through a local environment. Tokens stay in transient pm.variables; do not enable verbose output or export environments/responses. Collection run covers authentication only; it does not mock the service or create user accounts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5000",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.text().length > 0) {",
+          "  let data; try { data = pm.response.json(); } catch (_) {}",
+          "  pm.test('Response body is JSON', function () { pm.expect(data !== undefined).to.eql(true); });",
+          "  function hasPrivateField(value) {",
+          "    if (!value || typeof value !== 'object') return false;",
+          "    return Object.keys(value).some(function (key) { return /^(password|password_hash|token_hash)$/i.test(key) || hasPrivateField(value[key]); });",
+          "  }",
+          "  pm.test('Response excludes password and stored token hashes', function () { pm.expect(hasPrivateField(data)).to.eql(false); });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Backend health [expected 200]",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Me without bearer is rejected [expected 401]",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Missing login fields are rejected [expected 400]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Malformed JSON is rejected [expected 400]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — NoSQL object injection is rejected [expected 400]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":{\"$ne\":null},\"password\":{\"$ne\":null}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Wrong credentials are rejected [expected 401]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{{invalidLoginBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('invalidLoginBody', JSON.stringify({ email: pm.environment.get('email'), password: 'invalid-' + pm.variables.replaceIn('{{$guid}}') }));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+              "pm.test('Failure has no authenticated user or bearer token', function () { const body = pm.response.json(); pm.expect(body.success === false && body.user === undefined && body.token === undefined).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — Login with Atlas account [expected 200]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{{loginBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const email = pm.environment.get('email'); const password = pm.environment.get('password');",
+              "if (typeof email !== 'string' || !email || typeof password !== 'string' || !password) { throw new Error('Set email and password in the selected local Postman environment before running.'); }",
+              "pm.variables.set('loginBody', JSON.stringify({ email: email, password: password }));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Login returns success and opaque bearer token', function () { pm.expect(body.success === true && body.token_type === 'Bearer' && /^[A-Za-z0-9_-]{43}$/.test(body.token || '')).to.eql(true); });",
+              "pm.test('Session has a future expiry', function () { pm.expect(Number.isFinite(Date.parse(body.expires_at)) && Date.parse(body.expires_at) > Date.now()).to.eql(true); });",
+              "pm.test('User exposes identity, supported role and profile', function () { const u = body.user || {}; pm.expect(typeof u.id === 'string' && u.id.length > 0 && u.id === u.user_id && typeof u.email === 'string' && typeof u.name === 'string' && ['user', 'trainer', 'admin'].includes(u.role) && typeof u.profile === 'object' && u.profile !== null).to.eql(true); });",
+              "if (pm.response.code === 200 && typeof body.token === 'string' && body.user) { pm.variables.set('authToken', body.token); pm.variables.set('authenticatedUserId', body.user.user_id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — Me resolves the authenticated Atlas account [expected 200]",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json(); pm.test('Me returns the same account as login', function () { pm.expect(body.success === true && !!body.user && body.user.user_id === pm.variables.get('authenticatedUserId')).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 — Logout revokes the session [expected 204]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+              "pm.test('Logout response has no body', function () { pm.expect(pm.response.text().length === 0).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 — Revoked token cannot access Me [expected 401]",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+              "pm.test('Revoked session returns no user', function () { const body = pm.response.json(); pm.expect(body.success === false && body.user === undefined).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 — Repeated logout is idempotent [expected 204]",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+              "pm.test('Repeated logout has no body', function () { pm.expect(pm.response.text().length === 0).to.eql(true); });",
+              "pm.variables.unset('authToken'); pm.variables.unset('authenticatedUserId'); pm.variables.unset('loginBody'); pm.variables.unset('invalidLoginBody');"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

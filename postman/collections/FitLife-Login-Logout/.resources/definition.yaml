@@ -1,0 +1,14 @@
+$kind: collection
+name: FitLife Login Logout
+description: 'Chọn environment FitLife Local, bấm Send lần lượt 01 Login → 02 Me → 03 Logout. Login giữ token trong environment local để dùng được giữa các lần Send; Logout xóa token đó.'
+variables:
+  - key: baseUrl
+    value: 'http://127.0.0.1:5000'
+scripts:
+  - type: http:beforeRequest
+    code: |-
+      if (pm.environment.get('fitlifePrivate') !== 'true') {
+        if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();
+        throw new Error('Chọn environment FitLife Local trước khi bấm Send.');
+      }
+    language: text/javascript

@@ -4,3 +4,5 @@ fitlife_db.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.tools/
+/database/fitlife_db.json

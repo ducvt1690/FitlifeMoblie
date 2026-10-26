@@ -1,0 +1,14 @@
+$kind: http-request
+name: "10 — Revoked token cannot access Me [expected 401]"
+method: GET
+url: "{{baseUrl}}/api/auth/me"
+order: 10000
+headers:
+  - key: "Authorization"
+    value: "Bearer {{authToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('HTTP 401', function () { pm.response.to.have.status(401); });
+      pm.test('Revoked session returns no user', function () { const body = pm.response.json(); pm.expect(body.success === false && body.user === undefined).to.eql(true); });
+    language: text/javascript

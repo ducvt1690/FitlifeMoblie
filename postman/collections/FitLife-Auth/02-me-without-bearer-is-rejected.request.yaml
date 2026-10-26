@@ -1,0 +1,10 @@
+$kind: http-request
+name: "02 — Me without bearer is rejected [expected 401]"
+method: GET
+url: "{{baseUrl}}/api/auth/me"
+order: 2000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('HTTP 401', function () { pm.response.to.have.status(401); });
+    language: text/javascript

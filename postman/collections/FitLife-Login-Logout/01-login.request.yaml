@@ -1,0 +1,38 @@
+$kind: http-request
+name: '01 — Login (cần 200)'
+method: POST
+url: '{{baseUrl}}/api/auth/login'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{{manualLoginBody}}'
+scripts:
+  - type: beforeRequest
+    code: |-
+      const email = pm.environment.get('email');
+      const password = pm.environment.get('password');
+      if (typeof email !== 'string' || !email || typeof password !== 'string' || !password) {
+        if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();
+        throw new Error('Điền email và password trong environment FitLife Local.');
+      }
+      if (pm.environment.get('manualAuthToken')) {
+        if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();
+        throw new Error('Đã có phiên trong environment. Gửi 02 Me hoặc 03 Logout trước khi đăng nhập lại.');
+      }
+      pm.environment.unset('manualAuthUserId');
+      pm.variables.set('manualLoginBody', JSON.stringify({ email, password }));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Login trả 200', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      const valid = pm.response.code === 200 && body.success === true && /^[A-Za-z0-9_-]{43}$/.test(body.token || '') && body.user;
+      pm.test('Có token và tài khoản', function () { pm.expect(Boolean(valid)).to.eql(true); });
+      if (valid && pm.environment.get('fitlifePrivate') === 'true') {
+        pm.environment.set('manualAuthToken', body.token);
+        pm.environment.set('manualAuthUserId', body.user.user_id);
+      }
+    language: text/javascript

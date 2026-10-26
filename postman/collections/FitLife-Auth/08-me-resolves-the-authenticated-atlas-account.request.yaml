@@ -1,0 +1,14 @@
+$kind: http-request
+name: "08 — Me resolves the authenticated Atlas account [expected 200]"
+method: GET
+url: "{{baseUrl}}/api/auth/me"
+order: 8000
+headers:
+  - key: "Authorization"
+    value: "Bearer {{authToken}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('HTTP 200', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json(); pm.test('Me returns the same account as login', function () { pm.expect(body.success === true && !!body.user && body.user.user_id === pm.variables.get('authenticatedUserId')).to.eql(true); });
+    language: text/javascript

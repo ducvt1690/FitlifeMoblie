@@ -1,0 +1,19 @@
+$kind: collection
+name: FitLife Auth
+description: "Local regression collection for the real Node.js + Express backend using MongoDB Atlas. Run all requests in order. Supply email/password only through a local environment. Tokens stay in transient pm.variables; do not enable verbose output or export environments/responses. Collection run covers authentication only; it does not mock the service or create user accounts."
+variables:
+  - key: "baseUrl"
+    value: "http://127.0.0.1:5000"
+scripts:
+  - type: http:afterResponse
+    code: |-
+      if (pm.response.text().length > 0) {
+        let data; try { data = pm.response.json(); } catch (_) {}
+        pm.test('Response body is JSON', function () { pm.expect(data !== undefined).to.eql(true); });
+        function hasPrivateField(value) {
+          if (!value || typeof value !== 'object') return false;
+          return Object.keys(value).some(function (key) { return /^(password|password_hash|token_hash)$/i.test(key) || hasPrivateField(value[key]); });
+        }
+        pm.test('Response excludes password and stored token hashes', function () { pm.expect(hasPrivateField(data)).to.eql(false); });
+      }
+    language: text/javascript
