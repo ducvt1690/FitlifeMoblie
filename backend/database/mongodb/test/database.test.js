@@ -8,6 +8,7 @@ const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { collections } = require('../schema');
 const { initializeDatabase, verifyDatabase } = require('../database');
 const { seedCatalogs, seedDemo, buildDemoDocuments, DEMO_USER_ID, localDate } = require('../seed');
+const { DEMO_TRAINER_ID, DEMO_ADMIN_ID } = require('../seed');
 
 // A real ephemeral MongoDB replica set exercises validators, indexes and transactions.
 // Tests do not read .env or contact Atlas.
@@ -37,10 +38,11 @@ after(async () => {
   if (replica) await replica.stop();
 });
 
-test('all 13 collections, validators, indexes and demo references pass the audit', async () => {
+test('all 16 collections, validators, role fixtures and demo references pass the audit', async () => {
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  assert.equal(Object.keys(report.counts).length, 13);
+  assert.equal(Object.keys(report.counts).length, 16);
+  assert.equal(report.counts.users, 3);
   assert.equal(report.counts.reward_items, 6);
   assert.equal(report.counts.challenges, 3);
   assert.equal(report.counts.daily_quest_logs, 7);
@@ -82,7 +84,8 @@ test('duplicate emails and user/day/quest entries are rejected', async () => {
 test('negative balance, plaintext password, invalid enum, fractions and unknown fields are rejected', async () => {
   for (const changes of [
     { fit_coins: -1 }, { password_hash: '123' }, { goal: 'invalid' }, { age: 23.5 },
-    { target_calories: 799 }, { password: 'do-not-store-plaintext' },
+    { target_calories: 1499 }, { target_water: 4351 }, { role: 'superadmin' },
+    { is_active: 'true' }, { password: 'do-not-store-plaintext' },
   ]) {
     await assert.rejects(db.collection('users').updateOne({ user_id: DEMO_USER_ID }, { $set: changes }), { code: 121 });
   }
@@ -116,10 +119,76 @@ test('concurrent duplicate badge purchases allow one insert; vouchers can repeat
   })));
 });
 
-test('the same user cannot join the same challenge twice', async () => {
+test('only one active challenge entry per user; completed entries allow a new attempt', async (t) => {
   await assert.rejects(db.collection('user_challenges').insertOne({
     ...fixture.user_challenges[0], id: randomUUID(),
   }), { code: 11000 });
+  const completedId = randomUUID();
+  t.after(async () => db.collection('user_challenges').deleteOne({ id: completedId }));
+  await db.collection('user_challenges').insertOne({
+    ...fixture.user_challenges[0], id: completedId, is_completed: true, current_progress: 7,
+  });
+});
+
+test('sleep, mood and BMI have one document per user per calendar date', async () => {
+  for (const [name, id] of [['sleep_logs', 'sleep_id'], ['mood_logs', 'mood_id'], ['bmi_history', 'record_id']]) {
+    await assert.rejects(db.collection(name).insertOne({ ...fixture[name][0], [id]: randomUUID() }), { code: 11000 });
+  }
+});
+
+test('quest keys and fixed 10-coin reward match v2; invalid assignment states fail', async () => {
+  for (const changes of [{ quest_key: 'q_weight' }, { quest_key: 'q_meals' }, { quest_key: 'q_bowel' }, { reward_coins: 11 }]) {
+    await assert.rejects(db.collection('daily_quest_logs').insertOne({
+      ...fixture.daily_quest_logs[0], quest_log_id: randomUUID(), ...changes,
+    }), { code: 121 });
+  }
+  await assert.rejects(db.collection('trainer_assignments').insertOne({
+    ...fixture.trainer_assignments[0], id: randomUUID(), status: 'done', done_at: null,
+  }), { code: 121 });
+});
+
+test('auth subject IDs may be non-UUID strings and external auth does not require password_hash', async (t) => {
+  const userId = 'firebase-auth-subject-001';
+  t.after(async () => db.collection('users').deleteOne({ user_id: userId }));
+  const profile = { ...fixture.users[0], user_id: userId, email: 'external@fitlife.example' };
+  delete profile.password_hash;
+  await db.collection('users').insertOne(profile);
+  assert.equal((await db.collection('users').findOne({ user_id: userId })).user_id, userId);
+});
+
+test('database validator enforces gender-specific calorie floors and the water ceiling', async (t) => {
+  const userId = randomUUID();
+  t.after(async () => db.collection('users').deleteOne({ user_id: userId }));
+  const female = { ...fixture.users[0], user_id: userId, email: 'floor@fitlife.example', gender: 'female', target_calories: 1200, target_water: 4350 };
+  await db.collection('users').insertOne(female);
+  await assert.rejects(db.collection('users').updateOne({ user_id: userId }, { $set: { target_calories: 1199 } }), { code: 121 });
+  await assert.rejects(db.collection('users').updateOne({ user_id: userId }, { $set: { gender: 'male' } }), { code: 121 });
+  await db.collection('users').updateOne({ user_id: userId }, { $set: { gender: 'male', target_calories: 1500 } });
+  await assert.rejects(db.collection('users').updateOne({ user_id: userId }, { $set: { target_water: 4351 } }), { code: 121 });
+});
+
+test('audit reports wrong trainer roles, assignment ownership and cross-user chat references', async (t) => {
+  const templateId = randomUUID();
+  const assignmentId = randomUUID();
+  const messageId = randomUUID();
+  t.after(async () => {
+    await db.collection('workout_templates').deleteOne({ template_id: templateId });
+    await db.collection('trainer_assignments').deleteOne({ id: assignmentId });
+    await db.collection('ai_chat_messages').deleteOne({ message_id: messageId });
+  });
+  await db.collection('workout_templates').insertOne({
+    ...fixture.workout_templates[0], template_id: templateId, trainer_id: DEMO_USER_ID,
+  });
+  await db.collection('trainer_assignments').insertOne({
+    ...fixture.trainer_assignments[0], id: assignmentId, trainer_id: DEMO_ADMIN_ID,
+  });
+  await db.collection('ai_chat_messages').insertOne({
+    ...fixture.ai_chat_messages[0], message_id: messageId, user_id: DEMO_TRAINER_ID,
+  });
+  const report = await verifyDatabase(db);
+  for (const label of ['Template owner must be a trainer', 'Assignment role or template ownership mismatch', 'Chat session ownership mismatch']) {
+    assert.ok(report.issues.some((issue) => issue.includes(label)), label);
+  }
 });
 
 test('audit detects orphan references and a forged purchase category', async (t) => {

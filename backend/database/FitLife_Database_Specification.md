@@ -1,377 +1,120 @@
-# TÀI LIỆU ĐẶC TẢ NGHIỆP VỤ CƠ SỞ DỮ LIỆU
-## DỰ ÁN: FITLIFE HEALTH & MMA (projectMMA)
+# FitLife Health & MMA — Database v2 và role BE/FE
 
----
+Phiên bản 2 theo yêu cầu user/trainer/admin ngày 25/10/2026. Triển khai bằng **MongoDB Atlas**. Firestore trong bản yêu cầu mô tả mô hình logic; các subcollection được chuyển thành collection MongoDB có field tham chiếu.
 
-## 1. TỔNG QUAN HỆ THỐNG VÀ KIẾN TRÚC DỮ LIỆU
+## 1. Quy ước
 
-### 1.1 Mục đích tài liệu
-Tài liệu này đặc tả chi tiết kiến trúc cơ sở dữ liệu, lược đồ thực thể quan hệ (ERD), từ điển dữ liệu (Data Dictionary), các ràng buộc toàn vẹn và quy tắc nghiệp vụ (Business Rules) phục vụ việc phát triển, bảo vệ đồ án môn học Lập trình Thiết bị Di động (MMA).
+- **16 collection nghiệp vụ**; mỗi document có `_id: ObjectId` và ID nghiệp vụ unique.
+- `user_id` là chuỗi từ token đã verify, tương ứng `auth.uid`, không bắt buộc UUID; `trainer_id` tham chiếu cùng field. Các ID khác dùng UUID.
+- Timestamp là BSON Date UTC; ngày nghiệp vụ là YYYY-MM-DD theo users.timezone; log_time là HH:mm.
+- Mọi document có created_at/updated_at bắt buộc. BE phải điền, database không tự gán.
+- Lưu snake_case; API có thể map user_id↔userId, full_name↔fullName, is_active↔isActive, fit_coins↔fitCoins, target_water↔targetWater, v.v. FE không ghi trực tiếp Atlas.
+- Validator chặn sai kiểu/giá trị/field lạ; index chặn trùng. Quyền theo người dùng, foreign key, transaction thuộc BE và được db:verify audit.
 
-### 1.2 Kiến trúc lưu trữ (Hybrid Local-First & Cloud Architecture)
-Hệ thống FitLife áp dụng mô hình kiến trúc **Local-First Synchronization**:
-- **Tầng Client (Offline/Local Cache)**: Sử dụng AsyncStorage / SQLite cục bộ để đảm bảo ứng dụng có thể đọc/ghi tức thì trong vòng 5–10ms ngay cả khi thiết bị mất kết nối mạng.
-- **Tầng Cloud (Remote Database - Firebase Firestore / Supabase)**: Đồng bộ hai chiều định kỳ hoặc khi có kết nối mạng để lưu trữ tập trung, phục vụ sao lưu và xác thực đa thiết bị.
+## 2. Role
 
----
+users.role = **user | trainer | admin**, đăng ký mặc định user.
 
-## 2. SƠ ĐỒ THỰC THỂ QUAN HỆ (ERD - ENTITY RELATIONSHIP DIAGRAM)
+- User ghi/xem dữ liệu sức khỏe của mình, quest/coins, shop, challenge và chat AI.
+- Trainer tạo/sửa template của mình, gán bài cho user, đọc hồ sơ/nhật ký khi có assignment assigned còn hiệu lực; không sửa log user/shop/challenge.
+- Admin CRUD challenge/reward, khóa/mở account, đọc hệ thống phục vụ quản trị; không sửa log cá nhân hay đọc chat riêng của người khác.
 
-```mermaid
-erDiagram
-    USERS ||--o{ WATER_LOGS : "logs"
-    USERS ||--o{ WORKOUT_LOGS : "executes"
-    USERS ||--o{ MEAL_LOGS : "records"
-    USERS ||--o{ DAILY_QUEST_LOGS : "completes"
-    USERS ||--o{ BMI_HISTORY : "tracks"
-    USERS ||--o{ SLEEP_LOGS : "records"
-    USERS ||--o{ MOOD_LOGS : "logs"
-    USERS ||--o{ PURCHASES : "redeems"
-    USERS ||--o{ USER_CHALLENGES : "joins"
-    USERS ||--o{ AI_CHAT_MESSAGES : "chats"
+Mọi quyền cần account active. Đây là yêu cầu cho BE triển khai sau; hiện chỉ lưu role/is_active và quan hệ dữ liệu. Role ứng dụng không thay database role của Atlas.
 
-    CHALLENGES ||--o{ USER_CHALLENGES : "participates_in"
-    REWARD_ITEMS ||--o{ PURCHASES : "purchased_in"
+## 3. users
 
-    USERS {
-        string user_id PK "Mã định danh người dùng (UUID)"
-        string email UK "Email đăng nhập"
-        string password_hash "Mật khẩu mã hóa"
-        string full_name "Họ và tên người dùng"
-        string gender "Giới tính ('male' | 'female')"
-        int age "Tuổi (năm)"
-        float height "Chiều cao (cm)"
-        float weight "Cân nặng hiện tại (kg)"
-        string activity_level "Mức độ vận động (sedentary/light/moderate/active)"
-        string goal "Mục tiêu (lose/maintain/gain)"
-        int target_water "Mục tiêu nước mỗi ngày (ml)"
-        int target_calories "Mục tiêu calo mỗi ngày (kcal)"
-        int fit_coins "Số dư xu thưởng tích lũy"
-        int streak_days "Chuỗi ngày liên tiếp hoàn thành"
-        datetime created_at "Thời điểm tạo tài khoản"
-        datetime updated_at "Thời điểm cập nhật gần nhất"
-    }
+ID user_id unique; email unique, chữ thường.
 
-    WATER_LOGS {
-        string log_id PK "Mã nhật ký uống nước"
-        string user_id FK "Mã người dùng"
-        int amount "Lượng nước nạp vào (ml)"
-        string log_time "Giờ ghi nhận (HH:mm)"
-        date log_date "Ngày ghi nhận (YYYY-MM-DD)"
-        datetime created_at "Timestamp hệ thống"
-    }
+- email: 3–100 ký tự; full_name: 1–100.
+- role: user/trainer/admin; is_active: boolean, BE mặc định true.
+- gender: male/female; age: số nguyên 5–100.
+- height: 80–250 cm; weight: 25–300 kg.
+- activity_level: sedentary/light/moderate/active; goal: lose/maintain/gain.
+- target_water: int ml = round(min(weight×35,4000)), +350 một lần nếu có >=1 workout trong ngày; tối đa 4350 khi tập, 4000 cơ bản.
+- target_calories: int kcal tính Mifflin–St Jeor/TDEE, điều chỉnh goal, làm tròn rồi áp sàn 1200 nữ/1500 nam.
+- fit_coins, streak_days: int >=0, BE mặc định 0.
+- timezone: IANA timezone, mặc định Asia/Ho_Chi_Minh.
+- password_hash: tùy chọn, scrypt/bcrypt/Argon2 nếu BE tự quản lý password; external auth có thể bỏ.
+- streak_last_date: tùy chọn, ngày gần nhất đã tăng streak.
 
-    WORKOUT_LOGS {
-        string workout_id PK "Mã buổi tập"
-        string user_id FK "Mã người dùng"
-        string title "Tên bài tập (HIIT, MMA, Tabata...)"
-        string category "Phân loại bài tập (Fullbody, Core, Cardio)"
-        int duration_seconds "Thời gian tập luyện (giây)"
-        int calories_burned "Năng lượng tiêu hao (kcal)"
-        date workout_date "Ngày tập (YYYY-MM-DD)"
-        datetime created_at "Timestamp hệ thống"
-    }
+Hồ sơ thông thường chỉ sửa full_name/gender/age/height/weight/activity_level/goal/timezone. Role/khóa/coins/streak/targets/auth là field hệ thống, không nhận ghi từ body thông thường. Không trả hash qua API. Tính BMI/targets khi onboarding hoặc đổi chỉ số sẽ được BE triển khai ở giai đoạn sau.
 
-    MEAL_LOGS {
-        string meal_id PK "Mã bữa ăn"
-        string user_id FK "Mã người dùng"
-        string meal_name "Tên món ăn"
-        int calories "Lượng calo (kcal)"
-        float protein "Lượng đạm (gram)"
-        float carbs "Lượng tinh bột (gram)"
-        float fat "Lượng chất béo (gram)"
-        string meal_type "Bữa ăn ('breakfast' | 'lunch' | 'dinner' | 'snack')"
-        date meal_date "Ngày ăn (YYYY-MM-DD)"
-        datetime created_at "Timestamp hệ thống"
-    }
+## 4. Nhật ký sức khỏe
 
-    DAILY_QUEST_LOGS {
-        string quest_log_id PK "Mã ghi nhận nhiệm vụ"
-        string user_id FK "Mã người dùng"
-        string quest_key "Khóa nhiệm vụ (q_water, q_workout, q_sleep...)"
-        string quest_title "Tên nhiệm vụ hiển thị"
-        int reward_coins "Số xu thưởng nhận được"
-        boolean is_completed "Trạng thái hoàn thành"
-        string extra_value "Giá trị ghi chú (VD: '+250ml', '7.5h')"
-        date quest_date "Ngày làm nhiệm vụ (YYYY-MM-DD)"
-    }
+Tất cả đều có user_id tham chiếu users:
 
-    BMI_HISTORY {
-        string record_id PK "Mã lịch sử thể trạng"
-        string user_id FK "Mã người dùng"
-        float weight "Cân nặng tại thời điểm đo (kg)"
-        float height "Chiều cao tại thời điểm đo (cm)"
-        float bmi_value "Chỉ số BMI"
-        string bmi_status "Phân loại thể trạng"
-        date record_date "Ngày đo"
-    }
+- **water_logs**, ID log_id: amount int >0 ml, log_time HH:mm, log_date. Nhiều lần/ngày, index (user_id,log_date).
+- **workout_logs**, ID workout_id: title 1–150, category 1–50, duration_seconds int >0, calories_burned int >=0, workout_date. Nhiều lần/ngày, index (user_id,workout_date).
+- **meal_logs**, ID meal_id: meal_name 1–150, calories int >0, protein/carbs/fat số >=0 gram, meal_type breakfast/lunch/dinner/snack, meal_date. Nhiều lần/ngày, index (user_id,meal_date).
+- **sleep_logs**, ID sleep_id: hours 0–24, quality Sâu/Bình thường/Chập chờn, sleep_date. Unique (user_id,sleep_date).
+- **mood_logs**, ID mood_id: mood_label 1–50, note tùy chọn 0–2000, mood_date. Unique (user_id,mood_date).
+- **bmi_history**, ID record_id: weight, height, bmi_value >0, bmi_status, record_date. Unique (user_id,record_date).
 
-    SLEEP_LOGS {
-        string sleep_id PK "Mã nhật ký giấc ngủ"
-        string user_id FK "Mã người dùng"
-        float hours "Thời lượng ngủ (giờ)"
-        string quality "Đánh giá chất lượng ('Sâu', 'Bình thường', 'Chập chờn')"
-        date sleep_date "Ngày ghi nhận"
-    }
+Sleep/mood/BMI upsert cùng ngày phải giữ UUID ban đầu. User chỉ ghi dữ liệu mình; trainer có assignment hiệu lực chỉ đọc; admin không ghi log. BMI do BE tính, schema không tự thực hiện công thức.
 
-    MOOD_LOGS {
-        string mood_id PK "Mã tâm trạng"
-        string user_id FK "Mã người dùng"
-        string mood_label "Nhãn tâm trạng ('Sẵn sàng', 'Năng lượng', 'Mệt...')"
-        string note "Ghi chú ngắn"
-        date mood_date "Ngày ghi nhận"
-    }
+## 5. daily_quest_logs
 
-    CHALLENGES {
-        string challenge_id PK "Mã thử thách cộng đồng"
-        string title "Tên thử thách"
-        string description "Mô tả mục tiêu"
-        int target_days "Số ngày cần hoàn thành (VD: 7, 14, 30)"
-        int reward_coins "Phần thưởng hoàn thành"
-        string badge_icon "Biểu tượng huy hiệu"
-        boolean is_active "Trạng thái khả dụng"
-    }
+ID quest_log_id; user_id, quest_key, quest_title, reward_coins=10, is_completed, quest_date, extra_value tùy chọn; completed_at bắt buộc Date khi xong, null/thiếu khi chưa xong.
 
-    USER_CHALLENGES {
-        string id PK "Mã tham gia"
-        string user_id FK "Mã người dùng"
-        string challenge_id FK "Mã thử thách"
-        int current_progress "Tiến độ hiện tại (ngày đã check-in)"
-        boolean is_completed "Đã hoàn thành toàn bộ chưa"
-        datetime joined_at "Ngày tham gia"
-        datetime last_checkin "Thời điểm điểm danh gần nhất"
-    }
+Bộ key: **q_water, q_workout, q_meal, q_sleep, q_mood, q_checkin, q_chat**.
 
-    REWARD_ITEMS {
-        string item_id PK "Mã vật phẩm quà tặng"
-        string title "Tên quà / Huy hiệu"
-        string category "Phân loại ('badge', 'theme', 'voucher')"
-        int cost_coins "Giá đổi bằng xu"
-        string icon "Icon hiển thị"
-        boolean is_available "Còn hàng trong kho không"
-    }
+Unique (user_id,quest_date,quest_key). Hoạt động hợp lệ ghi thành công mới xét quest. Q_water là ghi nhận nước, không đợi đủ target; workout/meal/sleep/mood tương tự; q_checkin có endpoint điểm danh; q_chat dựa vào tin user đã lưu.
 
-    PURCHASES {
-        string purchase_id PK "Mã giao dịch đổi thưởng"
-        string user_id FK "Mã người dùng"
-        string item_id FK "Mã vật phẩm"
-        int spent_coins "Số xu đã trừ"
-        datetime purchased_at "Thời điểm giao dịch"
-    }
+BE upsert 7 quest của ngày, reset logic lúc 00:00 theo timezone, giữ lịch sử ngày trước. Chuyển false→true và cộng 10 coins cùng transaction, không cộng lặp. FE không set is_completed/reward_coins trực tiếp. Đạt **>=5/7** tăng streak một lần/ngày; streak_last_date chống tăng lặp, bỏ ngày bắt đầu lại 1.
 
-    AI_CHAT_MESSAGES {
-        string message_id PK "Mã tin nhắn"
-        string user_id FK "Mã người dùng"
-        string sender "Người gửi ('user' | 'ai')"
-        string content "Nội dung tin nhắn"
-        string ai_engine "Mô hình xử lý ('Turbo 0.3s' | 'Gemini 2.5' | 'Cloud')"
-        datetime timestamp "Thời gian gửi"
-    }
-```
+Migration đổi q_meals→q_meal, archive q_weight/q_bowel, giữ nguyên số xu lịch sử.
 
----
+## 6. Trainer
 
-## 3. TỪ ĐIỂN DỮ LIỆU CHI TIẾT (DATA DICTIONARY)
+**workout_templates**, ID template_id:
 
-### 3.1 Bảng `USERS` (Hồ sơ người dùng & Thể trạng)
-Lưu thông tin định danh và các chỉ số sinh trắc học cá nhân hóa.
+- trainer_id tham chiếu role trainer; title, category, duration_seconds >0, calories_est >=0.
+- level beginner/intermediate/advanced, description, is_active.
+- Trainer ghi template của mình, user đọc active.
+- Index (trainer_id,is_active), (is_active,level).
 
-| Tên trường (Field) | Kiểu dữ liệu | Khóa / Ràng buộc | Mô tả ý nghĩa nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `user_id` | VARCHAR(36) | **PK**, Not Null | Mã định danh duy nhất của người dùng. |
-| `email` | VARCHAR(100) | **Unique**, Not Null | Email xác thực tài khoản. |
-| `password_hash` | VARCHAR(255) | Not Null | Mật khẩu tài khoản (đã băm bảo mật). |
-| `full_name` | VARCHAR(100) | Not Null | Họ và tên hiển thị trong Header và lời chào. |
-| `gender` | VARCHAR(10) | Default: 'male' | Giới tính sinh học ('male', 'female') phục vụ tính BMR. |
-| `age` | INT | Check: 5 $\le$ age $\le$ 100 | Độ tuổi của người dùng. |
-| `height` | DECIMAL(5,2) | Check: 80 $\le$ height $\le$ 250 | Chiều cao tính bằng centimet (cm). |
-| `weight` | DECIMAL(5,2) | Check: 25 $\le$ weight $\le$ 300 | Cân nặng tính bằng kilogam (kg). |
-| `activity_level` | VARCHAR(20) | In: sedentary, light, moderate, active | Hệ số hoạt động thể chất trong ngày. |
-| `goal` | VARCHAR(20) | In: lose, maintain, gain | Mục tiêu vóc dáng (Giảm mỡ, Giữ cân, Tăng cơ). |
-| `target_water` | INT | Check: $\ge 500$ ml | Mục tiêu nước uống mỗi ngày (tự động tính $w \times 35$). |
-| `target_calories`| INT | Check: $\ge 800$ kcal | Mục tiêu năng lượng nạp mỗi ngày (Mifflin-St Jeor). |
-| `fit_coins` | INT | Check: $\ge 0$, Default: 0 | Số dư xu ảo tích lũy được từ nhiệm vụ. |
-| `streak_days` | INT | Check: $\ge 0$, Default: 0 | Chuỗi ngày liên tiếp đăng nhập & hoàn thành mục tiêu. |
-| `created_at` | DATETIME | Not Null | Thời điểm đăng ký tài khoản. |
+**trainer_assignments**, ID id:
 
----
+- trainer_id, user_id, template_id, note tùy chọn, assigned_at.
+- status assigned/done/cancelled; done_at là Date khi done, null khi assigned/cancelled.
+- Trainer tạo từ template active của mình cho user active. User chỉ đánh done assignment của mình, admin đọc.
+- Quyền trainer đọc user khi status assigned; done/cancelled kết thúc quyền.
+- Index (trainer_id,user_id,status), (user_id,status,assigned_at), template_id.
 
-### 3.2 Bảng `WATER_LOGS` (Nhật ký uống nước)
-Ghi nhận từng lần uống nước trong ngày phục vụ tính toán phần trăm hoàn thành.
+BE phải kiểm tra role/ownership trong thao tác, db:verify phát hiện quan hệ sai sau ghi/import.
 
-| Tên trường | Kiểu dữ liệu | Ràng buộc | Ý nghĩa nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `log_id` | VARCHAR(36) | **PK** | Mã lần uống nước. |
-| `user_id` | VARCHAR(36) | **FK** $\rightarrow$ `USERS` | Mã người dùng thực hiện. |
-| `amount` | INT | Check: $> 0$ ml | Lượng nước nạp vào (VD: 150ml, 250ml, 500ml). |
-| `log_time` | VARCHAR(8) | Format: 'HH:mm' | Giờ uống (VD: '08:30'). |
-| `log_date` | DATE | Format: 'YYYY-MM-DD' | Ngày ghi nhận (dùng để lọc trong ngày và thống kê tuần). |
+## 7. Gamification
 
----
+**challenges**, ID challenge_id: title, description, target_days int >0, reward_coins int >=0, badge_icon, is_active. Admin CRUD, user/trainer đọc active.
 
-### 3.3 Bảng `WORKOUT_LOGS` (Nhật ký tập luyện MMA / HIIT)
-Lưu trữ phiên tập, thời gian và lượng calo tiêu hao từ các bài tập thể lực.
+**user_challenges**, ID id: user_id, challenge_id, current_progress >=0, is_completed, joined_at, last_checkin Date/null, last_checkin_date tùy chọn. Partial unique (user_id,challenge_id) khi is_completed=false; cho phép lượt mới sau hoàn thành. Check-in tối đa 1/ngày, thưởng hoàn thành dùng transaction một lần. Progress là số ngày check-in phân biệt, có thể không liên tiếp.
 
-| Tên trường | Kiểu dữ liệu | Ràng buộc | Ý nghĩa nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `workout_id` | VARCHAR(36) | **PK** | Mã phiên tập. |
-| `user_id` | VARCHAR(36) | **FK** $\rightarrow$ `USERS` | Mã người dùng tập luyện. |
-| `title` | VARCHAR(150) | Not Null | Tên bài tập (VD: 'Tabata 15 phút', 'MMA Shadow Boxing'). |
-| `category` | VARCHAR(50) | Not Null | Nhóm bài tập: 'Cardio', 'Core/Bụng', 'Fullbody'. |
-| `duration_seconds`| INT | Check: $> 0$ | Tổng số giây tập luyện. |
-| `calories_burned` | INT | Check: $\ge 0$ | Số calo đã đốt cháy thực tế. |
-| `workout_date` | DATE | Not Null | Ngày thực hiện bài tập. |
+**reward_items**, ID item_id: title, category badge/theme/voucher, cost_coins >=0, icon, is_available. Admin CRUD, user xem khả dụng. Soft-disable item đã có giao dịch.
 
----
+**purchases**, ID purchase_id: user_id, item_id, item_category snapshot server, spent_coins >=0, purchased_at. Partial unique (user_id,item_id) khi badge: một lần trọn đời; voucher mua lặp được. Debit đủ tiền và insert purchase cùng transaction; giữ ID giao dịch khi retry để không trừ lại coins.
 
-### 3.4 Bảng `MEAL_LOGS` (Nhật ký dinh dưỡng)
-Ghi chép thức ăn nạp vào kèm thông số Macro (Protein, Carbs, Fat).
+## 8. AI chat
 
-| Tên trường | Kiểu dữ liệu | Ràng buộc | Ý nghĩa nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `meal_id` | VARCHAR(36) | **PK** | Mã bữa ăn. |
-| `user_id` | VARCHAR(36) | **FK** $\rightarrow$ `USERS` | Mã người dùng. |
-| `meal_name` | VARCHAR(150) | Not Null | Tên món ăn (VD: '1 tô phở bò tái', 'Ức gà áp chảo'). |
-| `calories` | INT | Check: $> 0$ | Lượng calo nạp vào. |
-| `protein` | DECIMAL(5,1) | Unit: gram | Hàm lượng chất đạm. |
-| `carbs` | DECIMAL(5,1) | Unit: gram | Hàm lượng tinh bột. |
-| `fat` | DECIMAL(5,1) | Unit: gram | Hàm lượng chất béo. |
-| `meal_type` | VARCHAR(20) | In: breakfast, lunch, dinner, snack | Thời điểm ăn trong ngày. |
-| `meal_date` | DATE | Not Null | Ngày ghi nhận bữa ăn. |
+**ai_chat_sessions**, ID session_id: user_id, title, timestamp chung; index (user_id,updated_at).
 
----
+**ai_chat_messages**, ID message_id: user_id, session_id, sender user/ai, content 1–32000, ai_engine tùy chọn, timestamp Date; index (user_id,session_id,timestamp,message_id).
 
-### 3.5 Bảng `DAILY_QUEST_LOGS` (Nhiệm vụ hàng ngày)
-Quản lý trạng thái hoàn thành 7 nhiệm vụ vàng mỗi ngày.
+Chỉ chủ session truy cập, trainer/admin không đọc chat người khác. BE kiểm tra message.user_id == session.user_id; tự gắn sender=user, chỉ dịch vụ AI tin cậy ghi sender=ai.
 
-| Tên trường | Kiểu dữ liệu | Ràng buộc | Ý nghĩa nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `quest_log_id` | VARCHAR(36) | **PK** | Mã phiên nhiệm vụ. |
-| `user_id` | VARCHAR(36) | **FK** $\rightarrow$ `USERS` | Người thực hiện nhiệm vụ. |
-| `quest_key` | VARCHAR(50) | Not Null | Mã định danh nhiệm vụ (`q_water`, `q_workout`, `q_sleep`...). |
-| `reward_coins`| INT | Default: 10 | Phần thưởng nhận được khi xong nhiệm vụ (+10 coins). |
-| `is_completed` | BOOLEAN | Default: FALSE | Đã hoàn thành trong ngày chưa. |
-| `quest_date` | DATE | Not Null | Ngày của chu kỳ nhiệm vụ. |
+## 9. Công thức
 
----
+- BMI = weight/(height/100)². Phân loại trên giá trị chưa làm tròn: <18.5 thiếu cân; <23 cân đối; <25 thừa cân nhẹ; còn lại béo phì. Giá trị lưu làm tròn 2 chữ số.
+- Nam BMR=10W+6.25H−5A+5; nữ BMR=10W+6.25H−5A−161.
+- TDEE=BMR×1.2 sedentary, 1.375 light, 1.55 moderate, 1.725 active.
+- Goal lose −500, maintain 0, gain +400. Làm tròn số nguyên rồi áp sàn nữ 1200/nam 1500.
+- Nước=round(min(W×35,4000))+350 nếu có workout, chỉ cộng một lần, tính lại khi đổi ngày.
 
-### 3.6 Bảng `REWARD_ITEMS` & `PURCHASES` (Cửa hàng đổi quà - Shop)
-Quản lý vật phẩm và lịch sử tiêu thụ FitCoins.
+Đây là ràng buộc phần mềm theo yêu cầu. Chính sách người dưới 18 tuổi cần chốt trước khi dùng thực tế.
 
-| Bảng | Tên trường | Kiểu dữ liệu | Ý nghĩa nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `REWARD_ITEMS` | `item_id` (PK) | VARCHAR(36) | Mã vật phẩm trong Shop. |
-| | `title` | VARCHAR(100) | Tên huy hiệu / quà tặng (VD: 'Huy hiệu Chiến binh MMA'). |
-| | `cost_coins` | INT | Số xu cần để mua (VD: 50 xu, 120 xu). |
-| `PURCHASES` | `purchase_id` (PK) | VARCHAR(36) | Mã giao dịch mua đồ. |
-| | `user_id` (FK) | VARCHAR(36) | Người dùng thực hiện mua. |
-| | `item_id` (FK) | VARCHAR(36) | Vật phẩm được mua. |
-| | `spent_coins` | INT | Số xu thực tế bị trừ. |
-| | `purchased_at` | DATETIME | Thời điểm mua hàng thành công. |
+## 10. Triển khai và kiểm chứng
 
----
+mongodb/schema.js là schema thực thi. Chạy db:migrate:plan trước khi nâng v1; db:migrate tạo backup/journal rồi nâng dữ liệu/schema. Xem [hướng dẫn database](mongodb/README.md).
 
-## 4. QUY TẮC NGHIỆP VỤ DỮ LIỆU (BUSINESS RULES)
+Backup __fitlife_v1_*, journal __fitlife_migrations và archived_daily_quest_logs phục vụ giữ lịch sử, ngoài 16 collection nghiệp vụ. Không tự xóa dữ liệu để vượt lỗi duplicate.
 
-### 4.1 Quy tắc Tính toán Y khoa & Dinh dưỡng
-1. **Chỉ số BMI (Body Mass Index)**:
-   $$\text{BMI} = \frac{\text{Cân nặng (kg)}}{(\text{Chiều cao (m)})^2}$$
-   - $\text{BMI} < 18.5$: Thiếu cân.
-   - $18.5 \le \text{BMI} < 23$: Cân đối (Chuẩn người châu Á).
-   - $23 \le \text{BMI} < 25$: Thừa cân nhẹ.
-   - $\text{BMI} \ge 25$: Tiền béo phì / Béo phì.
-2. **Nhu cầu Nước chuẩn hàng ngày**:
-   $$\text{Nước mục tiêu (ml)} = \text{Cân nặng (kg)} \times 35\text{ ml}$$
-   *(Nếu có tập luyện thể thao ra mồ hôi: tự động cộng thêm $350 - 500\text{ ml}$).*
-3. **Mục tiêu Calo (Công thức Mifflin-St Jeor & TDEE)**:
-   - **Nam**: $\text{BMR} = 10 \times W + 6.25 \times H - 5 \times A + 5$
-   - **Nữ**: $\text{BMR} = 10 \times W + 6.25 \times H - 5 \times A - 161$
-   - $\text{TDEE} = \text{BMR} \times \text{Hệ số vận động}$
-     - Ít vận động: $1.2$
-     - Vận động nhẹ: $1.375$
-     - Vừa phải: $1.55$
-     - Năng động: $1.725$
-   - Điều chỉnh mục tiêu:
-     - Giảm mỡ: $\text{TDEE} - 500\text{ kcal}$
-     - Giữ cân: $\text{TDEE}$
-     - Tăng cơ: $\text{TDEE} + 400\text{ kcal}$
-
----
-
-### 4.2 Quy tắc Gamification & Thưởng Điểm
-1. **Chu kỳ Nhiệm vụ ngày (Daily Reset)**:
-   - Toàn bộ danh sách nhiệm vụ được làm mới vào lúc `00:00:00` mỗi ngày.
-   - Mỗi nhiệm vụ hoàn thành chỉ được nhận thưởng **duy nhất 01 lần/ngày** (+10 Coins).
-   - Hoàn thành đủ 7 nhiệm vụ trong ngày $\rightarrow$ Tự động tăng chuỗi `streak_days` lên +1.
-2. **Giao dịch Cửa hàng (Shop)**:
-   - Người dùng chỉ được mua vật phẩm khi: $\text{fit\_coins} \ge \text{cost\_coins}$.
-   - Khi giao dịch thành công:
-     $$\text{fit\_coins}_{\text{mới}} = \text{fit\_coins}_{\text{cũ}} - \text{cost\_coins}$$
-   - Mỗi huy hiệu danh hiệu vĩnh viễn chỉ được mua 01 lần (Unique per User).
-
----
-
-## 5. CÁC LUỒNG NGHIỆP VỤ CRUD CHÍNH
-
-### 5.1 Luồng Khởi tạo Hồ sơ & Đăng ký (Onboarding Flow)
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Người dùng
-    participant App as FitLife Client
-    participant DB as Database (Local / Firestore)
-
-    User->>App: Nhập Email, Password, Họ tên, Chiều cao, Cân nặng
-    App->>App: Validate định dạng Email & Password (>= 3 ký tự)
-    App->>App: Tự động tính BMI, Target Water (W*35), Target Calories (Mifflin)
-    App->>DB: INSERT INTO Users (Email, PasswordHash, Height, Weight, Targets...)
-    DB-->>App: Trả về UserID & Token phiên làm việc
-    App->>DB: INSERT INTO DailyQuests (Khởi tạo 7 nhiệm vụ mặc định của ngày)
-    App-->>User: Đăng nhập thành công -> Vào Trang chủ (Home)
-```
-
-### 5.2 Luồng Điểm Danh & Hoàn Thành Nhiệm Vụ (Quest Completion Flow)
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Người dùng
-    participant App as FitLife Client
-    participant DB as Database
-
-    User->>App: Chạm nút "+250ml Nước" hoặc "Check-in Bài tập"
-    App->>DB: INSERT INTO WaterLogs (Amount: 250, Date: Today)
-    App->>DB: SELECT * FROM DailyQuests WHERE QuestKey='q_water' AND Date=Today
-    alt Nhiệm vụ chưa hoàn thành
-        App->>DB: UPDATE DailyQuests SET IsCompleted=TRUE WHERE QuestKey='q_water'
-        App->>DB: UPDATE Users SET fit_coins = fit_coins + 10 WHERE UserId=Current
-        App->>App: Phát âm thanh Ting Ting (+10 Coins)
-        App-->>User: Cập nhật thanh tiến độ lên Trang chủ
-    else Đã hoàn thành trước đó
-        App-->>User: Chỉ ghi nhận thêm 250ml nước (không cộng xu trùng lặp)
-    end
-```
-
-### 5.3 Luồng Tiêm Ngữ Cảnh Vào AI Coach (AI Context Injection Flow)
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Người dùng
-    participant App as FitLife Client
-    participant AI as Turbo AI Service
-    participant DB as Database
-
-    User->>App: Hỏi "Trưa nay ăn gì giảm mỡ bụng?"
-    App->>DB: Truy vấn Real-time: Weight, BMI, Calories nạp hôm nay, Nước đã uống
-    DB-->>App: Trả về Context: {65kg, BMI 22.5, Nạp 450/2000 kcal, Nước 1250/2200ml}
-    App->>AI: Gửi câu hỏi kèm Object Context sức khỏe thời gian thực
-    AI->>AI: Tính toán thâm hụt calo & đối chiếu CSDL món ăn Việt Nam
-    AI-->>App: Trả về câu trả lời cá nhân hóa trong 0.3s
-    App->>DB: INSERT INTO AiChatMessages (User, AI, Content, Timestamp)
-    App-->>User: Hiển thị phản hồi tức thì lên màn hình chat
-```
-
----
-
-## 6. ĐÁNH GIÁ VÀ HƯỚNG MỞ RỘNG
-- **Tính khả thi**: Thiết kế schema ở trên tương thích 100% với cả **NoSQL Document Database (Firebase Firestore)** lẫn **Relational Database (SQLite / PostgreSQL / MySQL)**.
-- **Khả năng mở rộng**: Cấu trúc bảng phân tách độc lập (Decoupled), sẵn sàng mở rộng thêm bảng `COMMUNITY_POSTS` (chia sẻ khoảnh khắc tập luyện) và `NOTIFICATIONS_QUEUE` trong tương lai.
+Definition of Done đích: đăng ký/tính targets → log → quest thưởng một lần → shop debit đúng → home % ngày → trainer assign → admin quản lý. Giai đoạn hiện tại chỉ làm schema, index, dữ liệu mẫu và migration; chưa lập trình API/FE hay logic phân quyền/thưởng/streak. Xem [yêu cầu cho BE/FE sau này](mongodb/ROLE_CONTRACT.md).

@@ -6,11 +6,13 @@ const { loadEnvFile } = require('node:process');
 const { MongoClient } = require('mongodb');
 const { initializeDatabase, verifyDatabase } = require('../database');
 const { seedCatalogs, seedDemo, DEMO_EMAIL } = require('../seed');
+const { collections } = require('../schema');
+const { migrateDatabase } = require('../migrations/v2');
 
 async function main() {
   const command = process.argv[2];
-  if (!['init', 'seed', 'demo', 'verify'].includes(command)) {
-    throw new Error('Use npm run db:init, db:seed, db:seed:demo or db:verify.');
+  if (!['init', 'seed', 'demo', 'verify', 'migrate-plan', 'migrate'].includes(command)) {
+    throw new Error('Use db:init, db:seed, db:seed:demo, db:verify, db:migrate:plan or db:migrate.');
   }
   const envPath = path.resolve(__dirname, '..', '.env');
   if (fs.existsSync(envPath)) loadEnvFile(envPath);
@@ -30,13 +32,18 @@ async function main() {
     await db.command({ ping: 1 });
     if (command === 'init') {
       await initializeDatabase(db);
-      console.log(`Schema and indexes ready: ${name} (13 collections).`);
+      console.log(`Schema and indexes ready: ${name} (${collections.length} collections).`);
     } else if (command === 'seed') {
       await seedCatalogs(db);
       console.log('Catalog seed ready: 6 reward items, 3 challenges. Existing entries preserved.');
     } else if (command === 'demo') {
       const created = await seedDemo(db, client, process.env.FITLIFE_DEMO_PASSWORD);
-      console.log(created ? `Demo data created: ${DEMO_EMAIL}.` : 'Demo already exists; no changes made.');
+      console.log(created ? `Demo data created: ${DEMO_EMAIL}, trainer/admin role fixtures.`
+        : 'Existing user preserved; missing trainer/admin fixtures added.');
+    } else if (command === 'migrate-plan' || command === 'migrate') {
+      const report = await migrateDatabase(db, client, { apply: command === 'migrate' });
+      console.log(JSON.stringify(report, null, 2));
+      if (report.issues.length) process.exitCode = 1;
     } else {
       const report = await verifyDatabase(db);
       for (const [collection, count] of Object.entries(report.counts)) console.log(`${collection}: ${count}`);

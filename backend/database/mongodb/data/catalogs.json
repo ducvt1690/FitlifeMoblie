@@ -1,12 +1,12 @@
 {
   "quest_templates": [
-    { "quest_key": "q_weight", "quest_title": "Ghi nhận cân nặng", "reward_coins": 10 },
     { "quest_key": "q_water", "quest_title": "Ghi nhận nước uống", "reward_coins": 10 },
-    { "quest_key": "q_meals", "quest_title": "Ghi nhận bữa ăn", "reward_coins": 10 },
+    { "quest_key": "q_workout", "quest_title": "Ghi nhận buổi tập", "reward_coins": 10 },
+    { "quest_key": "q_meal", "quest_title": "Ghi nhận bữa ăn", "reward_coins": 10 },
     { "quest_key": "q_sleep", "quest_title": "Ghi nhận giấc ngủ", "reward_coins": 10 },
     { "quest_key": "q_mood", "quest_title": "Ghi nhận tâm trạng", "reward_coins": 10 },
-    { "quest_key": "q_bowel", "quest_title": "Ghi nhận tiêu hóa", "reward_coins": 10 },
-    { "quest_key": "q_workout", "quest_title": "Ghi nhận buổi tập", "reward_coins": 10 }
+    { "quest_key": "q_checkin", "quest_title": "Điểm danh trong ngày", "reward_coins": 10 },
+    { "quest_key": "q_chat", "quest_title": "Trò chuyện với AI Coach", "reward_coins": 10 }
   ],
   "reward_items": [
     { "item_id": "10000000-0000-4000-8000-000000000001", "title": "Huy hiệu Người Mới Nhập Môn", "category": "badge", "cost_coins": 0, "icon": "ribbon-outline", "is_available": true },

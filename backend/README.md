@@ -46,7 +46,11 @@ Server sẽ khởi chạy tại: `http://localhost:5000`
 
 ## 3. Cơ sở dữ liệu (Database)
 
-Database mới dùng **MongoDB Atlas**, gồm 13 collection, validator, index và dữ liệu mẫu.
+Thành viên bắt đầu tại [README hướng dẫn sử dụng database](database/README.md): kết nối Atlas/Compass, cấu hình máy, chia sẻ quyền và tải dữ liệu.
+
+Database v2 dùng **MongoDB Atlas**, gồm 16 collection, role `user/trainer/admin`, validator, index, migration và dữ liệu mẫu.
 Xem [hướng dẫn tạo cluster và khởi tạo database](database/mongodb/README.md).
+
+[Hợp đồng quyền và tích hợp BE/FE](database/mongodb/ROLE_CONTRACT.md) mô tả các trường hệ thống, phạm vi trainer và các transaction cần triển khai ở API.
 
 Bộ database hoạt động độc lập trong `backend/database/mongodb`; backend/API hiện tại vẫn dùng kho JSON cũ và sẽ được kết nối MongoDB ở giai đoạn sau. `backend/database/schema.sql` là thiết kế SQL trước đây.

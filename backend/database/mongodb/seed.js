@@ -5,7 +5,10 @@ const catalogs = require('./data/catalogs.json');
 
 const DEMO_USER_ID = '30000000-0000-4000-8000-000000000001';
 const DEMO_EMAIL = 'demo@fitlife.example';
+const DEMO_TRAINER_ID = '30000000-0000-4000-8000-000000000002';
+const DEMO_ADMIN_ID = '30000000-0000-4000-8000-000000000003';
 
+// Date formatting for database fixtures and the one-time migration only.
 function localDate(date = new Date(), timezone = 'Asia/Ho_Chi_Minh') {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -49,12 +52,22 @@ function buildDemoDocuments(password, now = new Date()) {
   const user = {
     user_id: DEMO_USER_ID, email: DEMO_EMAIL, password_hash: passwordHash(password),
     full_name: 'Nguyễn Thành Nam (Demo)', gender: 'male', age: 23, height: 170, weight: 65,
-    activity_level: 'moderate', goal: 'maintain', target_water: 2275, target_calories: 2484,
+    role: 'user', is_active: true,
+    activity_level: 'moderate', goal: 'maintain', target_water: 2625, target_calories: 2484,
     // Six completed quests earn 60, one badge spends 50. No unexplained starting coins.
-    fit_coins: 10, streak_days: 0, timezone: 'Asia/Ho_Chi_Minh', ...stamp,
+    fit_coins: 10, streak_days: 1, streak_last_date: date, timezone: 'Asia/Ho_Chi_Minh', ...stamp,
   };
+  const trainer = { ...user, user_id: DEMO_TRAINER_ID, email: 'trainer@fitlife.example',
+    full_name: 'Huấn luyện viên (Demo)', role: 'trainer', fit_coins: 0, streak_days: 0,
+    target_water: 2275, target_calories: 2484, password_hash: passwordHash(password) };
+  const admin = { ...trainer, user_id: DEMO_ADMIN_ID, email: 'admin@fitlife.example',
+    full_name: 'Quản trị viên (Demo)', role: 'admin', password_hash: passwordHash(password) };
+  delete trainer.streak_last_date;
+  delete admin.streak_last_date;
+  const chatSessionId = demoId('chat-session');
+  const templateId = demoId('workout-template');
   return {
-    users: [user],
+    users: [user, trainer, admin],
     water_logs: [
       record('log_id', 'water-1', { amount: 250, log_time: '08:30', log_date: date }),
       record('log_id', 'water-2', { amount: 500, log_time: '12:00', log_date: date }),
@@ -67,8 +80,8 @@ function buildDemoDocuments(password, now = new Date()) {
       record('meal_id', 'lunch', { meal_name: 'Cơm gạo lứt và ức gà', calories: 520, protein: 42, carbs: 60, fat: 12, meal_type: 'lunch', meal_date: date }),
     ],
     daily_quest_logs: catalogs.quest_templates.map((quest) => {
-      const completed = quest.quest_key !== 'q_bowel';
-      const values = { q_weight: '65 kg', q_water: '750 ml', q_meals: '2 bữa ăn', q_sleep: '7.5 giờ', q_mood: 'Sẵn sàng', q_workout: '900 giây' };
+      const completed = quest.quest_key !== 'q_checkin';
+      const values = { q_water: '750 ml', q_meal: '2 bữa ăn', q_sleep: '7.5 giờ', q_mood: 'Sẵn sàng', q_workout: '900 giây', q_chat: '1 cuộc trò chuyện' };
       return record('quest_log_id', quest.quest_key, {
         ...quest, quest_date: date, is_completed: completed,
         completed_at: completed ? now : null, extra_value: values[quest.quest_key] || '',
@@ -77,6 +90,13 @@ function buildDemoDocuments(password, now = new Date()) {
     bmi_history: [record('record_id', 'bmi', { weight: 65, height: 170, bmi_value: 22.49, bmi_status: 'Cân đối', record_date: date })],
     sleep_logs: [record('sleep_id', 'sleep', { hours: 7.5, quality: 'Sâu', sleep_date: date })],
     mood_logs: [record('mood_id', 'mood', { mood_label: 'Sẵn sàng', note: 'Dữ liệu minh họa', mood_date: date })],
+    workout_templates: [{ template_id: templateId, trainer_id: DEMO_TRAINER_ID,
+      title: 'MMA Shadow Boxing', category: 'Cardio', duration_seconds: 900,
+      calories_est: 180, level: 'beginner', description: 'Bài tập mẫu do trainer tạo.', is_active: true, ...stamp }],
+    trainer_assignments: [record('id', 'trainer-assignment', {
+      trainer_id: DEMO_TRAINER_ID, template_id: templateId, note: 'Bài tập minh họa',
+      assigned_at: now, status: 'assigned', done_at: null,
+    })],
     user_challenges: [record('id', 'challenge', {
       challenge_id: catalogs.challenges[0].challenge_id, current_progress: 1,
       is_completed: false, joined_at: now, last_checkin: now, last_checkin_date: date,
@@ -84,17 +104,37 @@ function buildDemoDocuments(password, now = new Date()) {
     purchases: [record('purchase_id', 'purchase', {
       item_id: catalogs.reward_items[1].item_id, item_category: 'badge', spent_coins: 50, purchased_at: now,
     })],
+    ai_chat_sessions: [record('session_id', 'chat-session', { title: 'Theo dõi nước uống' })],
     ai_chat_messages: [
-      record('message_id', 'chat-user', { sender: 'user', content: 'Hôm nay tôi đã uống bao nhiêu nước?', timestamp: now }),
-      record('message_id', 'chat-ai', { sender: 'ai', content: 'Dữ liệu mẫu: bạn đã ghi nhận 750 ml nước trong ngày.', ai_engine: 'demo-fixture', timestamp: new Date(now.getTime() + 1) }),
+      record('message_id', 'chat-user', { session_id: chatSessionId, sender: 'user', content: 'Hôm nay tôi đã uống bao nhiêu nước?', timestamp: now }),
+      record('message_id', 'chat-ai', { session_id: chatSessionId, sender: 'ai', content: 'Dữ liệu mẫu: bạn đã ghi nhận 750 ml nước trong ngày.', ai_engine: 'demo-fixture', timestamp: new Date(now.getTime() + 1) }),
     ],
   };
 }
 
 async function seedDemo(db, client, password, now = new Date()) {
   // A user is the one-time seed marker. Never reset coins/progress/password on a rerun.
-  if (await db.collection('users').findOne({ user_id: DEMO_USER_ID }, { projection: { _id: 1 } })) return false;
   const documents = buildDemoDocuments(password, now);
+  const alreadyExists = await db.collection('users').findOne({ user_id: DEMO_USER_ID }, { projection: { _id: 1 } });
+  if (alreadyExists) {
+    // Explicit demo command can add the new role fixtures after a v1 migration,
+    // without touching the existing user's password, logs, quests or coins.
+    const session = client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        for (const profile of documents.users.slice(1)) {
+          await db.collection('users').updateOne({ user_id: profile.user_id }, { $setOnInsert: profile }, { upsert: true, session });
+        }
+        for (const name of ['workout_templates', 'trainer_assignments']) {
+          const key = name === 'workout_templates' ? 'template_id' : 'id';
+          for (const row of documents[name]) {
+            await db.collection(name).updateOne({ [key]: row[key] }, { $setOnInsert: row }, { upsert: true, session });
+          }
+        }
+      });
+    } finally { await session.endSession(); }
+    return false;
+  }
   const badge = await db.collection('reward_items').findOne({ item_id: catalogs.reward_items[1].item_id });
   if (!badge || badge.cost_coins !== 50 || badge.category !== 'badge' || !badge.is_available) {
     throw new Error('Demo expects the original 50-coin badge. Use a separate empty demo database.');
@@ -112,4 +152,5 @@ async function seedDemo(db, client, password, now = new Date()) {
   }
 }
 
-module.exports = { seedCatalogs, seedDemo, buildDemoDocuments, DEMO_USER_ID, DEMO_EMAIL, localDate };
+module.exports = { seedCatalogs, seedDemo, buildDemoDocuments, demoId,
+  DEMO_USER_ID, DEMO_TRAINER_ID, DEMO_ADMIN_ID, DEMO_EMAIL, localDate };

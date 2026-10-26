@@ -4,6 +4,8 @@
 const UUID = '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
 const DATE = '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$';
 const uuid = { bsonType: 'string', pattern: UUID };
+// Firebase auth.uid and other verified subject IDs need not be UUIDs.
+const identity = { bsonType: 'string', minLength: 1, maxLength: 128 };
 const day = { bsonType: 'string', pattern: DATE };
 const timestamp = { bsonType: 'date' };
 const text = (maxLength, minLength = 1) => ({ bsonType: 'string', minLength, maxLength });
@@ -20,7 +22,10 @@ const index = (key, name, options = {}) => ({ key, name, ...options });
 const unique = (key, name, options = {}) => index(key, name, { unique: true, ...options });
 const userDayIndex = (field) => index({ user_id: 1, [field]: -1 }, `by_user_${field}`);
 
-const QUEST_KEYS = ['q_weight', 'q_water', 'q_meals', 'q_sleep', 'q_mood', 'q_bowel', 'q_workout'];
+const SCHEMA_VERSION = 2;
+const ROLES = ['user', 'trainer', 'admin'];
+const QUEST_KEYS = ['q_water', 'q_workout', 'q_meal', 'q_sleep', 'q_mood', 'q_checkin', 'q_chat'];
+const dailyUnique = (field) => unique({ user_id: 1, [field]: 1 }, `uq_user_${field}`);
 
 function collection(name, id, properties, indexes = [], required = Object.keys(properties), rules = {}) {
   return {
@@ -34,7 +39,7 @@ function collection(name, id, properties, indexes = [], required = Object.keys(p
         required: [id, 'created_at', 'updated_at', ...required],
         properties: {
           _id: { bsonType: 'objectId' },
-          [id]: uuid,
+          [id]: id === 'user_id' ? identity : uuid,
           created_at: timestamp,
           updated_at: timestamp,
           ...properties,
@@ -60,32 +65,37 @@ const collections = [
       pattern: '^(scrypt\\$|\\$2[aby]\\$|\\$argon2(id|i|d)\\$)',
     },
     full_name: text(100),
+    role: choice(...ROLES),
+    is_active: bool,
     gender: choice('male', 'female'),
     age: { ...integer(5), maximum: 100 },
     height,
     weight,
     activity_level: choice('sedentary', 'light', 'moderate', 'active'),
     goal: choice('lose', 'maintain', 'gain'),
-    target_water: integer(500),
-    target_calories: integer(800),
+    target_water: { ...integer(500), maximum: 4350 },
+    target_calories: integer(1200),
     fit_coins: integer(),
     streak_days: integer(),
     timezone: { ...text(100), pattern: '^[A-Za-z_+-]+(?:/[A-Za-z0-9_+.-]+)*$' },
     streak_last_date: day,
   }, [unique({ email: 1 }, 'uq_user_email')], [
-    'email', 'password_hash', 'full_name', 'gender', 'age', 'height', 'weight',
+    'email', 'full_name', 'role', 'is_active', 'gender', 'age', 'height', 'weight',
     'activity_level', 'goal', 'target_water', 'target_calories', 'fit_coins', 'streak_days', 'timezone',
-  ]),
+  ], { oneOf: [
+    { properties: { gender: { enum: ['male'] }, target_calories: { minimum: 1500 } } },
+    { properties: { gender: { enum: ['female'] }, target_calories: { minimum: 1200 } } },
+  ] }),
 
   collection('water_logs', 'log_id', {
-    user_id: uuid,
+    user_id: identity,
     amount: integer(1),
     log_time: { bsonType: 'string', pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' },
     log_date: day,
   }, [userDayIndex('log_date')]),
 
   collection('workout_logs', 'workout_id', {
-    user_id: uuid,
+    user_id: identity,
     title: text(150),
     category: text(50),
     duration_seconds: integer(1),
@@ -94,7 +104,7 @@ const collections = [
   }, [userDayIndex('workout_date')]),
 
   collection('meal_logs', 'meal_id', {
-    user_id: uuid,
+    user_id: identity,
     meal_name: text(150),
     calories: integer(1),
     protein: number(0),
@@ -105,10 +115,10 @@ const collections = [
   }, [userDayIndex('meal_date')]),
 
   collection('daily_quest_logs', 'quest_log_id', {
-    user_id: uuid,
+    user_id: identity,
     quest_key: choice(...QUEST_KEYS),
     quest_title: text(150),
-    reward_coins: integer(),
+    reward_coins: { ...integer(10), maximum: 10 },
     is_completed: bool,
     extra_value: text(500, 0),
     quest_date: day,
@@ -123,27 +133,60 @@ const collections = [
   }),
 
   collection('bmi_history', 'record_id', {
-    user_id: uuid,
+    user_id: identity,
     weight,
     height,
     bmi_value: number(0.01),
     bmi_status: choice('Thiếu cân', 'Cân đối', 'Thừa cân nhẹ', 'Tiền béo phì / Béo phì'),
     record_date: day,
-  }, [userDayIndex('record_date')]),
+  }, [dailyUnique('record_date')]),
 
   collection('sleep_logs', 'sleep_id', {
-    user_id: uuid,
+    user_id: identity,
     hours: number(0, 24),
     quality: choice('Sâu', 'Bình thường', 'Chập chờn'),
     sleep_date: day,
-  }, [userDayIndex('sleep_date')]),
+  }, [dailyUnique('sleep_date')]),
 
   collection('mood_logs', 'mood_id', {
-    user_id: uuid,
+    user_id: identity,
     mood_label: text(50),
     note: text(2000, 0),
     mood_date: day,
-  }, [userDayIndex('mood_date')], ['user_id', 'mood_label', 'mood_date']),
+  }, [dailyUnique('mood_date')], ['user_id', 'mood_label', 'mood_date']),
+
+  collection('workout_templates', 'template_id', {
+    trainer_id: identity,
+    title: text(150),
+    category: text(50),
+    duration_seconds: integer(1),
+    calories_est: integer(),
+    level: choice('beginner', 'intermediate', 'advanced'),
+    description: text(5000),
+    is_active: bool,
+  }, [
+    index({ trainer_id: 1, is_active: 1 }, 'by_trainer_active'),
+    index({ is_active: 1, level: 1 }, 'by_active_level'),
+  ]),
+
+  collection('trainer_assignments', 'id', {
+    trainer_id: identity,
+    user_id: identity,
+    template_id: uuid,
+    note: text(2000, 0),
+    assigned_at: timestamp,
+    status: choice('assigned', 'done', 'cancelled'),
+    done_at: { bsonType: ['date', 'null'] },
+  }, [
+    index({ trainer_id: 1, user_id: 1, status: 1 }, 'by_trainer_user_status'),
+    index({ user_id: 1, status: 1, assigned_at: -1 }, 'by_user_assignment_status'),
+    index({ template_id: 1 }, 'by_assignment_template'),
+  ], ['trainer_id', 'user_id', 'template_id', 'assigned_at', 'status', 'done_at'], {
+    oneOf: [
+      { properties: { status: { enum: ['done'] }, done_at: timestamp } },
+      { properties: { status: { enum: ['assigned', 'cancelled'] }, done_at: { bsonType: 'null' } } },
+    ],
+  }),
 
   collection('challenges', 'challenge_id', {
     title: text(150),
@@ -155,7 +198,7 @@ const collections = [
   }, [index({ is_active: 1, target_days: 1 }, 'by_active_duration')]),
 
   collection('user_challenges', 'id', {
-    user_id: uuid,
+    user_id: identity,
     challenge_id: uuid,
     current_progress: integer(),
     is_completed: bool,
@@ -163,7 +206,9 @@ const collections = [
     last_checkin: { bsonType: ['date', 'null'] },
     last_checkin_date: day,
   }, [
-    unique({ user_id: 1, challenge_id: 1 }, 'uq_user_challenge'),
+    unique({ user_id: 1, challenge_id: 1 }, 'uq_user_active_challenge', {
+      partialFilterExpression: { is_completed: false },
+    }),
     index({ challenge_id: 1, is_completed: 1 }, 'by_challenge_completion'),
   ], ['user_id', 'challenge_id', 'current_progress', 'is_completed', 'joined_at', 'last_checkin']),
 
@@ -176,7 +221,7 @@ const collections = [
   }, [index({ is_available: 1, category: 1, cost_coins: 1 }, 'by_available_category_price')]),
 
   collection('purchases', 'purchase_id', {
-    user_id: uuid,
+    user_id: identity,
     item_id: uuid,
     // Snapshot trusted from reward_items by the future backend, never from the client.
     item_category: choice('badge', 'theme', 'voucher'),
@@ -188,15 +233,23 @@ const collections = [
     index({ item_id: 1 }, 'by_purchased_item'),
   ]),
 
+  collection('ai_chat_sessions', 'session_id', {
+    user_id: identity,
+    title: text(150),
+  }, [index({ user_id: 1, updated_at: -1 }, 'by_user_session_updated')]),
+
   collection('ai_chat_messages', 'message_id', {
-    user_id: uuid,
+    user_id: identity,
+    session_id: uuid,
     sender: choice('user', 'ai'),
     content: text(32000),
     // Model labels may change; the examples in the specification are not a closed enum.
     ai_engine: text(100),
     timestamp,
-  }, [index({ user_id: 1, timestamp: -1, message_id: 1 }, 'by_user_chat_time')], [
-    'user_id', 'sender', 'content', 'timestamp',
+  }, [
+    index({ user_id: 1, session_id: 1, timestamp: 1, message_id: 1 }, 'by_user_session_message_time'),
+  ], [
+    'user_id', 'session_id', 'sender', 'content', 'timestamp',
   ]),
 ];
 
@@ -206,6 +259,10 @@ const references = collections
 references.push(
   { from: 'user_challenges', field: 'challenge_id', to: 'challenges', target: 'challenge_id' },
   { from: 'purchases', field: 'item_id', to: 'reward_items', target: 'item_id' },
+  { from: 'workout_templates', field: 'trainer_id', to: 'users', target: 'user_id' },
+  { from: 'trainer_assignments', field: 'trainer_id', to: 'users', target: 'user_id' },
+  { from: 'trainer_assignments', field: 'template_id', to: 'workout_templates', target: 'template_id' },
+  { from: 'ai_chat_messages', field: 'session_id', to: 'ai_chat_sessions', target: 'session_id' },
 );
 
-module.exports = { collections, references, QUEST_KEYS };
+module.exports = { collections, references, QUEST_KEYS, ROLES, SCHEMA_VERSION };

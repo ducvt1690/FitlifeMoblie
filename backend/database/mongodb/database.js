@@ -3,8 +3,24 @@
 const { isDeepStrictEqual } = require('node:util');
 const { collections, references } = require('./schema');
 
-async function initializeDatabase(db) {
-  const existing = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
+async function initializeDatabase(db, { migrating = false } = {}) {
+  const metadata = await db.listCollections().toArray();
+  const existing = new Set(metadata.map((c) => c.name));
+  // Never tighten an existing populated schema before migrating its documents.
+  if (!migrating) {
+    for (const definition of collections) {
+      const actual = metadata.find((entry) => entry.name === definition.name);
+      if (!actual) continue;
+      if (!isDeepStrictEqual(actual.options.validator, definition.validator)
+        && await db.collection(definition.name).countDocuments({}, { limit: 1 })) {
+        throw new Error(`Existing data needs migration: ${definition.name}. Run db:migrate:plan, then db:migrate.`);
+      }
+      if (definition.name === 'user_challenges'
+        && (await db.collection(definition.name).listIndexes().toArray()).some((entry) => entry.name === 'uq_user_challenge')) {
+        throw new Error('Legacy challenge index needs db:migrate before db:init.');
+      }
+    }
+  }
   for (const definition of collections) {
     const { name, validator, validationLevel, validationAction, indexes } = definition;
     const options = { validator, validationLevel, validationAction };
@@ -68,6 +84,32 @@ async function verifyDatabase(db) {
       { $count: 'count' },
     ]).toArray();
     if (mismatch) issues.push(`Purchase category differs from catalog (${mismatch.count})`);
+  }
+  async function reportMismatch(name, pipeline, label) {
+    if (!present.has(name)) return;
+    const [result] = await db.collection(name).aggregate([...pipeline, { $count: 'count' }]).toArray();
+    if (result) issues.push(`${label} (${result.count})`);
+  }
+  if (present.has('users')) {
+    await reportMismatch('workout_templates', [
+      { $lookup: { from: 'users', localField: 'trainer_id', foreignField: 'user_id', as: '_trainer' } },
+      { $match: { '_trainer.0.role': { $ne: 'trainer' } } },
+    ], 'Template owner must be a trainer');
+    await reportMismatch('trainer_assignments', [
+      { $lookup: { from: 'users', localField: 'trainer_id', foreignField: 'user_id', as: '_trainer' } },
+      { $lookup: { from: 'users', localField: 'user_id', foreignField: 'user_id', as: '_user' } },
+      { $lookup: { from: 'workout_templates', localField: 'template_id', foreignField: 'template_id', as: '_template' } },
+      { $match: { $or: [
+        { '_trainer.0.role': { $ne: 'trainer' } }, { '_user.0.role': { $ne: 'user' } },
+        { $expr: { $ne: [{ $arrayElemAt: ['$_template.trainer_id', 0] }, '$trainer_id'] } },
+      ] } },
+    ], 'Assignment role or template ownership mismatch');
+  }
+  if (present.has('ai_chat_sessions')) {
+    await reportMismatch('ai_chat_messages', [
+      { $lookup: { from: 'ai_chat_sessions', localField: 'session_id', foreignField: 'session_id', as: '_session' } },
+      { $match: { $expr: { $ne: [{ $arrayElemAt: ['$_session.user_id', 0] }, '$user_id'] } } },
+    ], 'Chat session ownership mismatch');
   }
   return { ok: issues.length === 0, counts, issues };
 }
