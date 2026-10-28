@@ -21,9 +21,8 @@ function loadConfig(env = process.env) {
   if (!uri || !/^mongodb(?:\+srv)?:\/\//.test(uri) || /[<>]/.test(uri)) {
     throw new Error('Configure MONGODB_URI in backend/.env or database/mongodb/.env.');
   }
-  if (!databaseName || !/^[a-zA-Z0-9_-]{1,63}$/.test(databaseName)
-    || ['admin', 'config', 'local'].includes(databaseName)) {
-    throw new Error('Configure an application MONGODB_DB_NAME.');
+  if (databaseName !== 'fitlife') {
+    throw new Error('MONGODB_DB_NAME must be fitlife.');
   }
   function integerOption(key, fallback, minimum, maximum) {
     const value = values[key] === undefined ? fallback : Number(values[key]);

@@ -1,6 +1,9 @@
 # Yêu cầu role cho giai đoạn BE/FE sau này
 
-Tài liệu này ghi yêu cầu thiết kế. Phạm vi hiện tại chỉ làm database: collection, field, validator, index, quan hệ dữ liệu, seed và migration. Chưa lập trình API, giao diện, middleware phân quyền hay logic thưởng xu/streak.
+> Trạng thái 29/10/2026: Atlas dùng lại schema v2 gọn với 16 collection nghiệp vụ. Kết nối trainer có sự chấp thuận và cơ chế chống gửi lặp chưa nằm trong schema hiện tại; các luồng này cần thiết kế trước khi triển khai API. API auth đã có, API nghiệp vụ chưa triển khai.
+
+
+Tài liệu này ghi yêu cầu nghiệp vụ để triển khai tiếp. Schema 16 collection chuẩn bị các field và index nền; lưu role hay quan hệ trainer không tự thực thi phân quyền. API auth đã có, còn API nghiệp vụ, middleware quyền và logic thưởng/streak cần triển khai.
 
 ## Role và dữ liệu phục vụ phân quyền
 

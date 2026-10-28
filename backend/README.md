@@ -19,7 +19,7 @@ Mặc định server chạy tại `http://localhost:5000`. `npm run dev` chạy 
 Cấu hình được lấy theo thứ tự ưu tiên: biến môi trường của process → `backend/.env` → `backend/database/mongodb/.env`. Có thể dùng cấu hình database local hiện có hoặc sao chép `.env.example` thành `.env` rồi điền URI Atlas và tên database. Không commit hoặc chia sẻ `.env`.
 
 - `MONGODB_URI`: URI Atlas của tài khoản database được cấp quyền.
-- `MONGODB_DB_NAME`: database cần kết nối, thường là `fitlife` hoặc `fitlife_demo`.
+- `MONGODB_DB_NAME`: cố định là `fitlife`.
 - `PORT`: mặc định `5000`.
 - `AUTH_SESSION_TTL_SECONDS`: mặc định `604800` (7 ngày), cho phép từ `60` đến `2592000` giây.
 

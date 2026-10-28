@@ -13,7 +13,7 @@ async function main() {
   if (args.some((arg) => !['--apply'].includes(arg))) throw new Error('Usage: node scripts/fill-samples.js [--apply]');
   loadEnvFile(path.resolve(__dirname, '..', '.env'));
   const database = process.env.MONGODB_DB_NAME;
-  if (!['fitlife', 'fitlife_demo'].includes(database)) throw new Error('Expected fitlife or fitlife_demo database.');
+  if (database !== 'fitlife') throw new Error('MONGODB_DB_NAME must be fitlife.');
   const client = new MongoClient(process.env.MONGODB_URI, {
     appName: 'FitLifeCompassSampleData', serverSelectionTimeoutMS: 15000,
   });

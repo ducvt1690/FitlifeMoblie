@@ -11,7 +11,7 @@ const { migrateDatabase } = require('../migrations/v2');
 
 async function main() {
   const command = process.argv[2];
-  if (!['init', 'seed', 'demo', 'verify', 'migrate-plan', 'migrate'].includes(command)) {
+  if (!['init', 'seed', 'demo', 'verify', 'migrate-plan', 'migrate', 'simplify-plan', 'simplify'].includes(command)) {
     throw new Error('Use db:init, db:seed, db:seed:demo, db:verify, db:migrate:plan or db:migrate.');
   }
   const envPath = path.resolve(__dirname, '..', '.env');
@@ -21,16 +21,20 @@ async function main() {
   if (!uri || !/^mongodb(?:\+srv)?:\/\//.test(uri) || /[<>]/.test(uri)) {
     throw new Error('Set a real MONGODB_URI in backend/database/mongodb/.env.');
   }
-  if (!name || !/^[a-zA-Z0-9_-]{1,63}$/.test(name) || ['admin', 'config', 'local'].includes(name)) {
-    throw new Error('Set MONGODB_DB_NAME to an application database name, for example fitlife.');
-  }
+  if (name !== 'fitlife') throw new Error('MONGODB_DB_NAME must be fitlife.');
   // Do not log URI, database passwords, or document contents.
   const client = new MongoClient(uri, { appName: 'FitLifeDatabaseSetup', serverSelectionTimeoutMS: 15000 });
   try {
     await client.connect();
     const db = client.db(name);
     await db.command({ ping: 1 });
-    if (command === 'init') {
+    if (command === 'simplify-plan' || command === 'simplify') {
+      const report = await require('../simplify').simplifyDatabase(db, client, {
+        apply: command === 'simplify', deleteDemo: true, backupDirectory: path.resolve(__dirname, '..', '.tools', 'simplification-backups'),
+      });
+      console.log(JSON.stringify(report, null, 2));
+      if (report.issues.length) process.exitCode = 1;
+    } else if (command === 'init') {
       await initializeDatabase(db);
       console.log(`Schema and indexes ready: ${name} (${collections.length} collections).`);
     } else if (command === 'seed') {

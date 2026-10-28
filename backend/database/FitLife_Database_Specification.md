@@ -1,5 +1,8 @@
 # FitLife Health & MMA — Database v2 và role BE/FE
 
+> Trạng thái Atlas 29/10/2026: database `fitlife` dùng schema v2 gọn với 16 collection nghiệp vụ. Các collection thử nghiệm đã gỡ khỏi Atlas sau khi tạo bản sao BSON cục bộ. API auth đã có; API nghiệp vụ và tích hợp frontend còn cần triển khai.
+
+
 Phiên bản 2 theo yêu cầu user/trainer/admin ngày 25/10/2026. Triển khai bằng **MongoDB Atlas**. Firestore trong bản yêu cầu mô tả mô hình logic; các subcollection được chuyển thành collection MongoDB có field tham chiếu.
 
 ## 1. Quy ước
@@ -113,8 +116,8 @@ Chỉ chủ session truy cập, trainer/admin không đọc chat người khác.
 
 ## 10. Triển khai và kiểm chứng
 
-mongodb/schema.js là schema thực thi. Chạy db:migrate:plan trước khi nâng v1; db:migrate tạo backup/journal rồi nâng dữ liệu/schema. Xem [hướng dẫn database](mongodb/README.md).
+`mongodb/schema.js` là schema thực thi. Database Atlas hiện dùng schema v2 với 16 collection nghiệp vụ; quá trình rút gọn giữ lại 119 document đã có. Xem [hướng dẫn database](mongodb/README.md).
 
-Backup __fitlife_v1_*, journal __fitlife_migrations và archived_daily_quest_logs phục vụ giữ lịch sử, ngoài 16 collection nghiệp vụ. Không tự xóa dữ liệu để vượt lỗi duplicate.
+Không xóa dữ liệu để vượt lỗi duplicate. Bản sao trước khi rút gọn được giữ ngoài Atlas trong `.tools/simplification-backups`.
 
-Definition of Done đích: đăng ký/tính targets → log → quest thưởng một lần → shop debit đúng → home % ngày → trainer assign → admin quản lý. Giai đoạn hiện tại chỉ làm schema, index, dữ liệu mẫu và migration; chưa lập trình API/FE hay logic phân quyền/thưởng/streak. Xem [yêu cầu cho BE/FE sau này](mongodb/ROLE_CONTRACT.md).
+Definition of Done đích: đăng ký/tính targets → log → quest thưởng một lần → shop debit đúng → home % ngày → trainer assign → admin quản lý. Backend hiện có API auth; nghiệp vụ và tích hợp frontend còn cần hoàn thiện. Xem [yêu cầu cho BE/FE sau này](mongodb/ROLE_CONTRACT.md).

@@ -10,7 +10,7 @@ Backend hiện có 3 API xác thực: **login / me / logout**. Chưa có registe
 ### A1. Chuẩn bị trên Atlas
 
 1. Tạo tài khoản và cluster **Free (M0)** tại https://cloud.mongodb.com.
-2. **Database Access** → Add New Database User → đặt username/password, quyền **Read and write to any database** (hoặc `readWrite` trên đúng database sẽ dùng).
+2. **Database Access** → Add New Database User → đặt username/password, cấp `readWrite` trên database `fitlife`; người chạy init/migration cần thêm quyền quản trị database.
 3. **Network Access** → Add IP Address → **Add Current IP Address** (đổi mạng Wi-Fi là phải cập nhật lại IP, nếu không BE báo lỗi kết nối).
 4. **Connect → Drivers → Node.js** → copy **connection string**, ví dụ:
    `mongodb+srv://fitlife_admin:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority`
@@ -42,19 +42,7 @@ npm run db:seed      # thêm 6 vật phẩm + 3 thử thách mẫu
 npm run db:verify    # kiểm tra toàn vẹn — phải PASS mới sang phần B
 ```
 
-**Tạo tài khoản demo để test login** (database `fitlife_demo` riêng, không lẫn dữ liệu thật):
-
-```powershell
-$env:MONGODB_DB_NAME='fitlife_demo'
-npm run db:init
-npm run db:seed
-npm run db:seed:demo
-npm run db:verify
-Remove-Item Env:MONGODB_DB_NAME
-```
-
-Ba tài khoản demo (cùng mật khẩu `FITLIFE_DEMO_PASSWORD` đã đặt):
-`demo@fitlife.example` (user) · `trainer@fitlife.example` · `admin@fitlife.example`
+Chỉ sử dụng database `fitlife`. Không chuyển `MONGODB_DB_NAME` sang database khác. Dữ liệu hiện có tài khoản demo user/trainer/admin trong cùng database; không seed lại lên dữ liệu đang dùng.
 
 Chi tiết: [database/mongodb/README.md](database/mongodb/README.md).
 
@@ -75,7 +63,7 @@ Mở `.env`, điền **cùng** `MONGODB_URI` và `MONGODB_DB_NAME` như phần A
 | Biến | Giá trị |
 |---|---|
 | `MONGODB_URI` | Connection string Atlas |
-| `MONGODB_DB_NAME` | `fitlife` (hoặc `fitlife_demo` nếu muốn test trên dữ liệu demo) |
+| `MONGODB_DB_NAME` | `fitlife` |
 | `PORT` | `5000` (mặc định) |
 | `AUTH_SESSION_TTL_SECONDS` | `604800` = 7 ngày (mặc định, không cần sửa) |
 

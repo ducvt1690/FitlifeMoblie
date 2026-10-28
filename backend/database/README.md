@@ -1,15 +1,17 @@
 # Hướng dẫn sử dụng database FitLife
 
+> Cập nhật ngày 29/10/2026: Atlas chỉ dùng database `fitlife`, với 16 collection nghiệp vụ. Bản sao dự phòng của lần thu gọn nằm trong thư mục `.tools/simplification-backups` trên máy chạy thao tác.
+
+
 Database của nhóm dùng **MongoDB Atlas**, cluster **Cluster0**. Hướng dẫn này dành cho thành viên muốn xem, thao tác hoặc tải dữ liệu về máy.
 
-Hiện tại chỉ chuẩn bị phần database: collection, validator, index, dữ liệu mẫu và migration. Backend/API và frontend chưa được kết nối với thiết kế database mới.
+Backend auth đã kết nối `fitlife`; các API nhật ký và nghiệp vụ cùng frontend vẫn cần tích hợp.
 
 ## 1. Chọn đúng database
 
-- **`fitlife`**: database chính để dùng cho dự án; đã có dữ liệu giả lập cho cả 16 collection nghiệp vụ để xem trong Compass.
-- **`fitlife_demo`**: database có dữ liệu minh họa, dùng để xem cấu trúc và thử thao tác.
+- **`fitlife`**: database duy nhất của dự án, đã có dữ liệu cho 16 collection nghiệp vụ.
 
-Hai database cùng nằm trong Cluster0. Thành viên có thể dùng chung dữ liệu trên Atlas; thay đổi được ghi trực tiếp vào database đang kết nối. Nếu muốn thử sửa dữ liệu, dùng `fitlife_demo` hoặc một bản sao local riêng.
+Database nằm trong Cluster0. Thành viên dùng chung dữ liệu trên Atlas; thay đổi được ghi trực tiếp vào `fitlife`. Khi cần thử nghiệm, dùng MongoDB tạm trong test hoặc bản sao local.
 
 Database đã được khởi tạo. Thành viên chỉ cần kết nối và kiểm tra, không cần chạy lại lệnh tạo/migrate để bắt đầu sử dụng.
 
@@ -25,7 +27,7 @@ Có ba loại quyền khác nhau:
 
 Người quản lý project mời email thành viên trong **Project Identity & Access → Users → Invite to Project**. Tùy nhu cầu, chọn **Project Data Access Read Only** hoặc **Project Data Access Read/Write**. Thành viên chấp nhận lời mời qua email.
 
-Mở [project FitLife trên Atlas](https://cloud.mongodb.com/v2/6a0fb8ec70039ee567fa6e84#/clusters) → **Cluster0 → Browse Collections / Data Explorer** → chọn `fitlife` hoặc `fitlife_demo`.
+Mở [project FitLife trên Atlas](https://cloud.mongodb.com/v2/6a0fb8ec70039ee567fa6e84#/clusters) → **Cluster0 → Browse Collections / Data Explorer** → chọn `fitlife`.
 
 ### Kết nối từ máy bằng Compass hoặc script
 
@@ -59,7 +61,7 @@ mongodb+srv://<DATABASE_USER>:<URL_ENCODED_PASSWORD>@cluster0.mie8mi8.mongodb.ne
 ```
 
 4. Đặt tên kết nối, ví dụ `FitLife Atlas`, rồi chọn **Connect**.
-5. Chọn `fitlife` hoặc `fitlife_demo` → chọn collection nghiệp vụ như `users`, `water_logs`, `challenges` → **Documents**. Khi nhóm vừa thêm dữ liệu, bấm **Refresh** để tải lại danh sách/bản ghi.
+5. Chọn `fitlife` → chọn collection nghiệp vụ như `users`, `water_logs`, `challenges` → **Documents**. Khi nhóm vừa thêm dữ liệu, bấm **Refresh** để tải lại danh sách/bản ghi.
 
 Username/password ở đây là **database user**, không phải email/password đăng nhập website Atlas. Nếu copy URI từ `.env`, chỉ lấy giá trị bắt đầu bằng `mongodb+srv://`, bỏ phần `MONGODB_URI=`.
 
@@ -67,7 +69,7 @@ Mật khẩu có ký tự đặc biệt phải URL-encode khi nằm trong URI; v
 
 ### Xem và lọc dữ liệu
 
-Chọn collection → tab **Documents**. Ví dụ trong `fitlife_demo.water_logs`, nhập vào ô Filter:
+Chọn collection → tab **Documents**. Ví dụ trong `fitlife.water_logs`, nhập vào ô Filter:
 
 ```json
 { "user_id": "30000000-0000-4000-8000-000000000001" }
@@ -120,21 +122,6 @@ PASS: schemas, indexes, documents and references.
 
 Đây là kiểm tra database. Không cần khởi động server Express để chạy lệnh này; kết quả PASS không có nghĩa các luồng BE/FE đã được triển khai.
 
-### Chuyển sang database demo
-
-```powershell
-$env:MONGODB_DB_NAME='fitlife_demo'
-node scripts/cli.js verify
-```
-
-Biến môi trường này ưu tiên hơn giá trị trong `.env` và có hiệu lực trong phiên PowerShell hiện tại. Quay về giá trị trong `.env`:
-
-```powershell
-Remove-Item Env:MONGODB_DB_NAME -ErrorAction SilentlyContinue
-```
-
-Nếu tài khoản chỉ được cấp quyền cho một database, hãy chọn đúng database đó; không yêu cầu cấp quyền rộng hơn chỉ để xem database còn lại.
-
 ## 5. Database gồm những collection nào?
 
 Có **16 collection nghiệp vụ**:
@@ -156,7 +143,7 @@ Có **16 collection nghiệp vụ**:
 - `ai_chat_sessions`: các phiên chat.
 - `ai_chat_messages`: tin nhắn trong mỗi phiên.
 
-Các collection `__fitlife_v1_*`, `__fitlife_migrations`, `archived_daily_quest_logs` là bản sao/journal/lịch sử phục vụ migration. Chúng không phải database mới và không nằm trong 16 collection nghiệp vụ. Giữ chúng để có thể kiểm tra/khôi phục dữ liệu cũ.
+Bản sao BSON trước khi rút gọn được giữ cục bộ trong `.tools/simplification-backups`; Compass hiện chỉ hiển thị 16 collection nghiệp vụ và collection kỹ thuật `auth_sessions`.
 
 ### Quy ước dữ liệu
 
@@ -182,36 +169,36 @@ Phù hợp để đọc hoặc trao đổi dữ liệu từng collection. JSON/C
 
 Cài [MongoDB Database Tools](https://www.mongodb.com/try/download/database-tools) và bảo đảm PowerShell tìm thấy `mongodump`. Nếu chưa có trong PATH, chạy executable bằng đường dẫn cài đặt đầy đủ.
 
-Ví dụ tải database demo, chạy ở thư mục muốn lưu bản sao:
+Ví dụ sao lưu database `fitlife`, chạy ở thư mục muốn lưu bản sao:
 
 ```powershell
 mongodump `
   --uri 'mongodb+srv://cluster0.mie8mi8.mongodb.net/?retryWrites=true&w=majority' `
   --username '<DATABASE_USER>' `
   --authenticationDatabase admin `
-  --db fitlife_demo `
-  --archive='.\fitlife-demo.archive.gz' `
+  --db fitlife `
+  --archive='.\fitlife.archive.gz' `
   --gzip
 ```
 
-Thay username. Công cụ sẽ hỏi mật khẩu vì không có mật khẩu trong lệnh. Cần quyền đọc database được chọn và IP được Atlas cho phép. Lệnh này tạo file `fitlife-demo.archive.gz`, không xóa hoặc chuyển dữ liệu khỏi Atlas.
+Thay username. Công cụ sẽ hỏi mật khẩu vì không có mật khẩu trong lệnh. Cần quyền đọc database và IP được Atlas cho phép. Lệnh này tạo file `fitlife.archive.gz`, không xóa hoặc chuyển dữ liệu khỏi Atlas.
 
-Muốn lấy database chính, thay `--db fitlife` và chọn tên file khác. Bản dump cũng bao gồm collection backup/journal nếu chúng nằm trong database đó. Lưu file sao lưu ở thư mục riêng ngoài repo vì có thể chứa thông tin cá nhân và password hash.
+Lưu file sao lưu ở thư mục riêng ngoài repo vì có thể chứa thông tin cá nhân và password hash.
 
 ### Khôi phục vào MongoDB local riêng
 
 Máy cần có **MongoDB Server local đang chạy** ở `127.0.0.1:27017` và công cụ `mongorestore`. Chỉ cài Compass chưa tạo MongoDB Server local.
 
-Ví dụ restore bản demo thành database local tên `fitlife_local_demo`:
+Ví dụ restore thành database local tên `fitlife_local`:
 
 ```powershell
 mongorestore `
   --uri 'mongodb://127.0.0.1:27017' `
-  --archive='.\fitlife-demo.archive.gz' `
+  --archive='.\fitlife.archive.gz' `
   --gzip `
-  --nsInclude 'fitlife_demo.*' `
-  --nsFrom 'fitlife_demo.*' `
-  --nsTo 'fitlife_local_demo.*'
+  --nsInclude 'fitlife.*' `
+  --nsFrom 'fitlife.*' `
+  --nsTo 'fitlife_local.*'
 ```
 
 Dùng tên database local chưa có dữ liệu để tránh duplicate. Sau đó mở Compass và kết nối `mongodb://127.0.0.1:27017`. Thao tác trong bản local không đồng bộ tự động lên Atlas. Ví dụ trên dành cho local chưa bật authentication; local có auth cần thêm tài khoản tương ứng.
@@ -222,16 +209,16 @@ Chạy các lệnh bên dưới trong `backend/database/mongodb`, kiểm tra `MO
 
 - `npm run db:init`: tạo collection/validator/index cho môi trường mới.
 - `npm run db:seed`: thêm danh mục mẫu bằng `$setOnInsert`, không ghi đè danh mục đã có.
-- `npm run db:seed:demo`: tạo dữ liệu mẫu ba role; chỉ dùng trên database demo và cần `FITLIFE_DEMO_PASSWORD` ít nhất 12 ký tự.
-- `npm run db:seed:samples`: xem kế hoạch bổ sung tối thiểu 6 bản ghi/collection cho database đã có ba tài khoản mẫu. Thêm `-- --apply` mới ghi dữ liệu; giữ nguyên bản ghi cũ. Xem điều kiện và chi tiết trong [hướng dẫn kỹ thuật](mongodb/README.md#bổ-sung-dữ-liệu-để-xem-trong-compass).
+- `npm run db:seed:demo`: thêm fixture role vào `fitlife`; chỉ dùng lúc chuẩn bị database mới.
+- `npm run db:seed:samples`: xem kế hoạch dữ liệu mẫu; chỉ dùng trên database trống/test trước khi thêm dữ liệu thật.
 - `npm run db:verify`: kiểm tra schema, index và dữ liệu, không sửa database.
-- `npm run db:migrate:plan`: xem kế hoạch v1→v2, chỉ đọc.
-- `npm run db:migrate`: tạo backup và nâng dữ liệu/schema v1→v2; dừng các luồng ghi trong lúc migrate.
+- `node scripts/cli.js simplify-plan`: xem trước việc thu gọn, chỉ đọc.
+- `node scripts/cli.js simplify`: áp dụng rút gọn; tạo backup BSON local trước khi sửa Atlas.
 - `npm test`: kiểm tra bằng MongoDB tạm độc lập với Atlas; cần cài cả devDependencies bằng `npm ci`.
 
-Tài khoản database cần `readWrite` + `dbAdmin` cho init/migration. Thành viên chỉ đọc không chạy các lệnh thay đổi schema/dữ liệu.
+Tài khoản database cần `readWrite` + `dbAdmin` trên `fitlife` để init/migration. Thành viên chỉ đọc không chạy các lệnh thay đổi schema/dữ liệu.
 
-Dữ liệu demo có `demo@fitlife.example`, `trainer@fitlife.example`, `admin@fitlife.example`. Mật khẩu khi tạo lấy từ `FITLIFE_DEMO_PASSWORD`; đổi biến môi trường sau đó không tự đổi password hash của tài khoản đã có. Hiện chưa có API đăng nhập theo bộ database này.
+Dữ liệu mẫu có các tài khoản `demo@fitlife.example`, `trainer@fitlife.example`, `admin@fitlife.example` trong `fitlife`. Mật khẩu seed lấy từ `FITLIFE_DEMO_PASSWORD`; các tài khoản này không phải thông tin mặc định để công khai.
 
 Đợt bổ sung mẫu cho `fitlife` ngày 26/10/2026 thêm ba user có tên `(Mẫu)` và email `*.sample@fitlife.example`. Số lượng tại thời điểm đó là 119 document nghiệp vụ: 14 collection có 6 bản ghi, `daily_quest_logs` có 28 và `ai_chat_messages` có 7. Đây là dữ liệu để thử nghiệm và xem cấu trúc.
 
@@ -244,7 +231,7 @@ Xem [hướng dẫn kỹ thuật và migration](mongodb/README.md), [trạng th�
 - **not authorized**: database user chưa có quyền trên đúng database; cần người quản lý cấp quyền phù hợp với thao tác.
 - **Document failed validation (121)**: sai kiểu dữ liệu, thiếu field bắt buộc, sai enum hoặc có field ngoài schema. Date phải là BSON Date và field số nguyên phải đúng kiểu.
 - **Duplicate key (11000)**: trùng UUID/email/quest/user-ngày/huy hiệu. Xem index được báo, không xóa dữ liệu chỉ để vượt lỗi.
-- **Existing data needs migration**: đang chạy init trên dữ liệu v1. Người quản lý cần xem migrate-plan và thực hiện quy trình migration.
+- **Existing data needs migration**: schema cũ chưa khớp; người quản lý kiểm tra backup và chạy kế hoạch migration trước khi áp dụng.
 - **mongodump/mongorestore not recognized**: cài Database Tools hoặc dùng đường dẫn executable đầy đủ.
 - **npm: The "file" argument must be of type string**: thử chỉ định shell cho lệnh, ví dụ `npm --script-shell=C:\Windows\System32\cmd.exe run db:verify`; cũng có thể dùng `node scripts/cli.js verify`.
 
