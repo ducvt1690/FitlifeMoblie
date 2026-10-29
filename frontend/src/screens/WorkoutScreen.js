@@ -480,7 +480,7 @@ export default function WorkoutScreen() {
           <Text style={styles.heroNote}>
             {completedIds.includes(selectedExercise.id)
               ? '✓ Đã hoàn thành hôm nay — Đã cộng EXP & Coins vào hồ sơ!'
-              : 'Quan sát kỹ động tác GIF mẫu và giữ nhịp thở đều khi tập.'}
+              : 'Quan sát kỹ động tác hướng dẫn và giữ nhịp thở đều khi tập.'}
           </Text>
         </View>
       )}
@@ -698,7 +698,7 @@ export default function WorkoutScreen() {
               <Text style={styles.countdownSub}>
                 {isTimerRunning
                   ? timerPhase === 'work'
-                    ? 'Thực hiện theo động tác mẫu GIF & giữ nhịp thở!'
+                    ? 'Thực hiện theo động tác hướng dẫn & giữ nhịp thở!'
                     : 'Hít sâu hồi sức chuẩn bị hiệp tiếp theo'
                   : 'Đang tạm dừng — Bấm nút Play để tiếp tục'}
               </Text>

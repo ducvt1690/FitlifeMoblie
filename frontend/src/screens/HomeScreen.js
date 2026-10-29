@@ -285,13 +285,13 @@ export default function HomeScreen({ onNavigate }) {
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.aiQuickTitle}>Kho Bài Tập GIF & 2D</Text>
+            <Text style={styles.aiQuickTitle}>Kho Bài Tập Thể Lực</Text>
             <View style={[styles.aiTurboBadge, { backgroundColor: '#E5F4EF' }]}>
               <Text style={[styles.aiTurboText, { color: '#116B58' }]}>1,500 Bài</Text>
             </View>
           </View>
           <Text style={styles.aiQuickSub}>
-            Động tác chuyển động GIF + 2D • Giọng đọc HLV & Bấm giờ 3 hiệp
+            Hướng dẫn động tác trực quan • Giọng đọc HLV & Bấm giờ 3 hiệp
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
