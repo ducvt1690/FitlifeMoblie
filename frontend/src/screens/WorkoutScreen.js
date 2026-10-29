@@ -9,19 +9,24 @@ import {
   Alert,
   Vibration,
   SafeAreaView,
+  TextInput,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOW } from '../constants/theme';
 import { EXERCISES, WORKOUT_CATEGORIES } from '../constants/data';
 import {
+  fetchExercisesFromApi,
+  fetchExerciseDetailById,
+} from '../utils/exerciseApi';
+import {
   addWorkoutLog,
-  addWaterLog,
   completeQuest,
   addCoins,
 } from '../utils/storage';
 import { soundManager } from '../utils/audio';
 import ExerciseVisual from '../components/ExerciseVisual';
-import SpriteAnimation from '../components/SpriteAnimation';
 
 function formatDurationLabel(seconds) {
   if (seconds >= 60) {
@@ -33,11 +38,20 @@ function formatDurationLabel(seconds) {
 }
 
 export default function WorkoutScreen() {
+  const [exercisesList, setExercisesList] = useState(EXERCISES);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExercise, setSelectedExercise] = useState(EXERCISES[0]);
   const [completedIds, setCompletedIds] = useState([]);
 
-  // Inline quick timer (Daily Hero 2D style)
+  // API pagination & search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoadingApi, setIsLoadingApi] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState('0JtKWum');
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [totalApiCount, setTotalApiCount] = useState(1500);
+
+  // Inline quick timer
   const [quickSecondsLeft, setQuickSecondsLeft] = useState(EXERCISES[0].durationSec);
   const [quickRunning, setQuickRunning] = useState(false);
 
@@ -56,12 +70,65 @@ export default function WorkoutScreen() {
   const [isMuted, setIsMuted] = useState(soundManager.isMuted);
   const [activeGuideTab, setActiveGuideTab] = useState('guide');
 
+  // Initial fetch from https://oss.exercisedb.dev/api/v1/exercises
+  useEffect(() => {
+    loadInitialFromApi();
+  }, []);
+
+  const loadInitialFromApi = async () => {
+    setIsLoadingApi(true);
+    const res = await fetchExercisesFromApi({ limit: 25 });
+    if (res.exercises && res.exercises.length > 0) {
+      setExercisesList(res.exercises);
+      setSelectedExercise(res.exercises[0]);
+      setNextCursor(res.meta?.nextCursor || null);
+      setHasNextPage(Boolean(res.meta?.hasNextPage));
+      if (res.meta?.total) setTotalApiCount(res.meta.total);
+    }
+    setIsLoadingApi(false);
+  };
+
+  const handleSearchSubmit = async () => {
+    const q = searchQuery.trim();
+    if (!q) {
+      loadInitialFromApi();
+      return;
+    }
+    setIsLoadingApi(true);
+    const res = await fetchExercisesFromApi({ search: q });
+    if (res.exercises && res.exercises.length > 0) {
+      setExercisesList(res.exercises);
+      handleSelectExercise(res.exercises[0]);
+      setHasNextPage(false);
+    } else {
+      Alert.alert(
+        'Không tìm thấy',
+        `Không tìm thấy bài tập nào khớp với "${q}". Vui lòng thử từ khóa tiếng Anh (vd: squat, push-up, dumbbell, chest, abs).`
+      );
+    }
+    setIsLoadingApi(false);
+  };
+
+  const handleLoadMoreApi = async () => {
+    if (!hasNextPage || !nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    const res = await fetchExercisesFromApi({ cursor: nextCursor, limit: 25 });
+    if (res.success && res.exercises.length > 0) {
+      setExercisesList((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const newItems = res.exercises.filter((item) => !existingIds.has(item.id));
+        return [...prev, ...newItems];
+      });
+      setNextCursor(res.meta?.nextCursor || null);
+      setHasNextPage(Boolean(res.meta?.hasNextPage));
+    }
+    setIsLoadingMore(false);
+  };
+
   const filteredExercises =
     selectedCategory === 'all'
-      ? EXERCISES
-      : selectedCategory === 'daily_hero'
-      ? EXERCISES.filter((ex) => ex.isDailyHero)
-      : EXERCISES.filter((ex) => ex.category === selectedCategory);
+      ? exercisesList
+      : exercisesList.filter((ex) => ex.category === selectedCategory);
 
   // Reset inline quick timer when switching selected exercise
   useEffect(() => {
@@ -114,9 +181,19 @@ export default function WorkoutScreen() {
     };
   }, [isTimerRunning, timerPhase, currentSet]);
 
-  const handleSelectExercise = (ex) => {
+  const handleSelectExercise = async (ex) => {
     setSelectedExercise(ex);
     Vibration.vibrate(30);
+    // If search endpoint returned abbreviated item without instructions, fetch full details
+    if (!ex.instructions || ex.instructions.length === 0) {
+      const full = await fetchExerciseDetailById(ex.id);
+      if (full) {
+        setSelectedExercise(full);
+        setExercisesList((prev) =>
+          prev.map((item) => (item.id === full.id ? full : item))
+        );
+      }
+    }
   };
 
   const handleToggleQuickTimer = () => {
@@ -140,26 +217,21 @@ export default function WorkoutScreen() {
     setCompletedIds((old) => (old.includes(ex.id) ? old : [...old, ex.id]));
 
     const exp = ex.expReward || 15;
-    const burned = ex.calories || 20;
+    const burned = ex.calories || 30;
 
-    if (ex.id === 'drink') {
-      await addWaterLog(250);
-      await completeQuest('q_water', '+250 ml (Daily Hero 2D)');
-    } else {
-      await addWorkoutLog({
-        title: ex.title,
-        durationSec: ex.durationSec || 45,
-        calories: burned,
-      });
-      await completeQuest('q_workout', `${ex.title} (+${exp} EXP)`);
-    }
-
+    await addWorkoutLog({
+      title: ex.title,
+      durationSec: ex.durationSec || 45,
+      calories: burned,
+    });
+    await completeQuest('q_workout', `${ex.title} (+${exp} EXP)`);
     await addCoins(exp);
+
     soundManager.playVictorySound();
     soundManager.speakVoice(`Hoàn thành ${ex.title}! Cộng ${exp} xu thưởng!`);
 
     Alert.alert(
-      '🎉 Hoàn thành bài tập 2D!',
+      '🎉 Hoàn thành bài tập!',
       `Bạn đã hoàn thành "${ex.title}"!\n• Đốt cháy: ~${burned} kcal\n• Phần thưởng: +${exp} EXP & Coins 🪙`,
       [{ text: 'Tuyệt vời' }]
     );
@@ -186,11 +258,17 @@ export default function WorkoutScreen() {
     }
   };
 
-  const startExercise = (exercise) => {
-    setSelectedExercise(exercise);
+  const startExercise = async (exercise) => {
+    let targetEx = exercise;
+    if (!exercise.instructions || exercise.instructions.length === 0) {
+      const full = await fetchExerciseDetailById(exercise.id);
+      if (full) targetEx = full;
+    }
+
+    setSelectedExercise(targetEx);
     setQuickRunning(false);
-    setActiveExercise(exercise);
-    const duration = exercise.durationSec || 45;
+    setActiveExercise(targetEx);
+    const duration = targetEx.durationSec || 45;
     setInitialTime(duration);
     setTimeLeft(duration);
     setTimerPhase('work');
@@ -200,7 +278,7 @@ export default function WorkoutScreen() {
     setActiveGuideTab('guide');
 
     soundManager.playBoxingBell();
-    soundManager.speakVoice(`Bắt đầu hiệp một: ${exercise.title}!`);
+    soundManager.speakVoice(`Bắt đầu hiệp một: ${targetEx.title}!`);
   };
 
   const toggleSound = () => {
@@ -211,7 +289,7 @@ export default function WorkoutScreen() {
 
   const finishWorkout = async () => {
     if (!activeExercise) return;
-    const burned = (activeExercise.calories || 25) * (currentSet || 1);
+    const burned = (activeExercise.calories || 30) * (currentSet || 1);
     const totalDuration = initialTime * (currentSet || 1);
     const exp = (activeExercise.expReward || 15) * (currentSet || 1);
 
@@ -269,15 +347,47 @@ export default function WorkoutScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* DAILY HERO 2D STAGE (Tham khảo & tích hợp từ DailyHero2D_ExpoStarter) */}
+      {/* SEARCH BAR FOR EXERCISEDB API (1,500 EXERCISES) */}
+      <View style={styles.searchBarWrap}>
+        <Ionicons name="search-outline" size={18} color="#6B817D" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Tìm trong 1,500 bài tập (vd: squat, push-up, burpee, curl...)"
+          placeholderTextColor="#94A3B8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearchSubmit}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => {
+              setSearchQuery('');
+              loadInitialFromApi();
+            }}
+          >
+            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.searchBtn} onPress={handleSearchSubmit}>
+          <Text style={styles.searchBtnText}>Tìm</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* SELECTED EXERCISE HERO CARD WITH ANIMATED GIF FROM EXERCISEDB */}
       {selectedExercise && (
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroEyebrow}>BÀI TẬP 2D ĐANG CHỌN</Text>
+              <View style={styles.eyebrowRow}>
+                <Text style={styles.heroEyebrow}>ĐỘNG TÁC MẪU EXERCISEDB API</Text>
+                <View style={styles.idPill}>
+                  <Text style={styles.idPillText}>#{selectedExercise.id}</Text>
+                </View>
+              </View>
               <Text style={styles.heroTitle}>{selectedExercise.title}</Text>
               <Text style={styles.heroMeta}>
-                {selectedExercise.level} • {selectedExercise.calories} kcal • +
+                {selectedExercise.bodyPartLabel} • {selectedExercise.equipment} • +
                 {selectedExercise.expReward || 15} EXP
               </Text>
             </View>
@@ -294,20 +404,32 @@ export default function WorkoutScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Animated GIF Display */}
           <View style={styles.heroAnimationBox}>
-            <SpriteAnimation
-              sprite={selectedExercise.sprite || 'squat'}
-              frameCount={selectedExercise.frameCount || 6}
-              frameDurationMs={selectedExercise.frameDurationMs || 200}
-              size={185}
-              playing={true}
+            <ExerciseVisual
+              gifUrl={selectedExercise.gifUrl}
+              bodyPartLabel={selectedExercise.bodyPartLabel}
+              size="small"
+              phase="work"
             />
           </View>
 
-          {/* Step-by-step instructions from DailyHero2D */}
-          {selectedExercise.instructions && (
+          {/* Target & Secondary Muscles */}
+          {selectedExercise.muscles && selectedExercise.muscles.length > 0 && (
+            <View style={styles.muscleRow}>
+              <Text style={styles.muscleLabel}>🎯 Cơ tác động:</Text>
+              {selectedExercise.muscles.map((m, i) => (
+                <View key={i} style={styles.musclePill}>
+                  <Text style={styles.muscleText}>{m}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Step-by-step instructions */}
+          {selectedExercise.instructions && selectedExercise.instructions.length > 0 && (
             <View style={styles.instructionList}>
-              {selectedExercise.instructions.map((step, idx) => (
+              {selectedExercise.instructions.slice(0, 4).map((step, idx) => (
                 <Text key={idx} style={styles.instructionStep}>
                   • {step}
                 </Text>
@@ -354,14 +476,20 @@ export default function WorkoutScreen() {
 
           <Text style={styles.heroNote}>
             {completedIds.includes(selectedExercise.id)
-              ? '✓ Đã hoàn thành hôm nay — Cộng EXP & Coins vào hồ sơ!'
-              : 'Làm theo hoạt ảnh 2D minh họa kết hợp âm thanh hướng dẫn.'}
+              ? '✓ Đã hoàn thành hôm nay — Đã cộng EXP & Coins vào hồ sơ!'
+              : 'Quan sát kỹ động tác GIF mẫu và giữ nhịp thở đều khi tập.'}
           </Text>
         </View>
       )}
 
-      {/* Category Horizontal Filter */}
-      <Text style={styles.sectionHeaderTitle}>Bộ bài luyện tập 2D ({filteredExercises.length})</Text>
+      {/* Category Filter */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeaderTitle}>
+          Kho bài tập API ({filteredExercises.length} / {totalApiCount})
+        </Text>
+        {isLoadingApi && <ActivityIndicator size="small" color="#159C7A" />}
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -401,7 +529,7 @@ export default function WorkoutScreen() {
         })}
       </ScrollView>
 
-      {/* 2D Exercises List */}
+      {/* Exercises List with GIF Thumbnails */}
       <View style={styles.exerciseList}>
         {filteredExercises.map((ex) => {
           const isSelected = selectedExercise?.id === ex.id;
@@ -413,14 +541,12 @@ export default function WorkoutScreen() {
               onPress={() => handleSelectExercise(ex)}
               activeOpacity={0.85}
             >
-              {/* 2D Sprite Thumbnail */}
+              {/* GIF Thumbnail */}
               <View style={styles.thumbBox}>
-                <SpriteAnimation
-                  sprite={ex.sprite || 'squat'}
-                  frameCount={ex.frameCount || 6}
-                  frameDurationMs={ex.frameDurationMs || 200}
-                  size={74}
-                  playing={true}
+                <Image
+                  source={{ uri: ex.gifUrl }}
+                  style={styles.thumbGif}
+                  resizeMode="contain"
                 />
               </View>
 
@@ -433,19 +559,16 @@ export default function WorkoutScreen() {
                 </View>
 
                 <Text style={styles.rowMeta}>
-                  {ex.targetReps
-                    ? `${ex.targetReps} lần`
-                    : formatDurationLabel(ex.durationSec)}{' '}
-                  • {ex.calories} kcal • +{ex.expReward || 15} EXP
+                  {ex.bodyPartLabel} • {ex.calories} kcal • +{ex.expReward || 15} EXP
                 </Text>
 
                 <Text style={styles.rowInstruction} numberOfLines={2}>
-                  {ex.instructions?.[0] || ex.description}
+                  {ex.instructions?.[0] || `Thiết bị: ${ex.equipment} • Nhóm cơ: ${ex.muscles?.join(', ')}`}
                 </Text>
 
                 <View style={styles.rowActionBar}>
                   <View style={styles.levelBadge}>
-                    <Text style={styles.levelBadgeText}>{ex.level}</Text>
+                    <Text style={styles.levelBadgeText}>{ex.equipment}</Text>
                   </View>
 
                   <TouchableOpacity
@@ -463,6 +586,27 @@ export default function WorkoutScreen() {
         })}
       </View>
 
+      {/* Load More Pagination Button (`nextCursor` from API) */}
+      {hasNextPage && selectedCategory === 'all' && (
+        <TouchableOpacity
+          style={styles.loadMoreBtn}
+          onPress={handleLoadMoreApi}
+          disabled={isLoadingMore}
+          activeOpacity={0.8}
+        >
+          {isLoadingMore ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="cloud-download-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.loadMoreBtnText}>
+                Tải thêm bài tập từ API (Còn {totalApiCount - exercisesList.length}+ bài)
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
       {/* FULLSCREEN EXERCISE & TIMER MODAL */}
       <Modal visible={timerModalVisible} animationType="slide">
         <SafeAreaView style={styles.timerScreen}>
@@ -477,7 +621,7 @@ export default function WorkoutScreen() {
                 {activeExercise?.title}
               </Text>
               <Text style={styles.modalExerciseSub}>
-                Hiệp đấu {currentSet} / {totalSets} • +{activeExercise?.expReward || 15} EXP/hiệp
+                Hiệp đấu {currentSet} / {totalSets} • {activeExercise?.bodyPartLabel}
               </Text>
             </View>
 
@@ -504,13 +648,11 @@ export default function WorkoutScreen() {
             contentContainerStyle={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* 2D Sprite Visual Stage */}
+            {/* Large Animated GIF Stage */}
             <View style={styles.stageWrap}>
               <ExerciseVisual
-                animationType={activeExercise?.animationType}
-                sprite={activeExercise?.sprite}
-                frameCount={activeExercise?.frameCount || 6}
-                frameDurationMs={activeExercise?.frameDurationMs}
+                gifUrl={activeExercise?.gifUrl}
+                bodyPartLabel={activeExercise?.bodyPartLabel}
                 isPlaying={isTimerRunning}
                 size="large"
                 phase={timerPhase}
@@ -551,7 +693,7 @@ export default function WorkoutScreen() {
               <Text style={styles.countdownSub}>
                 {isTimerRunning
                   ? timerPhase === 'work'
-                    ? 'Làm theo hoạt ảnh 2D & giữ nhịp thở đều!'
+                    ? 'Thực hiện theo động tác mẫu GIF & giữ nhịp thở!'
                     : 'Hít sâu hồi sức chuẩn bị hiệp tiếp theo'
                   : 'Đang tạm dừng — Bấm nút Play để tiếp tục'}
               </Text>
@@ -601,7 +743,7 @@ export default function WorkoutScreen() {
                       activeGuideTab === 'guide' && styles.guideTabTextActive,
                     ]}
                   >
-                    📋 Kỹ Thuật Chuẩn
+                    📋 Các Bước Tập (API)
                   </Text>
                 </TouchableOpacity>
 
@@ -618,7 +760,7 @@ export default function WorkoutScreen() {
                       activeGuideTab === 'mistakes' && styles.guideTabTextActive,
                     ]}
                   >
-                    ⚠️ Lỗi Cần Tránh
+                    ⚠️ Lưu Ý Kỹ Thuật
                   </Text>
                 </TouchableOpacity>
 
@@ -635,7 +777,7 @@ export default function WorkoutScreen() {
                       activeGuideTab === 'muscles' && styles.guideTabTextActive,
                     ]}
                   >
-                    🌬️ Nhịp Thở & Cơ
+                    🎯 Cơ & Thiết Bị
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -643,42 +785,39 @@ export default function WorkoutScreen() {
               <View style={styles.guideContentArea}>
                 {activeGuideTab === 'guide' && (
                   <View style={styles.guideItem}>
-                    <Text style={styles.guideLabel}>🏁 Chuẩn bị:</Text>
-                    <Text style={styles.guideBody}>
-                      {activeExercise?.prep || activeExercise?.description}
-                    </Text>
-                    <Text style={[styles.guideLabel, { marginTop: 8 }]}>⚡ Động tác:</Text>
-                    <Text style={styles.guideBody}>{activeExercise?.action}</Text>
+                    {(activeExercise?.instructions || []).map((step, i) => (
+                      <Text key={i} style={styles.guideBody}>
+                        • {step}
+                      </Text>
+                    ))}
                   </View>
                 )}
 
                 {activeGuideTab === 'mistakes' && (
                   <View style={styles.guideItem}>
                     <Text style={[styles.guideLabel, { color: '#EF4444' }]}>
-                      🚫 Những lỗi sai hay gặp:
+                      🚫 Kiểm soát tư thế:
                     </Text>
-                    <Text style={styles.guideBody}>
-                      {activeExercise?.mistakes ||
-                        'Giữ thăng bằng và không nín thở khi vận động.'}
+                    <Text style={styles.guideBody}>{activeExercise?.mistakes}</Text>
+                    <Text style={[styles.guideLabel, { color: COLORS.primary, marginTop: 8 }]}>
+                      🌬️ Nhịp thở:
                     </Text>
+                    <Text style={styles.guideBody}>{activeExercise?.breathing}</Text>
                   </View>
                 )}
 
                 {activeGuideTab === 'muscles' && (
                   <View style={styles.guideItem}>
-                    <Text style={[styles.guideLabel, { color: COLORS.primary }]}>
-                      🌬️ Nhịp thở chuẩn:
-                    </Text>
-                    <Text style={styles.guideBody}>
-                      {activeExercise?.breathing ||
-                        'Thở ra khi phát lực, hít vào khi phục hồi.'}
-                    </Text>
-                    <Text style={[styles.guideLabel, { marginTop: 8, color: '#38BDF8' }]}>
-                      🎯 Nhóm cơ kích hoạt:
+                    <Text style={[styles.guideLabel, { color: '#38BDF8' }]}>
+                      🎯 Nhóm cơ đích & phụ:
                     </Text>
                     <Text style={styles.guideBody}>
                       {activeExercise?.muscles?.join(' • ') || 'Toàn thân'}
                     </Text>
+                    <Text style={[styles.guideLabel, { marginTop: 8, color: COLORS.primary }]}>
+                      🏋️ Thiết bị sử dụng:
+                    </Text>
+                    <Text style={styles.guideBody}>{activeExercise?.equipment}</Text>
                   </View>
                 )}
               </View>
@@ -698,7 +837,35 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     paddingHorizontal: 16,
   },
-  // Hero 2D card (DailyHero2D style)
+  searchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 10,
+    borderWidth: 1.5,
+    borderColor: '#D8EEE8',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#173B36',
+    paddingVertical: 4,
+  },
+  searchBtn: {
+    backgroundColor: '#159C7A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  searchBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   heroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
@@ -713,14 +880,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   heroEyebrow: {
     color: '#198A73',
     fontWeight: '800',
     fontSize: 11,
     letterSpacing: 0.8,
   },
+  idPill: {
+    backgroundColor: '#E5F4EF',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  idPillText: {
+    color: '#116B58',
+    fontSize: 10,
+    fontWeight: '800',
+  },
   heroTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '900',
     color: '#173B36',
     marginTop: 4,
@@ -740,21 +923,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroAnimationBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
     marginVertical: 10,
-    backgroundColor: '#F3FBF9',
-    borderRadius: 18,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#E1EFEB',
+  },
+  muscleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  muscleLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#173B36',
+  },
+  musclePill: {
+    backgroundColor: '#E5F4EF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  muscleText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#116B58',
   },
   instructionList: {
     backgroundColor: '#F8FCFB',
     borderRadius: 12,
     padding: 10,
     marginBottom: 8,
-    gap: 3,
+    gap: 4,
   },
   instructionStep: {
     color: '#335C55',
@@ -825,13 +1024,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
-
-  sectionHeaderTitle: {
-    color: '#173B36',
-    fontSize: 18,
-    fontWeight: '900',
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 18,
     marginBottom: 4,
+  },
+  sectionHeaderTitle: {
+    color: '#173B36',
+    fontSize: 17,
+    fontWeight: '900',
   },
   categoryScroll: {
     marginBottom: 8,
@@ -870,15 +1073,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5FCFA',
   },
   thumbBox: {
-    width: 78,
-    height: 78,
+    width: 82,
+    height: 82,
     borderRadius: 14,
-    backgroundColor: '#F3FBF9',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#D8EEE8',
+  },
+  thumbGif: {
+    width: 78,
+    height: 78,
   },
   exerciseInfoCol: {
     flex: 1,
@@ -943,6 +1150,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '800',
+  },
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#116B58',
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 14,
+    gap: 8,
+  },
+  loadMoreBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
 
   // MODAL TIMER STYLES
@@ -1105,7 +1327,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   guideItem: {
-    gap: 4,
+    gap: 6,
   },
   guideLabel: {
     fontSize: 12,

@@ -1,81 +1,85 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
 import SpriteAnimation from './SpriteAnimation';
 
-const SPRITE_CONFIG = {
-  walk: { sprite: 'walk', frameDurationMs: 140, label: 'Bước đều • Đánh tay tự nhiên' },
-  drink: { sprite: 'drink', frameDurationMs: 220, label: 'Uống từng ngụm • 250ml nước' },
-  eyes: { sprite: 'eyes', frameDurationMs: 220, label: 'Nhìn xa 6m • Chớp mắt thư giãn' },
-  breathe: { sprite: 'breathe', frameDurationMs: 350, label: 'Hít sâu 4s • Thở chậm 4s' },
-  squat: { sprite: 'squat', frameDurationMs: 240, label: 'Xuống hít sâu • Đứng lên thở ra' },
-  squats: { sprite: 'squat', frameDurationMs: 240, label: 'Xuống hít sâu • Đứng lên thở ra' },
-  stretch: { sprite: 'stretch', frameDurationMs: 280, label: 'Thả lỏng vai • Kéo giãn nhẹ nhàng' },
-  plank: { sprite: 'plank', frameDurationMs: 280, label: 'Siết chặt cơ bụng • Lưng thẳng hàng' },
-  run: { sprite: 'run', frameDurationMs: 120, label: 'Chạy tại chỗ • Tiếp đất êm bằng mũi chân' },
-  shadow_boxing: { sprite: 'boxing', frameDurationMs: 150, label: 'Tổ hợp đòn: Jab - Cross - Hook' },
-  boxing: { sprite: 'boxing', frameDurationMs: 150, label: 'Tổ hợp đòn: Jab - Cross - Hook' },
-  mma_sprawl: { sprite: 'sprawl', frameDurationMs: 200, label: 'Phòng thủ • Dằn hông xuống sàn' },
-  sprawl: { sprite: 'sprawl', frameDurationMs: 200, label: 'Phòng thủ • Dằn hông xuống sàn' },
-  muay_thai_knees: { sprite: 'knee', frameDurationMs: 170, label: 'Khóa gáy • Phóng gối uy lực' },
-  knee: { sprite: 'knee', frameDurationMs: 170, label: 'Khóa gáy • Phóng gối uy lực' },
-  pushups: { sprite: 'pushup', frameDurationMs: 220, label: 'Gồng ngực • Hạ sâu đẩy dứt khoát' },
-  pushup: { sprite: 'pushup', frameDurationMs: 220, label: 'Gồng ngực • Hạ sâu đẩy dứt khoát' },
-  jumping_jacks: { sprite: 'jumping_jacks', frameDurationMs: 160, label: 'Bật nhảy mở tay chân nhịp 1-2' },
-  crunches: { sprite: 'crunch', frameDurationMs: 220, label: 'Cuộn cơ bụng • Không kéo gập cổ' },
-  crunch: { sprite: 'crunch', frameDurationMs: 220, label: 'Cuộn cơ bụng • Không kéo gập cổ' },
-  mountain_climbers: { sprite: 'climber', frameDurationMs: 130, label: 'Co gối luân phiên tốc độ cao' },
-  climber: { sprite: 'climber', frameDurationMs: 130, label: 'Co gối luân phiên tốc độ cao' },
-  burpees: { sprite: 'burpee', frameDurationMs: 220, label: 'Ngồi xổm • Chống đẩy • Bật nhảy cao' },
-  burpee: { sprite: 'burpee', frameDurationMs: 220, label: 'Ngồi xổm • Chống đẩy • Bật nhảy cao' },
-  cobra_stretch: { sprite: 'cobra', frameDurationMs: 280, label: 'Mở ngực • Kéo giãn cơ bụng & lưng' },
-  cobra: { sprite: 'cobra', frameDurationMs: 280, label: 'Mở ngực • Kéo giãn cơ bụng & lưng' },
-};
-
 export default function ExerciseVisual({
+  gifUrl = null,
   animationType = 'squat',
-  sprite: spriteProp,
+  sprite = null,
   frameCount = 6,
-  frameDurationMs: durationProp,
+  frameDurationMs = 200,
   isPlaying = true,
   size = 'large', // 'thumb' | 'small' | 'large'
   phase = 'work', // 'work' | 'rest'
+  bodyPartLabel = '',
 }) {
-  const key = spriteProp || animationType || 'squat';
-  const cfg = SPRITE_CONFIG[key] || SPRITE_CONFIG.squat;
-
-  const activeSprite = phase === 'rest' ? 'breathe' : cfg.sprite;
-  const activeDuration =
-    phase === 'rest' ? 320 : durationProp || cfg.frameDurationMs || 200;
+  const [loadingGif, setLoadingGif] = useState(true);
 
   if (size === 'thumb') {
     return (
       <View style={styles.thumbWrap}>
-        <SpriteAnimation
-          sprite={activeSprite}
-          frameCount={frameCount}
-          frameDurationMs={activeDuration}
-          size={76}
-          playing={isPlaying}
-        />
+        {gifUrl ? (
+          <Image
+            source={{ uri: gifUrl }}
+            style={styles.thumbGif}
+            resizeMode="contain"
+          />
+        ) : (
+          <SpriteAnimation
+            sprite={sprite || animationType || 'squat'}
+            frameCount={frameCount}
+            frameDurationMs={frameDurationMs}
+            size={74}
+            playing={isPlaying}
+          />
+        )}
       </View>
     );
   }
 
   const isSmall = size === 'small';
-  const spriteSize = isSmall ? 120 : 190;
+  const boxSize = isSmall ? 135 : 210;
 
   return (
     <View style={[styles.cardContainer, isSmall ? styles.cardSmall : styles.cardLarge]}>
-      <View style={styles.stageCenter}>
-        <SpriteAnimation
-          sprite={activeSprite}
-          frameCount={frameCount}
-          frameDurationMs={activeDuration}
-          size={spriteSize}
-          playing={isPlaying}
-        />
-      </View>
+      {phase === 'rest' ? (
+        <View style={styles.restWrap}>
+          <View style={styles.restIconCircle}>
+            <Ionicons name="leaf" size={38} color="#159C7A" />
+          </View>
+          <Text style={styles.restTitle}>ĐANG NGHỈ GIỮA HIỆP</Text>
+          <Text style={styles.restSub}>Hít sâu bằng mũi 4s • Thở ra chậm bằng miệng 4s</Text>
+        </View>
+      ) : gifUrl ? (
+        <View style={styles.stageCenter}>
+          {loadingGif && (
+            <ActivityIndicator
+              size="small"
+              color="#159C7A"
+              style={styles.loaderOverlay}
+            />
+          )}
+          <Image
+            source={{ uri: gifUrl }}
+            style={{ width: boxSize, height: boxSize }}
+            resizeMode="contain"
+            onLoadStart={() => setLoadingGif(true)}
+            onLoadEnd={() => setLoadingGif(false)}
+          />
+        </View>
+      ) : (
+        <View style={styles.stageCenter}>
+          <SpriteAnimation
+            sprite={sprite || animationType || 'squat'}
+            frameCount={frameCount}
+            frameDurationMs={frameDurationMs}
+            size={boxSize}
+            playing={isPlaying}
+          />
+        </View>
+      )}
 
       <View style={[styles.tempoPill, phase === 'rest' && styles.tempoPillRest]}>
         <View
@@ -86,8 +90,10 @@ export default function ExerciseVisual({
         />
         <Text style={styles.tempoText} numberOfLines={1}>
           {phase === 'rest'
-            ? 'Nghỉ ngơi: Hít vào 4 giây • Thở ra chậm 4 giây'
-            : cfg.label}
+            ? 'Hồi phục nhịp tim • Thả lỏng cơ bắp'
+            : bodyPartLabel
+            ? `Động tác mẫu GIF • Nhóm cơ: ${bodyPartLabel}`
+            : 'Làm theo động tác mẫu & giữ nhịp thở đều'}
         </Text>
       </View>
     </View>
@@ -96,21 +102,25 @@ export default function ExerciseVisual({
 
 const styles = StyleSheet.create({
   thumbWrap: {
-    width: 78,
-    height: 78,
+    width: 80,
+    height: 80,
     borderRadius: 14,
-    backgroundColor: '#F3FBF9',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D8EEE8',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  thumbGif: {
+    width: 76,
+    height: 76,
+  },
   cardContainer: {
     width: '100%',
-    backgroundColor: '#F3FBF9',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#D8EEE8',
     alignItems: 'center',
     justifyContent: 'center',
@@ -118,23 +128,53 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardSmall: {
-    height: 150,
+    height: 165,
     paddingBottom: 24,
   },
   cardLarge: {
-    height: 230,
+    height: 245,
     paddingBottom: 28,
   },
   stageCenter: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  loaderOverlay: {
+    position: 'absolute',
+    zIndex: 2,
+  },
+  restWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  restIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#E5F4EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  restTitle: {
+    color: '#116B58',
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  restSub: {
+    color: '#53746E',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   tempoPill: {
     position: 'absolute',
     bottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F3FBF9',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 14,

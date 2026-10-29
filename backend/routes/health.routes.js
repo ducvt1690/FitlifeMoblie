@@ -75,4 +75,23 @@ router.post('/workout', (req, res) => {
   return res.status(201).json({ success: true, workout: newWorkout });
 });
 
+// GET /api/health/exercises (Proxy đến ExerciseDB OSS API v1)
+router.get('/exercises', async (req, res) => {
+  try {
+    const { after = '', limit = 25, search = '' } = req.query;
+    let url = `https://oss.exercisedb.dev/api/v1/exercises?limit=${encodeURIComponent(limit)}`;
+    if (after) {
+      url += `&after=${encodeURIComponent(after)}`;
+    }
+    if (search) {
+      url = `https://oss.exercisedb.dev/api/v1/exercises/search?search=${encodeURIComponent(search)}`;
+    }
+    const response = await fetch(url);
+    const data = await response.json();
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

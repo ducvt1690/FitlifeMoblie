@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Vibration,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -255,7 +256,7 @@ export default function HomeScreen({ onNavigate }) {
         <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
       </TouchableOpacity>
 
-      {/* 2D Daily Hero & MMA Workout Quick Launcher Card */}
+      {/* ExerciseDB API 1500 Workouts Quick Launcher Card */}
       <TouchableOpacity
         style={styles.aiQuickBanner}
         activeOpacity={0.85}
@@ -266,7 +267,7 @@ export default function HomeScreen({ onNavigate }) {
             width: 48,
             height: 48,
             borderRadius: 14,
-            backgroundColor: '#F3FBF9',
+            backgroundColor: '#FFFFFF',
             borderWidth: 1,
             borderColor: '#D8EEE8',
             alignItems: 'center',
@@ -274,17 +275,21 @@ export default function HomeScreen({ onNavigate }) {
             overflow: 'hidden',
           }}
         >
-          <SpriteAnimation sprite="squat" frameCount={6} frameDurationMs={220} size={46} playing />
+          <Image
+            source={{ uri: 'https://static.exercisedb.dev/media/0JtKWum.gif' }}
+            style={{ width: 44, height: 44 }}
+            resizeMode="contain"
+          />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.aiQuickTitle}>Bài Tập 2D Daily Hero & MMA</Text>
+            <Text style={styles.aiQuickTitle}>Kho Bài Tập ExerciseDB API</Text>
             <View style={[styles.aiTurboBadge, { backgroundColor: '#E5F4EF' }]}>
-              <Text style={[styles.aiTurboText, { color: '#116B58' }]}>17 bài 2D</Text>
+              <Text style={[styles.aiTurboText, { color: '#116B58' }]}>1,500 GIF</Text>
             </View>
           </View>
           <Text style={styles.aiQuickSub}>
-            Hoạt ảnh 2D động tác mẫu • Giọng đọc HLV & Chuông hiệp đấu
+            Động tác mẫu GIF trực quan • Giọng đọc HLV & Bấm giờ 3 hiệp
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
