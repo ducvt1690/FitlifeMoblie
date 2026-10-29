@@ -13,15 +13,36 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOW } from '../constants/theme';
 import { EXERCISES, WORKOUT_CATEGORIES } from '../constants/data';
-import { addWorkoutLog, completeQuest } from '../utils/storage';
+import {
+  addWorkoutLog,
+  addWaterLog,
+  completeQuest,
+  addCoins,
+} from '../utils/storage';
 import { soundManager } from '../utils/audio';
 import ExerciseVisual from '../components/ExerciseVisual';
+import SpriteAnimation from '../components/SpriteAnimation';
+
+function formatDurationLabel(seconds) {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s ? `${m} phút ${s} giây` : `${m} phút`;
+  }
+  return `${seconds} giây`;
+}
 
 export default function WorkoutScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [activeExercise, setActiveExercise] = useState(null);
+  const [selectedExercise, setSelectedExercise] = useState(EXERCISES[0]);
+  const [completedIds, setCompletedIds] = useState([]);
 
-  // Timer states
+  // Inline quick timer (Daily Hero 2D style)
+  const [quickSecondsLeft, setQuickSecondsLeft] = useState(EXERCISES[0].durationSec);
+  const [quickRunning, setQuickRunning] = useState(false);
+
+  // Fullscreen HIIT 3-set Timer modal states
+  const [activeExercise, setActiveExercise] = useState(null);
   const [timerModalVisible, setTimerModalVisible] = useState(false);
   const [timeLeft, setTimeLeft] = useState(45);
   const [initialTime, setInitialTime] = useState(45);
@@ -33,16 +54,43 @@ export default function WorkoutScreen() {
 
   // Audio mute state
   const [isMuted, setIsMuted] = useState(soundManager.isMuted);
-
-  // Modal tab: 'guide' | 'mistakes' | 'muscles'
   const [activeGuideTab, setActiveGuideTab] = useState('guide');
 
   const filteredExercises =
     selectedCategory === 'all'
       ? EXERCISES
+      : selectedCategory === 'daily_hero'
+      ? EXERCISES.filter((ex) => ex.isDailyHero)
       : EXERCISES.filter((ex) => ex.category === selectedCategory);
 
-  // Timer countdown loop
+  // Reset inline quick timer when switching selected exercise
+  useEffect(() => {
+    if (selectedExercise) {
+      setQuickSecondsLeft(selectedExercise.durationSec || 45);
+      setQuickRunning(false);
+    }
+  }, [selectedExercise?.id]);
+
+  // Inline quick timer countdown
+  useEffect(() => {
+    if (!quickRunning || quickSecondsLeft <= 0) return;
+    const timer = setTimeout(() => {
+      setQuickSecondsLeft((s) => {
+        if (s <= 4 && s > 1) {
+          soundManager.playCountdownBeep();
+        }
+        if (s <= 1) {
+          setQuickRunning(false);
+          handleCompleteQuickExercise(selectedExercise);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [quickRunning, quickSecondsLeft, selectedExercise]);
+
+  // Fullscreen HIIT timer countdown loop
   useEffect(() => {
     if (isTimerRunning) {
       intervalRef.current = setInterval(() => {
@@ -66,20 +114,69 @@ export default function WorkoutScreen() {
     };
   }, [isTimerRunning, timerPhase, currentSet]);
 
+  const handleSelectExercise = (ex) => {
+    setSelectedExercise(ex);
+    Vibration.vibrate(30);
+  };
+
+  const handleToggleQuickTimer = () => {
+    const next = !quickRunning;
+    if (next && quickSecondsLeft === 0) {
+      setQuickSecondsLeft(selectedExercise.durationSec || 45);
+    }
+    setQuickRunning(next);
+    Vibration.vibrate(40);
+    if (next) {
+      soundManager.playBoxingBell();
+      soundManager.speakVoice(`Bắt đầu ${selectedExercise.title}!`);
+    } else {
+      soundManager.stopSpeaking();
+    }
+  };
+
+  const handleCompleteQuickExercise = async (ex = selectedExercise) => {
+    if (!ex) return;
+    setQuickRunning(false);
+    setCompletedIds((old) => (old.includes(ex.id) ? old : [...old, ex.id]));
+
+    const exp = ex.expReward || 15;
+    const burned = ex.calories || 20;
+
+    if (ex.id === 'drink') {
+      await addWaterLog(250);
+      await completeQuest('q_water', '+250 ml (Daily Hero 2D)');
+    } else {
+      await addWorkoutLog({
+        title: ex.title,
+        durationSec: ex.durationSec || 45,
+        calories: burned,
+      });
+      await completeQuest('q_workout', `${ex.title} (+${exp} EXP)`);
+    }
+
+    await addCoins(exp);
+    soundManager.playVictorySound();
+    soundManager.speakVoice(`Hoàn thành ${ex.title}! Cộng ${exp} xu thưởng!`);
+
+    Alert.alert(
+      '🎉 Hoàn thành bài tập 2D!',
+      `Bạn đã hoàn thành "${ex.title}"!\n• Đốt cháy: ~${burned} kcal\n• Phần thưởng: +${exp} EXP & Coins 🪙`,
+      [{ text: 'Tuyệt vời' }]
+    );
+  };
+
   const handlePhaseComplete = () => {
     if (timerPhase === 'work') {
       soundManager.playBoxingBell();
       if (currentSet < totalSets) {
         setTimerPhase('rest');
-        setTimeLeft(15); // 15 seconds rest
+        setTimeLeft(15);
         soundManager.speakVoice(`Hết giờ hiệp ${currentSet}. Nghỉ ngơi 15 giây, hít thở sâu!`);
       } else {
-        // Finished all sets!
         setIsTimerRunning(false);
         finishWorkout();
       }
     } else {
-      // Rest finished, start next work set
       soundManager.playBoxingBell();
       const nextSet = currentSet + 1;
       setTimerPhase('work');
@@ -90,6 +187,8 @@ export default function WorkoutScreen() {
   };
 
   const startExercise = (exercise) => {
+    setSelectedExercise(exercise);
+    setQuickRunning(false);
     setActiveExercise(exercise);
     const duration = exercise.durationSec || 45;
     setInitialTime(duration);
@@ -100,7 +199,6 @@ export default function WorkoutScreen() {
     setTimerModalVisible(true);
     setActiveGuideTab('guide');
 
-    // Trigger ring bell and voice coach
     soundManager.playBoxingBell();
     soundManager.speakVoice(`Bắt đầu hiệp một: ${exercise.title}!`);
   };
@@ -113,8 +211,13 @@ export default function WorkoutScreen() {
 
   const finishWorkout = async () => {
     if (!activeExercise) return;
-    const burned = activeExercise.calories * (currentSet || 1);
+    const burned = (activeExercise.calories || 25) * (currentSet || 1);
     const totalDuration = initialTime * (currentSet || 1);
+    const exp = (activeExercise.expReward || 15) * (currentSet || 1);
+
+    setCompletedIds((old) =>
+      old.includes(activeExercise.id) ? old : [...old, activeExercise.id]
+    );
 
     await addWorkoutLog({
       title: activeExercise.title,
@@ -122,15 +225,15 @@ export default function WorkoutScreen() {
       calories: burned,
     });
 
-    // Complete Daily Quest for workout
     await completeQuest('q_workout', `${activeExercise.title} (${burned} kcal)`);
+    await addCoins(exp);
 
     soundManager.playVictorySound();
     soundManager.speakVoice(`Xuất sắc! Bạn đã hoàn thành bài tập ${activeExercise.title}!`);
 
     Alert.alert(
       '🏆 Chiến Thắng Hiệp Đấu!',
-      `Bạn đã xuất sắc hoàn thành ${currentSet} hiệp bài tập ${activeExercise.title} và đốt cháy khoảng ${burned} kcal! (+10 Coins)`,
+      `Bạn đã hoàn thành ${currentSet} hiệp "${activeExercise.title}"!\n• Tiêu hao: ~${burned} kcal\n• Nhận thưởng: +${exp} EXP & Coins 🪙`,
       [{ text: 'Nhận Thưởng', onPress: () => closeTimer() }]
     );
   };
@@ -166,12 +269,104 @@ export default function WorkoutScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* DAILY HERO 2D STAGE (Tham khảo & tích hợp từ DailyHero2D_ExpoStarter) */}
+      {selectedExercise && (
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroEyebrow}>BÀI TẬP 2D ĐANG CHỌN</Text>
+              <Text style={styles.heroTitle}>{selectedExercise.title}</Text>
+              <Text style={styles.heroMeta}>
+                {selectedExercise.level} • {selectedExercise.calories} kcal • +
+                {selectedExercise.expReward || 15} EXP
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.soundToggleSmall}
+              onPress={toggleSound}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'}
+                size={20}
+                color={isMuted ? '#6B817D' : '#116B58'}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.heroAnimationBox}>
+            <SpriteAnimation
+              sprite={selectedExercise.sprite || 'squat'}
+              frameCount={selectedExercise.frameCount || 6}
+              frameDurationMs={selectedExercise.frameDurationMs || 200}
+              size={185}
+              playing={true}
+            />
+          </View>
+
+          {/* Step-by-step instructions from DailyHero2D */}
+          {selectedExercise.instructions && (
+            <View style={styles.instructionList}>
+              {selectedExercise.instructions.map((step, idx) => (
+                <Text key={idx} style={styles.instructionStep}>
+                  • {step}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          <Text style={styles.heroTimerText}>{formatDurationLabel(quickSecondsLeft)}</Text>
+
+          <View style={styles.heroButtonRow}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleToggleQuickTimer}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={quickRunning ? 'pause' : 'play'}
+                size={16}
+                color="#116B58"
+              />
+              <Text style={styles.secondaryButtonText}>
+                {quickRunning ? 'Tạm dừng' : 'Bắt đầu'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.hiitButton}
+              onPress={() => startExercise(selectedExercise)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="timer-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.hiitButtonText}>HIIT 3 Hiệp</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => handleCompleteQuickExercise(selectedExercise)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Hoàn thành</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.heroNote}>
+            {completedIds.includes(selectedExercise.id)
+              ? '✓ Đã hoàn thành hôm nay — Cộng EXP & Coins vào hồ sơ!'
+              : 'Làm theo hoạt ảnh 2D minh họa kết hợp âm thanh hướng dẫn.'}
+          </Text>
+        </View>
+      )}
+
       {/* Category Horizontal Filter */}
+      <Text style={styles.sectionHeaderTitle}>Bộ bài luyện tập 2D ({filteredExercises.length})</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.categoryScroll}
-        contentContainerStyle={{ paddingVertical: 12, gap: 8 }}
+        contentContainerStyle={{ paddingVertical: 8, gap: 8 }}
       >
         {WORKOUT_CATEGORIES.map((cat) => {
           const isSelected = selectedCategory === cat.id;
@@ -181,8 +376,8 @@ export default function WorkoutScreen() {
               style={[
                 styles.categoryChip,
                 isSelected && {
-                  backgroundColor: COLORS.black,
-                  borderColor: COLORS.primary,
+                  backgroundColor: '#116B58',
+                  borderColor: '#116B58',
                 },
               ]}
               onPress={() => setSelectedCategory(cat.id)}
@@ -190,13 +385,13 @@ export default function WorkoutScreen() {
             >
               <Ionicons
                 name={cat.icon}
-                size={16}
-                color={isSelected ? COLORS.primary : COLORS.textMuted}
+                size={15}
+                color={isSelected ? '#FFFFFF' : COLORS.textMuted}
               />
               <Text
                 style={[
                   styles.categoryChipText,
-                  isSelected && { color: COLORS.white, fontWeight: '700' },
+                  isSelected && { color: '#FFFFFF', fontWeight: '800' },
                 ]}
               >
                 {cat.name}
@@ -206,113 +401,72 @@ export default function WorkoutScreen() {
         })}
       </ScrollView>
 
-      {/* Exercises List */}
+      {/* 2D Exercises List */}
       <View style={styles.exerciseList}>
-        {filteredExercises.map((ex) => (
-          <View key={ex.id} style={styles.exerciseCard}>
-            {/* Header info */}
-            <View style={styles.cardHeader}>
-              <View style={styles.exerciseTitleWrap}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.exerciseTitle}>{ex.title}</Text>
-                  {ex.category === 'cardio' && (
-                    <View style={styles.mmaTag}>
-                      <Text style={styles.mmaTagText}>🥊 MMA</Text>
-                    </View>
-                  )}
+        {filteredExercises.map((ex) => {
+          const isSelected = selectedExercise?.id === ex.id;
+          const isDone = completedIds.includes(ex.id);
+          return (
+            <TouchableOpacity
+              key={ex.id}
+              style={[styles.exerciseRowCard, isSelected && styles.selectedRowCard]}
+              onPress={() => handleSelectExercise(ex)}
+              activeOpacity={0.85}
+            >
+              {/* 2D Sprite Thumbnail */}
+              <View style={styles.thumbBox}>
+                <SpriteAnimation
+                  sprite={ex.sprite || 'squat'}
+                  frameCount={ex.frameCount || 6}
+                  frameDurationMs={ex.frameDurationMs || 200}
+                  size={74}
+                  playing={true}
+                />
+              </View>
+
+              <View style={styles.exerciseInfoCol}>
+                <View style={styles.rowTitleWrap}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>
+                    {ex.title}
+                  </Text>
+                  {isDone && <Text style={styles.doneCheck}>✓</Text>}
                 </View>
 
-                {/* Badges */}
-                <View style={styles.badgeRow}>
-                  <View style={[styles.badge, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-                    <Ionicons name="flame" size={13} color="#EF4444" />
-                    <Text style={[styles.badgeText, { color: '#EF4444' }]}>
-                      {ex.calories} kcal
-                    </Text>
+                <Text style={styles.rowMeta}>
+                  {ex.targetReps
+                    ? `${ex.targetReps} lần`
+                    : formatDurationLabel(ex.durationSec)}{' '}
+                  • {ex.calories} kcal • +{ex.expReward || 15} EXP
+                </Text>
+
+                <Text style={styles.rowInstruction} numberOfLines={2}>
+                  {ex.instructions?.[0] || ex.description}
+                </Text>
+
+                <View style={styles.rowActionBar}>
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelBadgeText}>{ex.level}</Text>
                   </View>
-                  <View style={[styles.badge, { backgroundColor: '#F1F5F9' }]}>
-                    <Ionicons name="time-outline" size={13} color={COLORS.textMuted} />
-                    <Text style={[styles.badgeText, { color: COLORS.textMuted }]}>
-                      {ex.durationSec}s / hiệp
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.badge,
-                      {
-                        backgroundColor:
-                          ex.level === 'Dễ'
-                            ? COLORS.primaryLight
-                            : ex.level === 'Trung bình'
-                            ? COLORS.accentLight
-                            : COLORS.dangerLight,
-                      },
-                    ]}
+
+                  <TouchableOpacity
+                    style={styles.rowStartBtn}
+                    onPress={() => startExercise(ex)}
+                    activeOpacity={0.8}
                   >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        {
-                          color:
-                            ex.level === 'Dễ'
-                              ? COLORS.primaryDark
-                              : ex.level === 'Trung bình'
-                              ? '#B45309'
-                              : COLORS.danger,
-                        },
-                      ]}
-                    >
-                      {ex.level}
-                    </Text>
-                  </View>
+                    <Ionicons name="play" size={12} color="#FFFFFF" />
+                    <Text style={styles.rowStartBtnText}>Tập 3 Hiệp</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            </View>
-
-            {/* Visual Movement Demonstration Preview */}
-            <View style={styles.demoPreviewWrap}>
-              <ExerciseVisual
-                animationType={ex.animationType}
-                isPlaying={true}
-                size="small"
-                phase="work"
-              />
-            </View>
-
-            {/* Target Muscles */}
-            {ex.muscles && (
-              <View style={styles.muscleRow}>
-                <Text style={styles.muscleLabel}>🎯 Cơ tác động:</Text>
-                {ex.muscles.map((m, idx) => (
-                  <View key={idx} style={styles.musclePill}>
-                    <Text style={styles.muscleText}>{m}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <Text style={styles.exerciseDesc}>{ex.description}</Text>
-
-            {/* Card Footer */}
-            <View style={styles.cardFooter}>
-              <Text style={styles.repsText}>🎯 Lộ trình: {ex.reps}</Text>
-              <TouchableOpacity
-                style={styles.startBtn}
-                onPress={() => startExercise(ex)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="play" size={16} color={COLORS.black} />
-                <Text style={styles.startBtnText}>Vào Tập Ngay</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* FULLSCREEN EXERCISE & TIMER MODAL */}
       <Modal visible={timerModalVisible} animationType="slide">
         <SafeAreaView style={styles.timerScreen}>
-          {/* Top Bar: Close + Title + Mute Audio Toggle */}
+          {/* Top Bar */}
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.iconCircleBtn} onPress={closeTimer}>
               <Ionicons name="close" size={24} color={COLORS.white} />
@@ -323,14 +477,17 @@ export default function WorkoutScreen() {
                 {activeExercise?.title}
               </Text>
               <Text style={styles.modalExerciseSub}>
-                Hiệp đấu {currentSet} / {totalSets}
+                Hiệp đấu {currentSet} / {totalSets} • +{activeExercise?.expReward || 15} EXP/hiệp
               </Text>
             </View>
 
             <TouchableOpacity
               style={[
                 styles.iconCircleBtn,
-                !isMuted && { backgroundColor: 'rgba(195, 245, 60, 0.2)', borderColor: COLORS.primary },
+                !isMuted && {
+                  backgroundColor: 'rgba(195, 245, 60, 0.2)',
+                  borderColor: COLORS.primary,
+                },
               ]}
               onPress={toggleSound}
             >
@@ -347,24 +504,29 @@ export default function WorkoutScreen() {
             contentContainerStyle={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Visual Movement Dynamic Demo Stage */}
+            {/* 2D Sprite Visual Stage */}
             <View style={styles.stageWrap}>
               <ExerciseVisual
                 animationType={activeExercise?.animationType}
+                sprite={activeExercise?.sprite}
+                frameCount={activeExercise?.frameCount || 6}
+                frameDurationMs={activeExercise?.frameDurationMs}
                 isPlaying={isTimerRunning}
                 size="large"
                 phase={timerPhase}
               />
             </View>
 
-            {/* Phase Badge & Circular Timer */}
+            {/* Phase Badge & Countdown */}
             <View style={styles.timerDisplayCard}>
               <View
                 style={[
                   styles.phaseTag,
                   {
                     backgroundColor:
-                      timerPhase === 'work' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                      timerPhase === 'work'
+                        ? 'rgba(239, 68, 68, 0.15)'
+                        : 'rgba(34, 197, 94, 0.15)',
                     borderColor: timerPhase === 'work' ? '#EF4444' : '#22C55E',
                   },
                 ]}
@@ -389,9 +551,9 @@ export default function WorkoutScreen() {
               <Text style={styles.countdownSub}>
                 {isTimerRunning
                   ? timerPhase === 'work'
-                    ? 'Duy trì nhịp động tác & thở đều!'
-                    : 'Hít sâu hồi sức chuẩn bị hiệp sau'
-                  : 'Đang tạm dừng — Bấm nút để tiếp tục'}
+                    ? 'Làm theo hoạt ảnh 2D & giữ nhịp thở đều!'
+                    : 'Hít sâu hồi sức chuẩn bị hiệp tiếp theo'
+                  : 'Đang tạm dừng — Bấm nút Play để tiếp tục'}
               </Text>
             </View>
 
@@ -478,7 +640,6 @@ export default function WorkoutScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Tab Contents */}
               <View style={styles.guideContentArea}>
                 {activeGuideTab === 'guide' && (
                   <View style={styles.guideItem}>
@@ -486,7 +647,7 @@ export default function WorkoutScreen() {
                     <Text style={styles.guideBody}>
                       {activeExercise?.prep || activeExercise?.description}
                     </Text>
-                    <Text style={[styles.guideLabel, { marginTop: 8 }]}>⚡ Phát lực:</Text>
+                    <Text style={[styles.guideLabel, { marginTop: 8 }]}>⚡ Động tác:</Text>
                     <Text style={styles.guideBody}>{activeExercise?.action}</Text>
                   </View>
                 )}
@@ -497,7 +658,8 @@ export default function WorkoutScreen() {
                       🚫 Những lỗi sai hay gặp:
                     </Text>
                     <Text style={styles.guideBody}>
-                      {activeExercise?.mistakes || 'Giữ thăng bằng và không nín thở khi vận động.'}
+                      {activeExercise?.mistakes ||
+                        'Giữ thăng bằng và không nín thở khi vận động.'}
                     </Text>
                   </View>
                 )}
@@ -508,7 +670,8 @@ export default function WorkoutScreen() {
                       🌬️ Nhịp thở chuẩn:
                     </Text>
                     <Text style={styles.guideBody}>
-                      {activeExercise?.breathing || 'Thở ra khi phát lực, hít vào khi phục hồi.'}
+                      {activeExercise?.breathing ||
+                        'Thở ra khi phát lực, hít vào khi phục hồi.'}
                     </Text>
                     <Text style={[styles.guideLabel, { marginTop: 8, color: '#38BDF8' }]}>
                       🎯 Nhóm cơ kích hoạt:
@@ -535,6 +698,141 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     paddingHorizontal: 16,
   },
+  // Hero 2D card (DailyHero2D style)
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    marginTop: 10,
+    borderWidth: 1.5,
+    borderColor: '#D8EEE8',
+    ...SHADOW,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  heroEyebrow: {
+    color: '#198A73',
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#173B36',
+    marginTop: 4,
+  },
+  heroMeta: {
+    color: '#6B817D',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  soundToggleSmall: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E5F4EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroAnimationBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+    backgroundColor: '#F3FBF9',
+    borderRadius: 18,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E1EFEB',
+  },
+  instructionList: {
+    backgroundColor: '#F8FCFB',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    gap: 3,
+  },
+  instructionStep: {
+    color: '#335C55',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  heroTimerText: {
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#173B36',
+    marginVertical: 6,
+  },
+  heroButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#E5F4EF',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  secondaryButtonText: {
+    color: '#116B58',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  hiitButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  hiitButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  primaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#159C7A',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  heroNote: {
+    color: '#6B817D',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+
+  sectionHeaderTitle: {
+    color: '#173B36',
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 18,
+    marginBottom: 4,
+  },
   categoryScroll: {
     marginBottom: 8,
   },
@@ -543,133 +841,108 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.card,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: '#D8EEE8',
     gap: 6,
   },
   categoryChipText: {
     fontSize: SIZES.xs,
     color: COLORS.textMuted,
+    fontWeight: '600',
   },
   exerciseList: {
-    gap: 16,
+    gap: 10,
   },
-  exerciseCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  exerciseRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 10,
+    borderWidth: 1.5,
+    borderColor: '#E1EFEB',
     ...SHADOW,
   },
-  cardHeader: {
-    marginBottom: 10,
+  selectedRowCard: {
+    borderColor: '#159C7A',
+    backgroundColor: '#F5FCFA',
   },
-  exerciseTitleWrap: {
-    gap: 6,
+  thumbBox: {
+    width: 78,
+    height: 78,
+    borderRadius: 14,
+    backgroundColor: '#F3FBF9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#D8EEE8',
   },
-  titleRow: {
+  exerciseInfoCol: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  rowTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  exerciseTitle: {
-    fontSize: SIZES.base,
+  rowTitle: {
+    color: '#173B36',
     fontWeight: '800',
-    color: COLORS.text,
+    fontSize: 14,
     flex: 1,
   },
-  mmaTag: {
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  mmaTagText: {
-    color: '#FFF',
-    fontSize: 10,
+  doneCheck: {
+    color: '#159C7A',
+    fontSize: 18,
     fontWeight: '900',
+    marginLeft: 6,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
+  rowMeta: {
+    color: '#198A73',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '700',
   },
-  badge: {
+  rowInstruction: {
+    color: '#6B817D',
+    fontSize: 11,
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  rowActionBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  levelBadge: {
+    backgroundColor: '#E5F4EF',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 6,
+  },
+  levelBadgeText: {
+    color: '#116B58',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  rowStartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#159C7A',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     gap: 4,
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  demoPreviewWrap: {
-    marginVertical: 10,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  muscleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  muscleLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-  },
-  musclePill: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  muscleText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  exerciseDesc: {
-    fontSize: SIZES.xs,
-    color: COLORS.textMuted,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 12,
-  },
-  repsText: {
-    fontSize: SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  startBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 12,
-    gap: 6,
-  },
-  startBtnText: {
-    color: COLORS.black,
+  rowStartBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '800',
-    fontSize: SIZES.xs,
   },
 
   // MODAL TIMER STYLES

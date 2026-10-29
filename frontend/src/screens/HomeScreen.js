@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import WaveformCard from '../components/WaveformCard';
 import MetricCard from '../components/MetricCard';
+import SpriteAnimation from '../components/SpriteAnimation';
 import {
   getUserProfile,
   getWaterLogsToday,
@@ -249,6 +250,41 @@ export default function HomeScreen({ onNavigate }) {
           </View>
           <Text style={styles.aiQuickSub}>
             Hỏi nhanh thực đơn, tra cứu calo món ăn & bài tập MMA
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
+      </TouchableOpacity>
+
+      {/* 2D Daily Hero & MMA Workout Quick Launcher Card */}
+      <TouchableOpacity
+        style={styles.aiQuickBanner}
+        activeOpacity={0.85}
+        onPress={() => onNavigate && onNavigate('workout')}
+      >
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            backgroundColor: '#F3FBF9',
+            borderWidth: 1,
+            borderColor: '#D8EEE8',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <SpriteAnimation sprite="squat" frameCount={6} frameDurationMs={220} size={46} playing />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.aiQuickTitle}>Bài Tập 2D Daily Hero & MMA</Text>
+            <View style={[styles.aiTurboBadge, { backgroundColor: '#E5F4EF' }]}>
+              <Text style={[styles.aiTurboText, { color: '#116B58' }]}>17 bài 2D</Text>
+            </View>
+          </View>
+          <Text style={styles.aiQuickSub}>
+            Hoạt ảnh 2D động tác mẫu • Giọng đọc HLV & Chuông hiệp đấu
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
