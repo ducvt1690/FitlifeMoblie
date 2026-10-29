@@ -11,10 +11,10 @@ import {
   Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import WaveformCard from '../components/WaveformCard';
 import MetricCard from '../components/MetricCard';
-import SpriteAnimation from '../components/SpriteAnimation';
 import {
   getUserProfile,
   getWaterLogsToday,
@@ -289,12 +289,12 @@ export default function HomeScreen({ onNavigate }) {
         onPress={() => onNavigate && onNavigate('workout')}
       >
         <View style={styles.workoutPreviewBox}>
-          <SpriteAnimation
-            sprite="burpee"
-            frameCount={6}
-            frameDurationMs={160}
-            size={48}
-            playing={true}
+          <ExpoImage
+            source={{ uri: 'https://static.exercisedb.dev/media/0JtKWum.gif' }}
+            style={{ width: 46, height: 46 }}
+            contentFit="contain"
+            autoplay={true}
+            cachePolicy="memory-disk"
           />
         </View>
         <View style={{ flex: 1 }}>

@@ -1,49 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import SpriteAnimation from './SpriteAnimation';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ExerciseVisual({
   gifUrl = null,
-  animationType = 'squat',
-  sprite = null,
-  frameCount = 6,
-  frameDurationMs = 170,
   isPlaying = true,
   size = 'large', // 'thumb' | 'small' | 'large'
   phase = 'work', // 'work' | 'rest'
   bodyPartLabel = '',
 }) {
   const [loadingGif, setLoadingGif] = useState(Boolean(gifUrl));
-  const [gifError, setGifError] = useState(false);
-
-  const resolvedSprite = sprite || animationType || 'squat';
 
   useEffect(() => {
-    setGifError(false);
     setLoadingGif(Boolean(gifUrl));
   }, [gifUrl]);
 
   if (size === 'thumb') {
     return (
       <View style={styles.thumbWrap}>
-        {gifUrl && !gifError ? (
+        {gifUrl ? (
           <ExpoImage
             source={{ uri: gifUrl }}
             style={styles.thumbGif}
             contentFit="contain"
             autoplay={isPlaying}
             cachePolicy="memory-disk"
-            onError={() => setGifError(true)}
           />
         ) : (
-          <SpriteAnimation
-            sprite={resolvedSprite}
-            frameCount={frameCount}
-            frameDurationMs={frameDurationMs}
-            size={74}
-            playing={isPlaying}
-          />
+          <Ionicons name="barbell-outline" size={28} color="#059669" />
         )}
       </View>
     );
@@ -56,48 +41,33 @@ export default function ExerciseVisual({
     <View style={[styles.cardContainer, isSmall ? styles.cardSmall : styles.cardLarge]}>
       {phase === 'rest' ? (
         <View style={styles.restWrap}>
-          <SpriteAnimation
-            sprite="breathe"
-            frameCount={6}
-            frameDurationMs={280}
-            size={isSmall ? 110 : 140}
-            playing={true}
-          />
+          <View style={styles.restIconCircle}>
+            <Ionicons name="leaf" size={36} color="#059669" />
+          </View>
           <Text style={styles.restTitle}>ĐANG NGHỈ GIỮA HIỆP • HÍT THỞ SÂU</Text>
           <Text style={styles.restSub}>Hít sâu bằng mũi 4s • Thở ra chậm bằng miệng 4s</Text>
         </View>
-      ) : gifUrl && !gifError ? (
+      ) : (
         <View style={styles.stageCenter}>
           {loadingGif && (
             <ActivityIndicator
               size="small"
-              color="#159C7A"
+              color="#059669"
               style={styles.loaderOverlay}
             />
           )}
-          <ExpoImage
-            source={{ uri: gifUrl }}
-            style={{ width: boxSize, height: boxSize }}
-            contentFit="contain"
-            autoplay={isPlaying}
-            cachePolicy="memory-disk"
-            onLoadStart={() => setLoadingGif(true)}
-            onLoad={() => setLoadingGif(false)}
-            onError={() => {
-              setLoadingGif(false);
-              setGifError(true);
-            }}
-          />
-        </View>
-      ) : (
-        <View style={styles.stageCenter}>
-          <SpriteAnimation
-            sprite={resolvedSprite}
-            frameCount={frameCount}
-            frameDurationMs={frameDurationMs}
-            size={boxSize}
-            playing={isPlaying}
-          />
+          {gifUrl && (
+            <ExpoImage
+              source={{ uri: gifUrl }}
+              style={{ width: boxSize, height: boxSize }}
+              contentFit="contain"
+              autoplay={isPlaying}
+              cachePolicy="memory-disk"
+              onLoadStart={() => setLoadingGif(true)}
+              onLoad={() => setLoadingGif(false)}
+              onError={() => setLoadingGif(false)}
+            />
+          )}
         </View>
       )}
 
@@ -105,7 +75,7 @@ export default function ExerciseVisual({
         <View
           style={[
             styles.liveDot,
-            { backgroundColor: phase === 'rest' ? '#159C7A' : '#16A34A' },
+            { backgroundColor: phase === 'rest' ? '#059669' : '#16A34A' },
           ]}
         />
         <Text style={styles.tempoText} numberOfLines={1}>
@@ -127,7 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D8EEE8',
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -140,8 +110,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#D8EEE8',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -168,17 +138,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
+  restIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   restTitle: {
-    color: '#116B58',
-    fontWeight: '900',
+    color: '#059669',
+    fontWeight: '800',
     fontSize: 13,
     letterSpacing: 0.4,
     marginTop: 2,
   },
   restSub: {
-    color: '#53746E',
-    fontSize: 11,
-    marginTop: 2,
+    color: '#475569',
+    fontSize: 11.5,
+    marginTop: 3,
     textAlign: 'center',
   },
   tempoPill: {
@@ -186,16 +165,16 @@ const styles = StyleSheet.create({
     bottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3FBF9',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#CBE7E0',
+    borderColor: '#E2E8F0',
   },
   tempoPillRest: {
-    backgroundColor: '#E5F4EF',
-    borderColor: '#159C7A',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
   },
   liveDot: {
     width: 6,
@@ -204,7 +183,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   tempoText: {
-    color: '#173B36',
+    color: '#0F172A',
     fontSize: 11,
     fontWeight: '700',
   },

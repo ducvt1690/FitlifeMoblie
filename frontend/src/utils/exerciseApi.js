@@ -3,41 +3,13 @@
 
 export const EXERCISE_API_BASE = 'https://oss.exercisedb.dev/api/v1';
 
-// Helper to map any ExerciseDB item to our 17 local 2D Sprite Sheets
-export function pickSpriteForExercise(raw = {}) {
-  const name = String(raw.name || '').toLowerCase();
-  const bodyPart = String((raw.bodyParts && raw.bodyParts[0]) || '').toLowerCase();
-
-  if (name.includes('burpee')) return 'burpee';
-  if (name.includes('push-up') || name.includes('pushup') || name.includes('dip') || name.includes('press')) return 'pushup';
-  if (name.includes('knee') || name.includes('kick') || name.includes('jump')) return 'knee';
-  if (name.includes('crunch') || name.includes('sit-up') || name.includes('abs')) return 'crunch';
-  if (name.includes('plank')) return 'plank';
-  if (name.includes('climber')) return 'climber';
-  if (name.includes('dog') || name.includes('cobra') || name.includes('stretch')) return 'cobra';
-  if (name.includes('squat') || name.includes('lunge') || name.includes('calf')) return 'squat';
-  if (name.includes('run') || name.includes('sprint')) return 'run';
-  if (name.includes('walk')) return 'walk';
-  if (name.includes('curl') || name.includes('crossover') || name.includes('pulldown') || name.includes('row')) return 'boxing';
-
-  if (bodyPart === 'cardio') return 'burpee';
-  if (bodyPart === 'waist') return 'crunch';
-  if (bodyPart === 'chest' || bodyPart === 'shoulders') return 'pushup';
-  if (bodyPart === 'upper legs' || bodyPart === 'lower legs') return 'squat';
-  if (bodyPart === 'back') return 'cobra';
-  if (bodyPart === 'upper arms' || bodyPart === 'lower arms') return 'boxing';
-  return 'squat';
-}
-
-// Initial 10 exercises from ExerciseDB API (ordered with most dynamic animations first)
+// Initial 10 exercises from ExerciseDB API
 export const INITIAL_API_EXERCISES = [
   {
     exerciseId: '0JtKWum',
     name: 'dumbbell burpee',
     viName: 'Burpee kết hợp tạ đơn đốt mỡ (Dumbbell Burpee)',
     gifUrl: 'https://static.exercisedb.dev/media/0JtKWum.gif',
-    sprite: 'burpee',
-    frameDurationMs: 150,
     bodyParts: ['cardio'],
     equipments: ['dumbbell'],
     targetMuscles: ['cardiovascular system'],
@@ -64,8 +36,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'push-up inside leg kick',
     viName: 'Hít đất đá chân trong (Push-up Inside Leg Kick)',
     gifUrl: 'https://static.exercisedb.dev/media/0br45wL.gif',
-    sprite: 'pushup',
-    frameDurationMs: 165,
     bodyParts: ['upper legs'],
     equipments: ['bodyweight'],
     targetMuscles: ['glutes'],
@@ -92,8 +62,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'assisted hanging knee raise',
     viName: 'Treo xà nâng gối tập bụng (Assisted Hanging Knee Raise)',
     gifUrl: 'https://static.exercisedb.dev/media/03lzqwk.gif',
-    sprite: 'knee',
-    frameDurationMs: 160,
     bodyParts: ['waist'],
     equipments: ['assisted'],
     targetMuscles: ['abdominals'],
@@ -120,8 +88,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'impossible dips',
     viName: 'Chống đẩy xà kép (Impossible Dips)',
     gifUrl: 'https://static.exercisedb.dev/media/05Cf2v8.gif',
-    sprite: 'pushup',
-    frameDurationMs: 175,
     bodyParts: ['upper arms'],
     equipments: ['bodyweight'],
     targetMuscles: ['triceps'],
@@ -148,8 +114,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'Cable Crossover',
     viName: 'Ép ngực với máy cáp đôi (Cable Crossover)',
     gifUrl: 'https://static.exercisedb.dev/media/0CXGHya.gif',
-    sprite: 'boxing',
-    frameDurationMs: 165,
     bodyParts: ['chest'],
     equipments: ['cable'],
     targetMuscles: ['pectorals'],
@@ -176,8 +140,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'barbell seated bradford rocky press',
     viName: 'Ngồi đẩy vai tạ đòn Rocky (Bradford Rocky Press)',
     gifUrl: 'https://static.exercisedb.dev/media/0dCyly0.gif',
-    sprite: 'stretch',
-    frameDurationMs: 170,
     bodyParts: ['shoulders'],
     equipments: ['barbell'],
     targetMuscles: ['deltoids'],
@@ -204,8 +166,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'band underhand pulldown',
     viName: 'Kéo dây kháng lực tập lưng xô (Band Underhand Pulldown)',
     gifUrl: 'https://static.exercisedb.dev/media/0I5fUyn.gif',
-    sprite: 'stretch',
-    frameDurationMs: 170,
     bodyParts: ['back'],
     equipments: ['resistance band'],
     targetMuscles: ['latissimus dorsi'],
@@ -232,8 +192,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'dumbbell standing reverse curl',
     viName: 'Đứng cuốn tạ đơn sấp tay (Dumbbell Reverse Curl)',
     gifUrl: 'https://static.exercisedb.dev/media/0IgNjSM.gif',
-    sprite: 'boxing',
-    frameDurationMs: 165,
     bodyParts: ['upper arms'],
     equipments: ['dumbbell'],
     targetMuscles: ['biceps'],
@@ -260,8 +218,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'Single-Leg Floor Calf Raise',
     viName: 'Nhón bắp chân 1 chân trên sàn (Single-Leg Calf Raise)',
     gifUrl: 'https://static.exercisedb.dev/media/0jp9Rlz.gif',
-    sprite: 'squat',
-    frameDurationMs: 170,
     bodyParts: ['lower legs'],
     equipments: ['bodyweight'],
     targetMuscles: ['calves'],
@@ -288,8 +244,6 @@ export const INITIAL_API_EXERCISES = [
     name: 'upward facing dog',
     viName: 'Chó ngửa mặt giãn cơ lưng (Upward Facing Dog)',
     gifUrl: 'https://static.exercisedb.dev/media/01qpYSe.gif',
-    sprite: 'cobra',
-    frameDurationMs: 190,
     bodyParts: ['back'],
     equipments: ['bodyweight'],
     targetMuscles: ['erector spinae'],
@@ -396,8 +350,6 @@ export function normalizeApiExercise(raw) {
   const durationSec = bodyPart === 'cardio' ? 60 : 45;
 
   const title = raw.viName || formatTitleCase(raw.name || 'Exercise');
-  const sprite = raw.sprite || pickSpriteForExercise(raw);
-  const frameDurationMs = raw.frameDurationMs || (isCardioOrLegs ? 155 : 175);
 
   return {
     id,
@@ -405,10 +357,6 @@ export function normalizeApiExercise(raw) {
     title,
     rawName: raw.name,
     gifUrl: raw.gifUrl || `https://static.exercisedb.dev/media/${id}.gif`,
-    sprite,
-    animationType: sprite,
-    frameCount: 6,
-    frameDurationMs,
     category: bodyPart,
     bodyPartLabel: BODY_PART_VI[bodyPart] || formatTitleCase(bodyPart),
     equipment: EQUIPMENT_VI[equipment.toLowerCase()] || formatTitleCase(equipment),
@@ -452,7 +400,6 @@ export async function fetchExercisesFromApi({ cursor = null, limit = 25, search 
     const json = await res.json();
     const rawList = Array.isArray(json.data) ? json.data : [];
 
-    // Preserve Vietnamese translations & sprite mapping if exerciseId matches our pre-translated set
     const presetMap = {};
     INITIAL_API_EXERCISES.forEach((item) => {
       presetMap[item.exerciseId] = item;
@@ -463,7 +410,6 @@ export async function fetchExercisesFromApi({ cursor = null, limit = 25, search 
       return normalizeApiExercise(preset ? { ...item, ...preset } : item);
     });
 
-    // Put high-motion exercises (like Burpee, Push-up Kick, Hanging Knee Raise) before static holds on initial page
     if (!cursor && !search) {
       normalized.sort((a, b) => {
         if (a.id === '01qpYSe') return 1;

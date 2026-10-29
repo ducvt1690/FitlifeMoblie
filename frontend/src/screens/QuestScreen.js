@@ -27,7 +27,6 @@ import {
   addWorkoutLog,
 } from '../utils/storage';
 import { soundManager } from '../utils/audio';
-import SpriteAnimation from '../components/SpriteAnimation';
 
 export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
   const [coins, setCoins] = useState(150);
@@ -494,36 +493,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalHeaderTitle}>🏋️ Hoàn thành buổi tập</Text>
-            <Text style={styles.modalSubDesc}>Chọn hoạt động thể lực hoặc mở kho bài tập động tác mẫu:</Text>
-
-            <View
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#F3FBF9',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#D8EEE8',
-                paddingVertical: 8,
-                marginBottom: 10,
-              }}
-            >
-              <SpriteAnimation
-                sprite={
-                  workoutType.includes('Hít đất')
-                    ? 'pushup'
-                    : workoutType.includes('Chạy')
-                    ? 'run'
-                    : workoutType.includes('boxing')
-                    ? 'boxing'
-                    : 'burpee'
-                }
-                frameCount={6}
-                frameDurationMs={160}
-                size={110}
-                playing={true}
-              />
-            </View>
+            <Text style={styles.modalSubDesc}>Chọn hoạt động thể lực hoặc mở kho bài tập API:</Text>
 
             <View style={{ gap: 8 }}>
               {[

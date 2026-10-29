@@ -418,12 +418,10 @@ export default function WorkoutScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Animated GIF + 2D Sprite Display */}
+          {/* Animated GIF Display */}
           <View style={styles.heroAnimationBox}>
             <ExerciseVisual
               gifUrl={selectedExercise.gifUrl}
-              sprite={selectedExercise.sprite}
-              frameDurationMs={selectedExercise.frameDurationMs || 165}
               bodyPartLabel={selectedExercise.bodyPartLabel}
               isPlaying={true}
               size="small"
@@ -558,11 +556,9 @@ export default function WorkoutScreen() {
               onPress={() => handleSelectExercise(ex)}
               activeOpacity={0.85}
             >
-              {/* Animated GIF / 2D Sprite Thumbnail */}
+              {/* Animated GIF Thumbnail */}
               <ExerciseVisual
                 gifUrl={ex.gifUrl}
-                sprite={ex.sprite}
-                frameDurationMs={ex.frameDurationMs || 175}
                 isPlaying={true}
                 size="thumb"
               />
@@ -665,12 +661,10 @@ export default function WorkoutScreen() {
             contentContainerStyle={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Large Animated GIF + 2D Stage */}
+            {/* Large Animated GIF Stage */}
             <View style={styles.stageWrap}>
               <ExerciseVisual
                 gifUrl={activeExercise?.gifUrl}
-                sprite={activeExercise?.sprite}
-                frameDurationMs={activeExercise?.frameDurationMs || 160}
                 bodyPartLabel={activeExercise?.bodyPartLabel}
                 isPlaying={isTimerRunning}
                 size="large"
