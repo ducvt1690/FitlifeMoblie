@@ -6,6 +6,7 @@ import { COLORS, SHADOWS } from '../constants/theme';
 export default function FloatingNavBar({ activeTab, onSelectTab }) {
   const tabs = [
     { key: 'home', label: 'Home', icon: 'home-outline', activeIcon: 'home' },
+    { key: 'workout', label: 'Tập luyện', icon: 'barbell-outline', activeIcon: 'barbell' },
     { key: 'activity', label: 'Thử thách', icon: 'flash-outline', activeIcon: 'flash' },
     { key: 'quests', label: 'Nhiệm vụ', icon: 'trophy-outline', activeIcon: 'trophy' },
     { key: 'menu', label: 'Menu', icon: 'grid-outline', activeIcon: 'grid' },

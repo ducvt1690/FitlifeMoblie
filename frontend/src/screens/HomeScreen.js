@@ -264,8 +264,8 @@ export default function HomeScreen({ onNavigate }) {
       >
         <View
           style={{
-            width: 48,
-            height: 48,
+            width: 52,
+            height: 52,
             borderRadius: 14,
             backgroundColor: '#FFFFFF',
             borderWidth: 1,
@@ -275,21 +275,23 @@ export default function HomeScreen({ onNavigate }) {
             overflow: 'hidden',
           }}
         >
-          <Image
-            source={{ uri: 'https://static.exercisedb.dev/media/0JtKWum.gif' }}
-            style={{ width: 44, height: 44 }}
-            resizeMode="contain"
+          <SpriteAnimation
+            sprite="burpee"
+            frameCount={6}
+            frameDurationMs={160}
+            size={48}
+            playing={true}
           />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.aiQuickTitle}>Kho Bài Tập ExerciseDB API</Text>
+            <Text style={styles.aiQuickTitle}>Kho Bài Tập GIF & 2D</Text>
             <View style={[styles.aiTurboBadge, { backgroundColor: '#E5F4EF' }]}>
-              <Text style={[styles.aiTurboText, { color: '#116B58' }]}>1,500 GIF</Text>
+              <Text style={[styles.aiTurboText, { color: '#116B58' }]}>1,500 Bài</Text>
             </View>
           </View>
           <Text style={styles.aiQuickSub}>
-            Động tác mẫu GIF trực quan • Giọng đọc HLV & Bấm giờ 3 hiệp
+            Động tác chuyển động GIF + 2D • Giọng đọc HLV & Bấm giờ 3 hiệp
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={COLORS.black} />

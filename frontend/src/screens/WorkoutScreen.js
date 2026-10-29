@@ -404,11 +404,14 @@ export default function WorkoutScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Animated GIF Display */}
+          {/* Animated GIF + 2D Sprite Display */}
           <View style={styles.heroAnimationBox}>
             <ExerciseVisual
               gifUrl={selectedExercise.gifUrl}
+              sprite={selectedExercise.sprite}
+              frameDurationMs={selectedExercise.frameDurationMs || 165}
               bodyPartLabel={selectedExercise.bodyPartLabel}
+              isPlaying={true}
               size="small"
               phase="work"
             />
@@ -541,14 +544,14 @@ export default function WorkoutScreen() {
               onPress={() => handleSelectExercise(ex)}
               activeOpacity={0.85}
             >
-              {/* GIF Thumbnail */}
-              <View style={styles.thumbBox}>
-                <Image
-                  source={{ uri: ex.gifUrl }}
-                  style={styles.thumbGif}
-                  resizeMode="contain"
-                />
-              </View>
+              {/* Animated GIF / 2D Sprite Thumbnail */}
+              <ExerciseVisual
+                gifUrl={ex.gifUrl}
+                sprite={ex.sprite}
+                frameDurationMs={ex.frameDurationMs || 175}
+                isPlaying={true}
+                size="thumb"
+              />
 
               <View style={styles.exerciseInfoCol}>
                 <View style={styles.rowTitleWrap}>
@@ -648,10 +651,12 @@ export default function WorkoutScreen() {
             contentContainerStyle={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Large Animated GIF Stage */}
+            {/* Large Animated GIF + 2D Stage */}
             <View style={styles.stageWrap}>
               <ExerciseVisual
                 gifUrl={activeExercise?.gifUrl}
+                sprite={activeExercise?.sprite}
+                frameDurationMs={activeExercise?.frameDurationMs || 160}
                 bodyPartLabel={activeExercise?.bodyPartLabel}
                 isPlaying={isTimerRunning}
                 size="large"

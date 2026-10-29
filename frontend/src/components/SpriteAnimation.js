@@ -26,7 +26,7 @@ export const SPRITE_SHEETS = {
 export function SpriteAnimation({
   sprite = 'squat',
   frameCount = 6,
-  frameDurationMs = 180,
+  frameDurationMs = 170,
   size = 180,
   playing = true,
 }) {
@@ -50,13 +50,12 @@ export function SpriteAnimation({
     <View style={[styles.viewport, { width: size, height: size }]}>
       <Image
         source={sheet}
+        fadeDuration={0}
         resizeMode="stretch"
         style={{
-          position: 'absolute',
-          left: -frame * size,
-          top: 0,
           width: size * frameCount,
           height: size,
+          transform: [{ translateX: -frame * size }],
         }}
         accessible
         accessibilityLabel={`Hoạt ảnh 2D bài tập ${sprite}`}
@@ -68,7 +67,8 @@ export function SpriteAnimation({
 const styles = StyleSheet.create({
   viewport: {
     overflow: 'hidden',
-    position: 'relative',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
 });
 

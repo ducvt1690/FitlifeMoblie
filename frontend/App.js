@@ -13,6 +13,7 @@ import { COLORS } from './src/constants/theme';
 
 import FloatingNavBar from './src/components/FloatingNavBar';
 import HomeScreen from './src/screens/HomeScreen';
+import WorkoutScreen from './src/screens/WorkoutScreen';
 import QuestScreen from './src/screens/QuestScreen';
 import ChallengeScreen from './src/screens/ChallengeScreen';
 import MenuScreen from './src/screens/MenuScreen';
@@ -43,7 +44,7 @@ export default function App() {
   }, []);
 
   const handleNavigate = (target) => {
-    if (['home', 'activity', 'quests', 'menu'].includes(target)) {
+    if (['home', 'workout', 'activity', 'quests', 'menu'].includes(target)) {
       setMenuInitialModal(null);
       setActiveTab(target);
     } else {
@@ -99,11 +100,15 @@ export default function App() {
                 onNavigate={handleNavigate}
               />
             )}
+            {activeTab === 'workout' && (
+              <WorkoutScreen key={`workout_${refreshKey}`} />
+            )}
             {activeTab === 'activity' && <ChallengeScreen />}
             {activeTab === 'quests' && (
               <QuestScreen
                 key={`quest_${refreshKey}`}
                 onBack={() => handleNavigate('home')}
+                onNavigate={handleNavigate}
                 onQuestCompleted={triggerRefresh}
               />
             )}

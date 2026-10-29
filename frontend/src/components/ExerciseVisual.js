@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/theme';
 import SpriteAnimation from './SpriteAnimation';
 
 export default function ExerciseVisual({
@@ -9,26 +9,39 @@ export default function ExerciseVisual({
   animationType = 'squat',
   sprite = null,
   frameCount = 6,
-  frameDurationMs = 200,
+  frameDurationMs = 170,
   isPlaying = true,
   size = 'large', // 'thumb' | 'small' | 'large'
   phase = 'work', // 'work' | 'rest'
   bodyPartLabel = '',
 }) {
-  const [loadingGif, setLoadingGif] = useState(true);
+  const [loadingGif, setLoadingGif] = useState(Boolean(gifUrl));
+  const [gifError, setGifError] = useState(false);
+  // 'both' shows both ExerciseDB GIF + 2D Sprite Coach side by side; 'gif' or '2d' focuses on one
+  const [viewMode, setViewMode] = useState('both');
+
+  const resolvedSprite = sprite || animationType || 'squat';
+
+  useEffect(() => {
+    setGifError(false);
+    setLoadingGif(Boolean(gifUrl));
+  }, [gifUrl]);
 
   if (size === 'thumb') {
     return (
       <View style={styles.thumbWrap}>
-        {gifUrl ? (
-          <Image
+        {gifUrl && !gifError ? (
+          <ExpoImage
             source={{ uri: gifUrl }}
             style={styles.thumbGif}
-            resizeMode="contain"
+            contentFit="contain"
+            autoplay={isPlaying}
+            cachePolicy="memory-disk"
+            onError={() => setGifError(true)}
           />
         ) : (
           <SpriteAnimation
-            sprite={sprite || animationType || 'squat'}
+            sprite={resolvedSprite}
             frameCount={frameCount}
             frameDurationMs={frameDurationMs}
             size={74}
@@ -40,19 +53,98 @@ export default function ExerciseVisual({
   }
 
   const isSmall = size === 'small';
-  const boxSize = isSmall ? 135 : 210;
+  const singleBoxSize = isSmall ? 140 : 195;
+  const dualBoxSize = isSmall ? 118 : 150;
 
   return (
     <View style={[styles.cardContainer, isSmall ? styles.cardSmall : styles.cardLarge]}>
+      {/* Mode Switcher Bar (top-right) */}
+      {phase !== 'rest' && (
+        <View style={styles.modeSwitchRow}>
+          <TouchableOpacity
+            style={[styles.modePill, viewMode === 'both' && styles.modePillActive]}
+            onPress={() => setViewMode('both')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modePillText, viewMode === 'both' && styles.modePillTextActive]}>
+              ⚡ GIF + 2D
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modePill, viewMode === 'gif' && styles.modePillActive]}
+            onPress={() => setViewMode('gif')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modePillText, viewMode === 'gif' && styles.modePillTextActive]}>
+              🎬 GIF Mẫu
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modePill, viewMode === '2d' && styles.modePillActive]}
+            onPress={() => setViewMode('2d')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modePillText, viewMode === '2d' && styles.modePillTextActive]}>
+              🏃 HLV 2D
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {phase === 'rest' ? (
         <View style={styles.restWrap}>
-          <View style={styles.restIconCircle}>
-            <Ionicons name="leaf" size={38} color="#159C7A" />
-          </View>
-          <Text style={styles.restTitle}>ĐANG NGHỈ GIỮA HIỆP</Text>
+          <SpriteAnimation
+            sprite="breathe"
+            frameCount={6}
+            frameDurationMs={280}
+            size={isSmall ? 110 : 140}
+            playing={true}
+          />
+          <Text style={styles.restTitle}>ĐANG NGHỈ GIỮA HIỆP • HÍT THỞ SÂU</Text>
           <Text style={styles.restSub}>Hít sâu bằng mũi 4s • Thở ra chậm bằng miệng 4s</Text>
         </View>
-      ) : gifUrl ? (
+      ) : viewMode === 'both' && gifUrl && !gifError ? (
+        <View style={styles.dualStageRow}>
+          {/* Left: ExerciseDB Animated GIF */}
+          <View style={styles.dualPane}>
+            {loadingGif && (
+              <ActivityIndicator
+                size="small"
+                color="#159C7A"
+                style={styles.loaderOverlay}
+              />
+            )}
+            <ExpoImage
+              source={{ uri: gifUrl }}
+              style={{ width: dualBoxSize, height: dualBoxSize }}
+              contentFit="contain"
+              autoplay={isPlaying}
+              cachePolicy="memory-disk"
+              onLoadStart={() => setLoadingGif(true)}
+              onLoad={() => setLoadingGif(false)}
+              onError={() => {
+                setLoadingGif(false);
+                setGifError(true);
+              }}
+            />
+            <Text style={styles.paneCaption}>Giải phẫu 3D (GIF)</Text>
+          </View>
+
+          <View style={styles.dualDivider} />
+
+          {/* Right: 2D Sprite Sheet Animation (instant 0ms offline movement) */}
+          <View style={styles.dualPane}>
+            <SpriteAnimation
+              sprite={resolvedSprite}
+              frameCount={frameCount}
+              frameDurationMs={frameDurationMs}
+              size={dualBoxSize}
+              playing={isPlaying}
+            />
+            <Text style={styles.paneCaption}>Nhịp độ HLV 2D</Text>
+          </View>
+        </View>
+      ) : viewMode === 'gif' && gifUrl && !gifError ? (
         <View style={styles.stageCenter}>
           {loadingGif && (
             <ActivityIndicator
@@ -61,21 +153,27 @@ export default function ExerciseVisual({
               style={styles.loaderOverlay}
             />
           )}
-          <Image
+          <ExpoImage
             source={{ uri: gifUrl }}
-            style={{ width: boxSize, height: boxSize }}
-            resizeMode="contain"
+            style={{ width: singleBoxSize, height: singleBoxSize }}
+            contentFit="contain"
+            autoplay={isPlaying}
+            cachePolicy="memory-disk"
             onLoadStart={() => setLoadingGif(true)}
-            onLoadEnd={() => setLoadingGif(false)}
+            onLoad={() => setLoadingGif(false)}
+            onError={() => {
+              setLoadingGif(false);
+              setGifError(true);
+            }}
           />
         </View>
       ) : (
         <View style={styles.stageCenter}>
           <SpriteAnimation
-            sprite={sprite || animationType || 'squat'}
+            sprite={resolvedSprite}
             frameCount={frameCount}
             frameDurationMs={frameDurationMs}
-            size={boxSize}
+            size={singleBoxSize}
             playing={isPlaying}
           />
         </View>
@@ -92,8 +190,8 @@ export default function ExerciseVisual({
           {phase === 'rest'
             ? 'Hồi phục nhịp tim • Thả lỏng cơ bắp'
             : bodyPartLabel
-            ? `Động tác mẫu GIF • Nhóm cơ: ${bodyPartLabel}`
-            : 'Làm theo động tác mẫu & giữ nhịp thở đều'}
+            ? `Động tác chuyển động trực tiếp • Nhóm cơ: ${bodyPartLabel}`
+            : 'Làm theo động tác chuyển động & giữ nhịp thở đều'}
         </Text>
       </View>
     </View>
@@ -128,12 +226,67 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardSmall: {
-    height: 165,
-    paddingBottom: 24,
+    height: 195,
+    paddingTop: 22,
+    paddingBottom: 26,
   },
   cardLarge: {
     height: 245,
+    paddingTop: 24,
     paddingBottom: 28,
+  },
+  modeSwitchRow: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    backgroundColor: '#F1F8F6',
+    borderRadius: 12,
+    padding: 2,
+    gap: 2,
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: '#D8EEE8',
+  },
+  modePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9,
+  },
+  modePillActive: {
+    backgroundColor: '#116B58',
+  },
+  modePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#53746E',
+  },
+  modePillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  dualStageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  dualPane: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  dualDivider: {
+    width: 1,
+    height: '75%',
+    backgroundColor: '#E4F2EE',
+  },
+  paneCaption: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#53746E',
+    marginTop: 2,
   },
   stageCenter: {
     alignItems: 'center',
@@ -148,30 +301,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  restIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#E5F4EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
   restTitle: {
     color: '#116B58',
     fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 0.5,
+    fontSize: 13,
+    letterSpacing: 0.4,
+    marginTop: 2,
   },
   restSub: {
     color: '#53746E',
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 2,
     textAlign: 'center',
   },
   tempoPill: {
     position: 'absolute',
-    bottom: 8,
+    bottom: 6,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3FBF9',

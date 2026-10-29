@@ -27,8 +27,9 @@ import {
   addWorkoutLog,
 } from '../utils/storage';
 import { soundManager } from '../utils/audio';
+import SpriteAnimation from '../components/SpriteAnimation';
 
-export default function QuestScreen({ onBack, onQuestCompleted }) {
+export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
   const [coins, setCoins] = useState(150);
   const [activeTab, setActiveTab] = useState('Daily');
   const [quests, setQuests] = useState([]);
@@ -489,7 +490,37 @@ export default function QuestScreen({ onBack, onQuestCompleted }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalHeaderTitle}>🏋️ Hoàn thành buổi tập</Text>
-            <Text style={styles.modalSubDesc}>Chọn hoạt động thể lực bạn đã làm:</Text>
+            <Text style={styles.modalSubDesc}>Chọn hoạt động thể lực hoặc mở kho bài tập động tác mẫu:</Text>
+
+            <View
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#F3FBF9',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#D8EEE8',
+                paddingVertical: 8,
+                marginBottom: 10,
+              }}
+            >
+              <SpriteAnimation
+                sprite={
+                  workoutType.includes('Hít đất')
+                    ? 'pushup'
+                    : workoutType.includes('Chạy')
+                    ? 'run'
+                    : workoutType.includes('boxing')
+                    ? 'boxing'
+                    : 'burpee'
+                }
+                frameCount={6}
+                frameDurationMs={160}
+                size={110}
+                playing={true}
+              />
+            </View>
+
             <View style={{ gap: 8 }}>
               {[
                 'Tabata Cardio (15 phút)',
@@ -511,6 +542,31 @@ export default function QuestScreen({ onBack, onQuestCompleted }) {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {onNavigate && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 10,
+                  backgroundColor: '#116B58',
+                  borderRadius: 14,
+                  paddingVertical: 11,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+                onPress={() => {
+                  setActiveModal(null);
+                  onNavigate('workout');
+                }}
+              >
+                <Ionicons name="play-circle" size={18} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                  Mở Kho 1,500 Bài Tập GIF & 2D Có Bấm Giờ
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setActiveModal(null)}>
                 <Text style={styles.cancelBtnText}>Hủy</Text>
