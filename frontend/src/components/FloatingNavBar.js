@@ -5,11 +5,11 @@ import { COLORS, SHADOWS } from '../constants/theme';
 
 export default function FloatingNavBar({ activeTab, onSelectTab }) {
   const tabs = [
-    { key: 'home', label: 'Home', icon: 'home-outline', activeIcon: 'home' },
+    { key: 'home', label: 'Trang chủ', icon: 'home-outline', activeIcon: 'home' },
     { key: 'workout', label: 'Tập luyện', icon: 'barbell-outline', activeIcon: 'barbell' },
     { key: 'activity', label: 'Thử thách', icon: 'flash-outline', activeIcon: 'flash' },
     { key: 'quests', label: 'Nhiệm vụ', icon: 'trophy-outline', activeIcon: 'trophy' },
-    { key: 'menu', label: 'Menu', icon: 'grid-outline', activeIcon: 'grid' },
+    { key: 'menu', label: 'Tiện ích', icon: 'grid-outline', activeIcon: 'grid' },
   ];
 
   return (
@@ -29,7 +29,7 @@ export default function FloatingNavBar({ activeTab, onSelectTab }) {
             >
               <Ionicons
                 name={isActive ? tab.activeIcon : tab.icon}
-                size={isActive ? 21 : 20}
+                size={isActive ? 19 : 19}
                 color={isActive ? COLORS.black : '#94A3B8'}
               />
               {isActive && (
@@ -48,7 +48,7 @@ export default function FloatingNavBar({ activeTab, onSelectTab }) {
 const styles = StyleSheet.create({
   dockContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
+    bottom: Platform.OS === 'ios' ? 22 : 14,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
   },
   dockPill: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A', // Deep obsidian dark dock
+    backgroundColor: '#0F172A',
     borderRadius: 36,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 6,
-    gap: 6,
+    gap: 4,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     ...SHADOWS.dock,
   },
   tabItem: {
@@ -71,19 +71,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     borderRadius: 24,
     gap: 6,
   },
   tabActive: {
-    backgroundColor: COLORS.lime, // Neon Lime active pill
+    backgroundColor: COLORS.lime,
   },
   tabInactive: {
     backgroundColor: 'transparent',
   },
   tabLabelActive: {
-    fontSize: 11,
-    fontWeight: '900',
+    fontSize: 11.5,
+    fontWeight: '800',
     color: COLORS.black,
     letterSpacing: -0.2,
   },

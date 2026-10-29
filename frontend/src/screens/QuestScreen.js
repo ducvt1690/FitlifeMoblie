@@ -170,7 +170,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={20} color={COLORS.black} />
-          <Text style={styles.headerTitle}>Quest</Text>
+          <Text style={styles.headerTitle}>Nhiệm Vụ Hàng Ngày</Text>
         </TouchableOpacity>
 
         {/* Coin pill */}
@@ -178,7 +178,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
           <View style={styles.coinIconCircle}>
             <Ionicons name="sparkles" size={12} color="#D97706" />
           </View>
-          <Text style={styles.coinText}>{coins}</Text>
+          <Text style={styles.coinText}>{coins} xu</Text>
         </View>
       </View>
 
@@ -186,7 +186,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
       <View style={styles.progressCard}>
         <View style={styles.progressCardHeader}>
           <Text style={styles.progressCountText}>
-            <Text style={styles.boldCount}>{completedCount}/{totalQuests}</Text> Daily Quests
+            <Text style={styles.boldCount}>{completedCount}/{totalQuests}</Text> Nhiệm vụ hoàn thành
           </Text>
         </View>
 
@@ -199,22 +199,26 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
         </View>
 
         <Text style={styles.progressSubtext}>
-          Complete all your daily quests to get 70 bonus coins!
+          Hoàn thành toàn bộ nhiệm vụ hôm nay để nhận tới 70 xu thưởng!
         </Text>
       </View>
 
       {/* Tabs Row */}
       <View style={styles.tabsRow}>
-        {['Daily', 'Exclusive', 'Streak'].map((tab) => {
-          const isActive = activeTab === tab;
+        {[
+          { key: 'Daily', label: 'Hằng ngày' },
+          { key: 'Exclusive', label: 'Đặc biệt' },
+          { key: 'Streak', label: 'Chuỗi ngày' },
+        ].map((tab) => {
+          const isActive = activeTab === tab.key;
           return (
             <TouchableOpacity
-              key={tab}
+              key={tab.key}
               style={[
                 styles.tabPill,
                 isActive ? styles.tabPillActive : styles.tabPillInactive,
               ]}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.8}
             >
               <Text
@@ -223,7 +227,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
                   isActive ? styles.tabTextActive : styles.tabTextInactive,
                 ]}
               >
-                {tab}
+                {tab.label}
               </Text>
             </TouchableOpacity>
           );
@@ -262,11 +266,11 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
               {item.completed ? (
                 <View style={styles.doneContent}>
                   <Ionicons name="checkmark" size={14} color="#059669" />
-                  <Text style={styles.doneText}>Done</Text>
+                  <Text style={styles.doneText}>Xong</Text>
                 </View>
               ) : (
                 <View style={styles.goContent}>
-                  <Text style={styles.goText}>Go</Text>
+                  <Text style={styles.goText}>Làm</Text>
                   <View style={styles.miniCoinDot}>
                     <Ionicons name="sparkles" size={8} color="#D97706" />
                   </View>

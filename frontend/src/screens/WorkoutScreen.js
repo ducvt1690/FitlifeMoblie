@@ -346,10 +346,24 @@ export default function WorkoutScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 110 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Top Screen Header */}
+      <View style={styles.screenHeader}>
+        <View>
+          <Text style={styles.screenTitle}>Luyện Tập & Thể Lực</Text>
+          <Text style={styles.screenSub}>
+            Kho 1,500 bài tập chuẩn quốc tế kèm bấm giờ HIIT & giọng đọc HLV
+          </Text>
+        </View>
+      </View>
+
       {/* SEARCH BAR FOR EXERCISEDB API (1,500 EXERCISES) */}
       <View style={styles.searchBarWrap}>
-        <Ionicons name="search-outline" size={18} color="#6B817D" />
+        <Ionicons name="search-outline" size={18} color={COLORS.textSecondary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Tìm trong 1,500 bài tập (vd: squat, push-up, burpee, curl...)"
@@ -370,17 +384,17 @@ export default function WorkoutScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.searchBtn} onPress={handleSearchSubmit}>
-          <Text style={styles.searchBtnText}>Tìm</Text>
+          <Text style={styles.searchBtnText}>Tìm kiếm</Text>
         </TouchableOpacity>
       </View>
 
-      {/* SELECTED EXERCISE HERO CARD WITH ANIMATED GIF FROM EXERCISEDB */}
+      {/* SELECTED EXERCISE HERO CARD */}
       {selectedExercise && (
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <View style={{ flex: 1 }}>
               <View style={styles.eyebrowRow}>
-                <Text style={styles.heroEyebrow}>ĐỘNG TÁC MẪU EXERCISEDB API</Text>
+                <Text style={styles.heroEyebrow}>BÀI TẬP ĐANG CHỌN</Text>
                 <View style={styles.idPill}>
                   <Text style={styles.idPillText}>#{selectedExercise.id}</Text>
                 </View>
@@ -399,7 +413,7 @@ export default function WorkoutScreen() {
               <Ionicons
                 name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'}
                 size={20}
-                color={isMuted ? '#6B817D' : '#116B58'}
+                color={isMuted ? '#64748B' : '#059669'}
               />
             </TouchableOpacity>
           </View>
@@ -840,44 +854,62 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
+  },
+  screenHeader: {
+    paddingTop: 16,
+    marginBottom: 4,
+  },
+  screenTitle: {
+    fontSize: SIZES.xl,
+    fontWeight: '800',
+    color: COLORS.black,
+    letterSpacing: -0.3,
+  },
+  screenSub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    fontWeight: '500',
   },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: '#D8EEE8',
+    borderWidth: 1,
+    borderColor: COLORS.border,
     gap: 8,
+    ...SHADOW,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#173B36',
+    color: COLORS.black,
+    fontWeight: '500',
     paddingVertical: 4,
   },
   searchBtn: {
-    backgroundColor: '#159C7A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    backgroundColor: COLORS.black,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 11,
   },
   searchBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   heroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 16,
-    marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: '#D8EEE8',
+    padding: 18,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...SHADOW,
   },
   heroTopRow: {
@@ -891,86 +923,89 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heroEyebrow: {
-    color: '#198A73',
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.8,
+    color: '#059669',
+    fontWeight: '700',
+    fontSize: 10.5,
+    letterSpacing: 0.7,
   },
   idPill: {
-    backgroundColor: '#E5F4EF',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 6,
   },
   idPillText: {
-    color: '#116B58',
+    color: '#059669',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   heroTitle: {
-    fontSize: 19,
-    fontWeight: '900',
-    color: '#173B36',
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.black,
     marginTop: 4,
+    letterSpacing: -0.2,
   },
   heroMeta: {
-    color: '#6B817D',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 3,
   },
   soundToggleSmall: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E5F4EF',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroAnimationBox: {
-    marginVertical: 10,
+    marginVertical: 12,
   },
   muscleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   muscleLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#173B36',
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: COLORS.black,
   },
   musclePill: {
-    backgroundColor: '#E5F4EF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
     borderRadius: 8,
   },
   muscleText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#116B58',
+    color: '#059669',
   },
   instructionList: {
-    backgroundColor: '#F8FCFB',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
-    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 5,
   },
   instructionStep: {
-    color: '#335C55',
+    color: '#334155',
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 18,
     fontWeight: '500',
   },
   heroTimerText: {
     textAlign: 'center',
     fontSize: 22,
-    fontWeight: '900',
-    color: '#173B36',
+    fontWeight: '800',
+    color: COLORS.black,
     marginVertical: 6,
   },
   heroButtonRow: {
@@ -981,7 +1016,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#E5F4EF',
+    backgroundColor: '#F1F5F9',
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: 'center',
@@ -989,14 +1024,14 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   secondaryButtonText: {
-    color: '#116B58',
-    fontWeight: '800',
+    color: COLORS.black,
+    fontWeight: '700',
     fontSize: 12,
   },
   hiitButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.black,
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: 'center',
@@ -1005,13 +1040,13 @@ const styles = StyleSheet.create({
   },
   hiitButtonText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 12,
   },
   primaryButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#159C7A',
+    backgroundColor: '#059669',
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: 'center',
@@ -1020,29 +1055,30 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 12,
   },
   heroNote: {
-    color: '#6B817D',
-    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontSize: 11.5,
     textAlign: 'center',
     marginTop: 10,
+    fontWeight: '500',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 18,
+    marginTop: 20,
     marginBottom: 4,
   },
   sectionHeaderTitle: {
-    color: '#173B36',
-    fontSize: 17,
-    fontWeight: '900',
+    color: COLORS.black,
+    fontSize: 16,
+    fontWeight: '800',
   },
   categoryScroll: {
-    marginBottom: 8,
+    marginBottom: 10,
   },
   categoryChip: {
     flexDirection: 'row',
@@ -1051,13 +1087,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#D8EEE8',
+    borderWidth: 1,
+    borderColor: COLORS.border,
     gap: 6,
   },
   categoryChipText: {
-    fontSize: SIZES.xs,
-    color: COLORS.textMuted,
+    fontSize: 12,
+    color: COLORS.textSecondary,
     fontWeight: '600',
   },
   exerciseList: {
@@ -1067,15 +1103,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 10,
-    borderWidth: 1.5,
-    borderColor: '#E1EFEB',
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...SHADOW,
   },
   selectedRowCard: {
-    borderColor: '#159C7A',
-    backgroundColor: '#F5FCFA',
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
   },
   thumbBox: {
     width: 82,
@@ -1086,7 +1122,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#D8EEE8',
+    borderColor: COLORS.border,
   },
   thumbGif: {
     width: 78,
@@ -1102,65 +1138,65 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowTitle: {
-    color: '#173B36',
+    color: COLORS.black,
     fontWeight: '800',
     fontSize: 14,
     flex: 1,
   },
   doneCheck: {
-    color: '#159C7A',
-    fontSize: 18,
-    fontWeight: '900',
+    color: '#059669',
+    fontSize: 17,
+    fontWeight: '800',
     marginLeft: 6,
   },
   rowMeta: {
-    color: '#198A73',
-    fontSize: 11,
+    color: '#059669',
+    fontSize: 11.5,
     marginTop: 2,
     fontWeight: '700',
   },
   rowInstruction: {
-    color: '#6B817D',
-    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontSize: 11.5,
     marginTop: 3,
-    lineHeight: 15,
+    lineHeight: 16,
   },
   rowActionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 8,
   },
   levelBadge: {
-    backgroundColor: '#E5F4EF',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   levelBadgeText: {
-    color: '#116B58',
-    fontSize: 10,
-    fontWeight: '700',
+    color: '#475569',
+    fontSize: 10.5,
+    fontWeight: '600',
   },
   rowStartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#159C7A',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    backgroundColor: COLORS.black,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 9,
     gap: 4,
   },
   rowStartBtnText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   loadMoreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#116B58',
+    backgroundColor: COLORS.black,
     paddingVertical: 14,
     borderRadius: 16,
     marginTop: 14,
@@ -1168,7 +1204,7 @@ const styles = StyleSheet.create({
   },
   loadMoreBtnText: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 13,
   },
 

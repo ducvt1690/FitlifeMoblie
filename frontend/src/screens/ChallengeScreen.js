@@ -15,14 +15,20 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { getSavedChallenges, saveChallenges, addCoins } from '../utils/storage';
 import { soundManager } from '../utils/audio';
 
+const FILTER_OPTIONS = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'active', label: 'Đang diễn ra' },
+  { key: 'completed', label: 'Đã hoàn thành' },
+];
+
 export default function ChallengeScreen() {
-  const [activeFilter, setActiveFilter] = useState('Active challenge');
+  const [activeFilter, setActiveFilter] = useState('active');
 
   const [challenges, setChallenges] = useState([
     {
       id: 'c1',
-      title: 'Run 20 km',
-      remainingTime: '2.4 hours remaining',
+      title: 'Chạy bộ 20 km trong tuần',
+      remainingTime: 'Còn 2 ngày 4 giờ',
       progress: 90,
       myProgress: '18 / 20 km',
       barColor: COLORS.lime,
@@ -30,41 +36,41 @@ export default function ChallengeScreen() {
       iconBg: COLORS.pastelYellow,
       iconColor: '#B45309',
       participants: [
-        { name: 'Alex', avatarBg: '#FEF08A', status: '20km Completed', completed: true },
-        { name: 'Sarah', avatarBg: '#FED7AA', status: '17km Not done yet', completed: false },
-        { name: 'Mike', avatarBg: '#DDD6FE', status: '16km Not done yet', completed: false },
+        { name: 'Minh', avatarBg: '#FEF08A', status: 'Hoàn thành 20km', completed: true },
+        { name: 'Lan', avatarBg: '#FED7AA', status: 'Đã chạy 17km', completed: false },
+        { name: 'Huy', avatarBg: '#DDD6FE', status: 'Đã chạy 16km', completed: false },
       ],
     },
     {
       id: 'c2',
-      title: 'Drink water',
-      remainingTime: '2.4 hours remaining',
-      progress: 41,
-      myProgress: '1.6 / 4 Liters',
-      barColor: '#FDE047',
+      title: 'Uống đủ 2.5L nước mỗi ngày',
+      remainingTime: 'Còn 5 giờ hôm nay',
+      progress: 65,
+      myProgress: '1.6 / 2.5 Lít',
+      barColor: '#38BDF8',
       icon: 'water',
       iconBg: COLORS.pastelBlue,
       iconColor: '#0284C7',
       participants: [
-        { name: 'Emma', avatarBg: '#BAE6FD', status: '100% 4 liters total', completed: true },
-        { name: 'David', avatarBg: '#FBCFE8', status: '50% 2 liters total', completed: false },
-        { name: 'Lily', avatarBg: '#BBF7D0', status: '25% 1 liters total', completed: false },
+        { name: 'Trang', avatarBg: '#BAE6FD', status: 'Đạt 100% (2.5L)', completed: true },
+        { name: 'Đức', avatarBg: '#FBCFE8', status: 'Đạt 80% (2.0L)', completed: false },
+        { name: 'Vy', avatarBg: '#BBF7D0', status: 'Đạt 60% (1.5L)', completed: false },
       ],
     },
     {
       id: 'c3',
-      title: 'Sleep for 30 days',
-      remainingTime: '15 days remaining',
+      title: 'Ngủ sớm trước 23h (30 ngày)',
+      remainingTime: 'Còn 15 ngày',
       progress: 50,
-      myProgress: '15 / 30 Days',
-      barColor: '#DDD6FE',
+      myProgress: '15 / 30 Ngày',
+      barColor: '#A78BFA',
       icon: 'bed',
       iconBg: COLORS.pastelPurple,
       iconColor: '#7C3AED',
       participants: [
-        { name: 'Chris', avatarBg: '#FED7AA', status: '20 days Completed', completed: true },
-        { name: 'John', avatarBg: '#BBF7D0', status: '15 days in progress', completed: false },
-        { name: 'Anna', avatarBg: '#BAE6FD', status: '10 days in progress', completed: false },
+        { name: 'Nam', avatarBg: '#FED7AA', status: 'Chuỗi 20 ngày', completed: true },
+        { name: 'Tuấn', avatarBg: '#BBF7D0', status: 'Chuỗi 15 ngày', completed: false },
+        { name: 'Mai', avatarBg: '#BAE6FD', status: 'Chuỗi 10 ngày', completed: false },
       ],
     },
   ]);
@@ -101,7 +107,7 @@ export default function ChallengeScreen() {
     const newEntry = {
       id: `c_${Date.now()}`,
       title: newTitle.trim(),
-      remainingTime: `${newDays} days remaining`,
+      remainingTime: `Còn ${newDays || 7} ngày`,
       progress: 10,
       myProgress: `Mục tiêu: ${newTarget || 'Đạt chỉ tiêu'}`,
       barColor: COLORS.lime,
@@ -109,8 +115,8 @@ export default function ChallengeScreen() {
       iconBg: COLORS.pastelMint,
       iconColor: '#0F766E',
       participants: [
-        { name: 'Alex', avatarBg: '#FEF08A', status: 'Vừa tham gia', completed: false },
-        { name: 'Sarah', avatarBg: '#FED7AA', status: 'Sẵn sàng', completed: false },
+        { name: 'Bạn', avatarBg: '#FEF08A', status: 'Vừa tham gia', completed: false },
+        { name: 'Minh', avatarBg: '#FED7AA', status: 'Sẵn sàng', completed: false },
       ],
     };
     setChallenges((prev) => [newEntry, ...prev]);
@@ -142,8 +148,8 @@ export default function ChallengeScreen() {
   };
 
   const filteredChallenges = challenges.filter((c) => {
-    if (activeFilter === 'Challenges completed') return c.progress >= 100;
-    if (activeFilter === 'Active challenge') return c.progress < 100;
+    if (activeFilter === 'completed') return c.progress >= 100;
+    if (activeFilter === 'active') return c.progress < 100;
     return true;
   });
 
@@ -155,11 +161,14 @@ export default function ChallengeScreen() {
     >
       {/* Top Header Row */}
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Challenge</Text>
+        <View>
+          <Text style={styles.headerTitle}>Thử Thách Cộng Đồng</Text>
+          <Text style={styles.headerSub}>Đua top rèn luyện thể lực cùng bạn bè mỗi ngày</Text>
+        </View>
         <TouchableOpacity
           style={styles.plusButton}
           onPress={() => setCreateModalVisible(true)}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <Ionicons name="add" size={22} color={COLORS.black} />
         </TouchableOpacity>
@@ -171,16 +180,16 @@ export default function ChallengeScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filtersScroll}
       >
-        {['All', 'Active challenge', 'Challenges completed'].map((item) => {
-          const isActive = activeFilter === item;
+        {FILTER_OPTIONS.map((item) => {
+          const isActive = activeFilter === item.key;
           return (
             <TouchableOpacity
-              key={item}
+              key={item.key}
               style={[
                 styles.filterPill,
                 isActive ? styles.filterPillActive : styles.filterPillInactive,
               ]}
-              onPress={() => setActiveFilter(item)}
+              onPress={() => setActiveFilter(item.key)}
               activeOpacity={0.8}
             >
               <Text
@@ -189,7 +198,7 @@ export default function ChallengeScreen() {
                   isActive ? styles.filterTextActive : styles.filterTextInactive,
                 ]}
               >
-                {item}
+                {item.label}
               </Text>
             </TouchableOpacity>
           );
@@ -211,16 +220,18 @@ export default function ChallengeScreen() {
                 <View style={[styles.challengeIconWrap, { backgroundColor: c.iconBg }]}>
                   <Ionicons name={c.icon} size={20} color={c.iconColor} />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.challengeTitle}>{c.title}</Text>
                   <View style={styles.timeRow}>
-                    <Ionicons name="hourglass-outline" size={11} color={COLORS.textMuted} />
+                    <Ionicons name="time-outline" size={12} color={COLORS.textMuted} />
                     <Text style={styles.timeText}>{c.remainingTime}</Text>
                   </View>
                 </View>
               </View>
 
-              <Text style={styles.progressPercentText}>{c.progress}%</Text>
+              <View style={styles.percentBadge}>
+                <Text style={styles.progressPercentText}>{c.progress}%</Text>
+              </View>
             </View>
 
             {/* Thick Progress bar */}
@@ -238,9 +249,12 @@ export default function ChallengeScreen() {
               {c.participants.map((p, idx) => (
                 <View key={idx} style={styles.friendItem}>
                   <View style={[styles.friendAvatar, { backgroundColor: p.avatarBg }]}>
-                    <Ionicons name="person" size={11} color={COLORS.black} />
+                    <Text style={styles.friendInitial}>{(p.name || 'U')[0]}</Text>
                   </View>
-                  <Text style={styles.friendStatus} numberOfLines={1}>{p.status}</Text>
+                  <Text style={styles.friendName}>{p.name}</Text>
+                  <Text style={styles.friendStatus} numberOfLines={1}>
+                    {p.status}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -256,19 +270,22 @@ export default function ChallengeScreen() {
             <Text style={styles.modalSubDesc}>Đặt mục tiêu cùng bạn bè rèn luyện mỗi ngày:</Text>
             <TextInput
               style={styles.textInputField}
-              placeholder="Tên thử thách (Ví dụ: Chạy bộ 30km, 100 cái hít đất...)"
+              placeholder="Tên thử thách (VD: Chạy bộ 30km, 100 cái hít đất...)"
+              placeholderTextColor={COLORS.textMuted}
               value={newTitle}
               onChangeText={setNewTitle}
             />
             <TextInput
               style={styles.textInputField}
-              placeholder="Mục tiêu cụ thể (Ví dụ: 30 km, 14 ngày)"
+              placeholder="Mục tiêu cụ thể (VD: 30 km, 14 ngày)"
+              placeholderTextColor={COLORS.textMuted}
               value={newTarget}
               onChangeText={setNewTarget}
             />
             <TextInput
               style={styles.textInputField}
               placeholder="Thời hạn hoàn thành (Số ngày)"
+              placeholderTextColor={COLORS.textMuted}
               keyboardType="numeric"
               value={newDays}
               onChangeText={setNewDays}
@@ -290,17 +307,22 @@ export default function ChallengeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalHeaderTitle}>🏆 {selectedChallenge?.title}</Text>
-            <Text style={styles.modalSubDesc}>Tiến độ hiện tại: {selectedChallenge?.progress}% ({selectedChallenge?.remainingTime})</Text>
+            <Text style={styles.modalSubDesc}>
+              Tiến độ hiện tại: {selectedChallenge?.progress}% ({selectedChallenge?.remainingTime})
+            </Text>
             <View style={[styles.progressTrack, { marginVertical: 14 }]}>
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${selectedChallenge?.progress}%`, backgroundColor: selectedChallenge?.barColor || COLORS.lime },
+                  {
+                    width: `${selectedChallenge?.progress}%`,
+                    backgroundColor: selectedChallenge?.barColor || COLORS.lime,
+                  },
                 ]}
               />
             </View>
             <Text style={{ fontSize: SIZES.xs, color: COLORS.textSecondary, marginBottom: 16 }}>
-              Bấm check-in để ghi nhận nỗ lực hôm nay của bạn và tăng điểm tiến độ!
+              Bấm Check-in để ghi nhận nỗ lực hôm nay của bạn và tăng +10% tiến độ!
             </Text>
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelectedChallenge(null)}>
@@ -318,7 +340,7 @@ export default function ChallengeScreen() {
       </Modal>
 
       {/* Bottom padding for floating dock */}
-      <View style={{ height: 100 }} />
+      <View style={{ height: 110 }} />
     </ScrollView>
   );
 }
@@ -339,17 +361,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerTitle: {
-    fontSize: SIZES.xxl,
-    fontWeight: '900',
+    fontSize: SIZES.xl,
+    fontWeight: '800',
     color: COLORS.black,
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    fontWeight: '500',
   },
   plusButton: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 14,
+    backgroundColor: COLORS.lime,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.soft,
@@ -357,12 +384,12 @@ const styles = StyleSheet.create({
   filtersScroll: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   filterPill: {
     paddingHorizontal: 16,
     paddingVertical: 9,
-    borderRadius: 22,
+    borderRadius: 20,
   },
   filterPillActive: {
     backgroundColor: COLORS.black,
@@ -373,7 +400,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   filterText: {
-    fontSize: SIZES.xs,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   filterTextActive: {
@@ -383,12 +410,14 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   challengeList: {
-    gap: 16,
+    gap: 14,
   },
   challengeCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...SHADOWS.card,
   },
   cardTopRow: {
@@ -401,16 +430,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+    marginRight: 8,
   },
   challengeIconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },
   challengeTitle: {
-    fontSize: SIZES.base,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.black,
     marginBottom: 3,
@@ -421,24 +452,31 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timeText: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: COLORS.textMuted,
+    fontWeight: '500',
+  },
+  percentBadge: {
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   progressPercentText: {
-    fontSize: SIZES.xl,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     color: COLORS.black,
   },
   progressTrack: {
-    height: 14,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 7,
+    height: 11,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 7,
+    borderRadius: 6,
   },
   friendsList: {
     flexDirection: 'row',
@@ -451,34 +489,43 @@ const styles = StyleSheet.create({
   friendItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   friendAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
+  friendInitial: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.black,
+  },
+  friendName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.black,
+  },
   friendStatus: {
-    fontSize: 9,
+    fontSize: 10,
     color: COLORS.textSecondary,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
   },
-
-  // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalCard: {
     width: '100%',
+    maxWidth: 420,
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 22,

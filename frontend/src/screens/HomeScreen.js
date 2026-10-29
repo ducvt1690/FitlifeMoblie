@@ -9,7 +9,6 @@ import {
   TextInput,
   Alert,
   Vibration,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -38,6 +37,13 @@ const MOODS = [
   { id: 'tired', label: '😴 Hơi mệt' },
 ];
 
+function getVietnameseGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Chào buổi sáng ☀️';
+  if (hour < 18) return 'Chào buổi chiều 🌤️';
+  return 'Chào buổi tối 🌙';
+}
+
 export default function HomeScreen({ onNavigate }) {
   const [profile, setProfile] = useState(null);
   const [coins, setCoins] = useState(150);
@@ -47,6 +53,8 @@ export default function HomeScreen({ onNavigate }) {
   const [walkSteps, setWalkSteps] = useState(0);
   const [heartRate, setHeartRate] = useState(105);
   const [overallProgress, setOverallProgress] = useState(0);
+  const [completedQuestCount, setCompletedQuestCount] = useState(0);
+  const [totalQuestCount, setTotalQuestCount] = useState(7);
 
   // Quick water modal
   const [waterModalVisible, setWaterModalVisible] = useState(false);
@@ -84,6 +92,8 @@ export default function HomeScreen({ onNavigate }) {
     // Quests calculation
     const completedQuests = (quests || []).filter((q) => q.completed).length;
     const totalQuests = (quests || []).length || 7;
+    setCompletedQuestCount(completedQuests);
+    setTotalQuestCount(totalQuests);
 
     // Overall score (0 - 100%)
     const questWeight = (completedQuests / totalQuests) * 50;
@@ -139,7 +149,7 @@ export default function HomeScreen({ onNavigate }) {
   const handleToggleHeartRate = () => {
     Vibration.vibrate(100);
     setHeartRate((prev) => (prev === 105 ? 112 : 105));
-    Alert.alert('❤️ Nhịp tim', `Nhịp tim đo được: ${heartRate === 105 ? 112 : 105} Bpm (Mức chuẩn nghỉ ngơi).`);
+    Alert.alert('❤️ Nhịp tim', `Nhịp tim đo được: ${heartRate === 105 ? 112 : 105} BPM (Mức ổn định).`);
   };
 
   return (
@@ -164,13 +174,13 @@ export default function HomeScreen({ onNavigate }) {
           <View>
             <View style={styles.nameStreakRow}>
               <Text style={styles.userName} numberOfLines={1}>
-                {profile?.name || 'FitLife Member'}
+                {profile?.name || 'Hội viên FitLife'}
               </Text>
               <View style={styles.streakBadge}>
-                <Text style={styles.streakText}>🔥 5d</Text>
+                <Text style={styles.streakText}>🔥 5 ngày</Text>
               </View>
             </View>
-            <Text style={styles.greeting}>Good morning</Text>
+            <Text style={styles.greeting}>{getVietnameseGreeting()}</Text>
           </View>
         </TouchableOpacity>
 
@@ -194,13 +204,25 @@ export default function HomeScreen({ onNavigate }) {
         </View>
       </View>
 
-      {/* Hero Section: "How are you feeling today?" */}
+      {/* Hero Section */}
       <View style={styles.heroSection}>
         <View style={styles.heroTextContainer}>
-          <Text style={styles.heroTitle}>How are</Text>
-          <Text style={styles.heroTitle}>you feeling</Text>
-          <Text style={styles.heroTitleAccent}>today?</Text>
+          <Text style={styles.heroEyebrow}>TỔNG QUAN SỨC KHỎE</Text>
+          <Text style={styles.heroTitle}>Hôm nay bạn</Text>
+          <Text style={styles.heroTitleAccent}>cảm thấy thế nào?</Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.questMiniCard}
+          activeOpacity={0.85}
+          onPress={() => onNavigate && onNavigate('quests')}
+        >
+          <Text style={styles.questMiniLabel}>Nhiệm vụ</Text>
+          <Text style={styles.questMiniValue}>
+            {completedQuestCount}/{totalQuestCount}
+          </Text>
+          <Text style={styles.questMiniSub}>Hoàn thành →</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Interactive Mood Quick-Chips */}
@@ -229,7 +251,11 @@ export default function HomeScreen({ onNavigate }) {
       >
         <WaveformCard
           progress={overallProgress}
-          message={overallProgress >= 80 ? "You're doing fantastic!" : "You're doing well"}
+          message={
+            overallProgress >= 80
+              ? 'Phong độ hôm nay cực kỳ xuất sắc! 🔥'
+              : 'Duy trì nhịp độ rèn luyện rất tốt!'
+          }
         />
       </TouchableOpacity>
 
@@ -240,20 +266,20 @@ export default function HomeScreen({ onNavigate }) {
         onPress={() => onNavigate && onNavigate('aicoach')}
       >
         <View style={styles.aiQuickIcon}>
-          <Ionicons name="sparkles" size={16} color={COLORS.black} />
+          <Ionicons name="sparkles" size={18} color={COLORS.black} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.aiQuickTitle}>FitLife AI Coach</Text>
+            <Text style={styles.aiQuickTitle}>Trợ Lý AI FitLife Coach</Text>
             <View style={styles.aiTurboBadge}>
-              <Text style={styles.aiTurboText}>Turbo 0.3s</Text>
+              <Text style={styles.aiTurboText}>AI 24/7</Text>
             </View>
           </View>
           <Text style={styles.aiQuickSub}>
-            Hỏi nhanh thực đơn, tra cứu calo món ăn & bài tập MMA
+            Tư vấn thực đơn, tra cứu calo món Việt & lịch tập cá nhân
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
       </TouchableOpacity>
 
       {/* ExerciseDB API 1500 Workouts Quick Launcher Card */}
@@ -262,19 +288,7 @@ export default function HomeScreen({ onNavigate }) {
         activeOpacity={0.85}
         onPress={() => onNavigate && onNavigate('workout')}
       >
-        <View
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 14,
-            backgroundColor: '#FFFFFF',
-            borderWidth: 1,
-            borderColor: '#D8EEE8',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          }}
-        >
+        <View style={styles.workoutPreviewBox}>
           <SpriteAnimation
             sprite="burpee"
             frameCount={6}
@@ -286,15 +300,15 @@ export default function HomeScreen({ onNavigate }) {
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={styles.aiQuickTitle}>Kho Bài Tập Thể Lực</Text>
-            <View style={[styles.aiTurboBadge, { backgroundColor: '#E5F4EF' }]}>
-              <Text style={[styles.aiTurboText, { color: '#116B58' }]}>1,500 Bài</Text>
+            <View style={[styles.aiTurboBadge, { backgroundColor: '#ECFDF5' }]}>
+              <Text style={[styles.aiTurboText, { color: '#059669' }]}>1,500 Bài</Text>
             </View>
           </View>
           <Text style={styles.aiQuickSub}>
             Hướng dẫn động tác trực quan • Giọng đọc HLV & Bấm giờ 3 hiệp
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.black} />
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
       </TouchableOpacity>
 
       {/* 2x2 Metric Grid Cards */}
@@ -304,10 +318,10 @@ export default function HomeScreen({ onNavigate }) {
             icon="heart"
             iconColor="#DC2626"
             iconBg="#FEE2E2"
-            label="Heart rate"
+            label="Nhịp tim"
             value={heartRate}
-            unit="Bpm"
-            subtext="Nhịp tim nghỉ ngơi"
+            unit="BPM"
+            subtext="Trạng thái ổn định"
             actionLabel="Đo"
             onAction={handleToggleHeartRate}
           />
@@ -315,7 +329,7 @@ export default function HomeScreen({ onNavigate }) {
             icon="flame"
             iconColor="#EA580C"
             iconBg="#FFEDD5"
-            label="Calories"
+            label="Tiêu hao"
             value={caloriesBurned.toFixed(0)}
             unit="Kcal"
             subtext="Đã đốt qua tập luyện"
@@ -329,9 +343,9 @@ export default function HomeScreen({ onNavigate }) {
             icon="walk"
             iconColor="#16A34A"
             iconBg="#DCFCE7"
-            label="Walk"
+            label="Bước chân"
             value={walkSteps.toLocaleString()}
-            unit="Steps"
+            unit="bước"
             subtext="Mục tiêu: 10,000"
             actionLabel="+500"
             onAction={handleAddSteps}
@@ -340,10 +354,10 @@ export default function HomeScreen({ onNavigate }) {
             icon="water"
             iconColor="#0284C7"
             iconBg="#E0F2FE"
-            label="Water"
+            label="Nước uống"
             value={waterTotal.toLocaleString()}
             unit="ml"
-            subtext={`Mục tiêu: ${profile?.targetWater || 2200}ml`}
+            subtext={`Mục tiêu: ${profile?.targetWater || 2200} ml`}
             actionLabel="+250ml"
             onAction={handleQuickAddWater250}
             onPress={() => setWaterModalVisible(true)}
@@ -355,7 +369,7 @@ export default function HomeScreen({ onNavigate }) {
       <Modal visible={waterModalVisible} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Quick Add Water 💧</Text>
+            <Text style={styles.modalTitle}>Ghi Nhận Nước Uống 💧</Text>
             <Text style={styles.modalSub}>Nhập hoặc chọn lượng nước vừa uống (ml):</Text>
             <View style={styles.waterQuickRow}>
               {['150', '250', '500'].map((val) => (
@@ -365,7 +379,7 @@ export default function HomeScreen({ onNavigate }) {
                   onPress={() => setInputWater(val)}
                 >
                   <Text style={[styles.waterQuickText, inputWater === val && styles.waterQuickTextActive]}>
-                    +{val}ml
+                    +{val} ml
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -387,7 +401,7 @@ export default function HomeScreen({ onNavigate }) {
                 style={[styles.modalBtn, { backgroundColor: COLORS.lime }]}
                 onPress={handleAddWaterModal}
               >
-                <Text style={styles.modalBtnOk}>+ Thêm nước</Text>
+                <Text style={styles.modalBtnOk}>+ Lưu lượng nước</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -403,18 +417,18 @@ export default function HomeScreen({ onNavigate }) {
             <View style={{ gap: 10, marginVertical: 12 }}>
               <View style={styles.breakdownRow}>
                 <Ionicons name="trophy-outline" size={18} color="#D97706" />
-                <Text style={styles.breakdownLabel}>Nhiệm vụ hàng ngày (Quests)</Text>
-                <Text style={styles.breakdownVal}>Đóng góp ~50%</Text>
+                <Text style={styles.breakdownLabel}>Nhiệm vụ hàng ngày ({completedQuestCount}/{totalQuestCount})</Text>
+                <Text style={styles.breakdownVal}>Tỷ trọng 50%</Text>
               </View>
               <View style={styles.breakdownRow}>
                 <Ionicons name="water-outline" size={18} color="#0284C7" />
                 <Text style={styles.breakdownLabel}>Lượng nước ({waterTotal} ml)</Text>
-                <Text style={styles.breakdownVal}>Đóng góp ~25%</Text>
+                <Text style={styles.breakdownVal}>Tỷ trọng 25%</Text>
               </View>
               <View style={styles.breakdownRow}>
                 <Ionicons name="walk-outline" size={18} color="#16A34A" />
                 <Text style={styles.breakdownLabel}>Vận động ({walkSteps} bước)</Text>
-                <Text style={styles.breakdownVal}>Đóng góp ~25%</Text>
+                <Text style={styles.breakdownVal}>Tỷ trọng 25%</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -446,7 +460,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   userProfileGroup: {
     flexDirection: 'row',
@@ -466,19 +480,19 @@ const styles = StyleSheet.create({
     ...SHADOWS.soft,
   },
   avatarText: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 17,
+    fontWeight: '800',
     color: COLORS.black,
   },
   avatarOnlineDot: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#16A34A',
-    borderWidth: 1.5,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   nameStreakRow: {
@@ -487,27 +501,27 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   userName: {
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.black,
     fontWeight: '800',
-    maxWidth: 130,
+    maxWidth: 145,
   },
   streakBadge: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 8,
   },
   streakText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#D97706',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#B45309',
   },
   greeting: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     color: COLORS.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
@@ -518,7 +532,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF9C3',
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 20,
     gap: 4,
@@ -530,8 +544,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   coinAmount: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 12.5,
+    fontWeight: '800',
     color: '#854D0E',
   },
   circleBtn: {
@@ -549,37 +563,70 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   heroTextContainer: {
     flex: 1,
   },
+  heroEyebrow: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#059669',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
   heroTitle: {
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 27,
+    fontWeight: '800',
     color: COLORS.black,
-    lineHeight: 38,
-    letterSpacing: -0.6,
+    lineHeight: 33,
+    letterSpacing: -0.4,
   },
   heroTitleAccent: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#65A30D',
-    lineHeight: 38,
-    letterSpacing: -0.6,
+    fontSize: 27,
+    fontWeight: '800',
+    color: '#4D7C0F',
+    lineHeight: 33,
+    letterSpacing: -0.4,
+  },
+  questMiniCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
+  },
+  questMiniLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  questMiniValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.black,
+    marginVertical: 2,
+  },
+  questMiniSub: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#059669',
   },
   moodRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 6,
     flexWrap: 'wrap',
   },
   moodChip: {
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
     borderRadius: 16,
     ...SHADOWS.soft,
   },
@@ -588,58 +635,70 @@ const styles = StyleSheet.create({
     borderColor: COLORS.limeDark,
   },
   moodText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: COLORS.textSecondary,
   },
   moodTextActive: {
-    color: '#15803D',
+    color: '#365314',
     fontWeight: '800',
   },
   aiQuickBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 14,
+    borderRadius: 22,
+    padding: 15,
     borderWidth: 1,
-    borderColor: '#E8EBE5',
+    borderColor: COLORS.border,
     gap: 12,
-    marginBottom: 14,
-    ...SHADOWS.soft,
+    marginBottom: 12,
+    ...SHADOWS.card,
   },
   aiQuickIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: COLORS.lime,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  workoutPreviewBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   aiQuickTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     color: COLORS.black,
   },
   aiTurboBadge: {
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 6,
   },
   aiTurboText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#15803D',
   },
   aiQuickSub: {
-    fontSize: 10.5,
+    fontSize: 11.5,
     color: COLORS.textSecondary,
     fontWeight: '500',
     marginTop: 2,
   },
   metricGrid: {
     gap: 12,
+    marginTop: 2,
   },
   gridRow: {
     flexDirection: 'row',
@@ -647,13 +706,14 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalContent: {
     width: '100%',
+    maxWidth: 420,
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 22,
@@ -677,8 +737,8 @@ const styles = StyleSheet.create({
   },
   waterQuickChip: {
     backgroundColor: COLORS.bg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,

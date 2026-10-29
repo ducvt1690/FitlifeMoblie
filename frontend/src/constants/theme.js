@@ -1,8 +1,15 @@
+import { Platform } from 'react-native';
+
+export const FONT_FAMILY = Platform.select({
+  web: "'Be Vietnam Pro', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  default: undefined,
+});
+
 export const COLORS = {
-  // Legacy aliases used by older screens (Water, Workout, Calorie, BMI)
-  primary: '#8DC61E',
-  primaryDark: '#5F8A0E',
-  primaryLight: '#E8FCCC',
+  // Primary & Brand Accents
+  primary: '#84CC16',
+  primaryDark: '#4D7C0F',
+  primaryLight: '#ECFCCB',
   secondary: '#0EA5E9',
   secondaryLight: '#E0F2FE',
   accent: '#F59E0B',
@@ -10,32 +17,35 @@ export const COLORS = {
   purple: '#8B5CF6',
   purpleLight: '#EDE9FE',
 
-  // Brand Lime & Dark accents (matching the reference UI)
-  lime: '#B8F23E',          // Neon/pistachio bright lime
-  limeDark: '#8DC61E',
-  limeLight: '#E8FCCC',
-  black: '#121214',         // Dark black pill dock & headings
-  darkCard: '#1E1E24',
+  // Signature FitLife Neon Lime & Obsidian Slate
+  lime: '#BCEF39',
+  limeDark: '#84CC16',
+  limeLight: '#F2FCE2',
+  emerald: '#10B981',
+  emeraldDark: '#059669',
+  emeraldLight: '#ECFDF5',
+  black: '#0F172A',         // Deep slate-black for crisp contrast
+  darkCard: '#1E293B',
 
-  // Clean background & cards
-  bg: '#F3F5F1',            // Soft pastel grey-green background
+  // Clean surfaces & borders
+  bg: '#F4F7F4',            // Refined soft sage-white background
   card: '#FFFFFF',
-  cardMuted: '#F8FAF7',
-  border: '#E8EBE5',
+  cardMuted: '#F8FAFC',
+  border: '#E2E8F0',
 
-  // Text
-  text: '#121214',
-  textSecondary: '#5A6065',
-  textMuted: '#8E959C',
+  // Typography hierarchy
+  text: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
 
   // Soft Pastel Badges for Icons
-  pastelYellow: '#FEF08A',
-  pastelBlue: '#BAE6FD',
-  pastelPink: '#FBCFE8',
-  pastelGreen: '#BBF7D0',
-  pastelPurple: '#DDD6FE',
-  pastelOrange: '#FED7AA',
-  pastelMint: '#99F6E4',
+  pastelYellow: '#FEF3C7',
+  pastelBlue: '#E0F2FE',
+  pastelPink: '#FCE7F3',
+  pastelGreen: '#DCFCE7',
+  pastelPurple: '#EDE9FE',
+  pastelOrange: '#FFEDD5',
+  pastelMint: '#CCFBF1',
 
   // State indicators
   danger: '#EF4444',
@@ -44,39 +54,39 @@ export const COLORS = {
 };
 
 export const SIZES = {
-  xs: 11,
-  sm: 13,
-  md: 14,
-  base: 15,
+  xs: 12,
+  sm: 13.5,
+  md: 14.5,
+  base: 15.5,
   lg: 18,
-  xl: 22,
-  xxl: 26,
+  xl: 21,
+  xxl: 25,
   title: 28,
-  hero: 32,
+  hero: 30,
   huge: 34,
   giant: 40,
 };
 
 export const SHADOWS = {
   soft: {
-    shadowColor: '#121214',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
     elevation: 2,
   },
   card: {
-    shadowColor: '#121214',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.06,
     shadowRadius: 16,
     elevation: 3,
   },
   dock: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
     elevation: 8,
   },
 };

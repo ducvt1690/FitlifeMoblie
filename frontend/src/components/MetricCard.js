@@ -26,14 +26,16 @@ export default function MetricCard({
           <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
             <Ionicons name={icon} size={16} color={iconColor} />
           </View>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.label} numberOfLines={1}>
+            {label}
+          </Text>
         </View>
 
         {actionLabel && (
           <TouchableOpacity
-            style={[styles.actionBtn, { borderColor: iconColor }]}
+            style={[styles.actionBtn, { borderColor: iconColor, backgroundColor: iconBg }]}
             onPress={onAction || onPress}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
           >
             <Text style={[styles.actionBtnText, { color: iconColor }]}>
               {actionLabel}
@@ -57,11 +59,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.card,
     borderRadius: 22,
-    padding: 15,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E8EBE5',
+    borderColor: COLORS.border,
     justifyContent: 'space-between',
-    minHeight: 110,
+    minHeight: 116,
     ...SHADOWS.card,
   },
   topRow: {
@@ -74,28 +76,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   iconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   label: {
-    fontSize: SIZES.sm,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.black,
+    flexShrink: 1,
   },
   actionBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   actionBtnText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '800',
   },
   valueRow: {
@@ -105,20 +107,20 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   value: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 23,
+    fontWeight: '800',
     color: COLORS.black,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   unit: {
-    fontSize: SIZES.xs,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   subtext: {
-    fontSize: 10,
+    fontSize: 11,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 2,
   },
 });
