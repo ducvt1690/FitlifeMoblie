@@ -4,7 +4,9 @@
   "private": true,
   "description": "FitLife - Trợ Lý Sức Khỏe & Thể Lực (MMA Fitness App Monorepo: Frontend + Backend)",
   "scripts": {
+    "start": "cd frontend && npm start",
     "start:fe": "cd frontend && npm start",
+    "tunnel": "cd frontend && npx expo start --tunnel=ngrok",
     "start:be": "cd backend && npm start",
     "web": "cd frontend && npm run web"
   },
