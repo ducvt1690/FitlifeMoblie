@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import AnatomyGraphic from '../components/AnatomyGraphic';
 import WaveformCard from '../components/WaveformCard';
 import MetricCard from '../components/MetricCard';
 import {
@@ -193,14 +192,13 @@ export default function HomeScreen({ onNavigate }) {
         </View>
       </View>
 
-      {/* Hero Section: "How are you feeling today?" + 3D Cyber Anatomy Visual */}
+      {/* Hero Section: "How are you feeling today?" */}
       <View style={styles.heroSection}>
         <View style={styles.heroTextContainer}>
           <Text style={styles.heroTitle}>How are</Text>
           <Text style={styles.heroTitle}>you feeling</Text>
           <Text style={styles.heroTitleAccent}>today?</Text>
         </View>
-        <AnatomyGraphic />
       </View>
 
       {/* Interactive Mood Quick-Chips */}
