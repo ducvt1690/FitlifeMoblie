@@ -165,7 +165,7 @@ export const INITIAL_API_EXERCISES = [
     exerciseId: '0I5fUyn',
     name: 'band underhand pulldown',
     viName: 'Kéo dây kháng lực tập lưng xô (Band Underhand Pulldown)',
-    gifUrl: 'https://static.exercisedb.dev/media/0I5fUyn.gif',
+    gifUrl: 'https://static.exercisedb.dev/media/DptumMx.gif',
     bodyParts: ['back'],
     equipments: ['resistance band'],
     targetMuscles: ['latissimus dorsi'],
@@ -351,12 +351,19 @@ export function normalizeApiExercise(raw) {
 
   const title = raw.viName || formatTitleCase(raw.name || 'Exercise');
 
+  const BROKEN_GIF_MAP = {
+    '0I5fUyn': 'https://static.exercisedb.dev/media/DptumMx.gif',
+    '0MlxeMn': 'https://static.exercisedb.dev/media/RVwzP10.gif',
+  };
+  const resolvedGifUrl =
+    BROKEN_GIF_MAP[id] || raw.gifUrl || `https://static.exercisedb.dev/media/${id}.gif`;
+
   return {
     id,
     exerciseId: id,
     title,
     rawName: raw.name,
-    gifUrl: raw.gifUrl || `https://static.exercisedb.dev/media/${id}.gif`,
+    gifUrl: resolvedGifUrl,
     category: bodyPart,
     bodyPartLabel: BODY_PART_VI[bodyPart] || formatTitleCase(bodyPart),
     equipment: EQUIPMENT_VI[equipment.toLowerCase()] || formatTitleCase(equipment),

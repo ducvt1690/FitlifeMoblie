@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
+const FALLBACK_API_GIF = 'https://static.exercisedb.dev/media/0JtKWum.gif';
+
 export default function ExerciseVisual({
   gifUrl = null,
   isPlaying = true,
@@ -11,25 +13,28 @@ export default function ExerciseVisual({
   bodyPartLabel = '',
 }) {
   const [loadingGif, setLoadingGif] = useState(Boolean(gifUrl));
+  const [currentUri, setCurrentUri] = useState(gifUrl || FALLBACK_API_GIF);
 
   useEffect(() => {
+    setCurrentUri(gifUrl || FALLBACK_API_GIF);
     setLoadingGif(Boolean(gifUrl));
   }, [gifUrl]);
 
   if (size === 'thumb') {
     return (
       <View style={styles.thumbWrap}>
-        {gifUrl ? (
-          <ExpoImage
-            source={{ uri: gifUrl }}
-            style={styles.thumbGif}
-            contentFit="contain"
-            autoplay={isPlaying}
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <Ionicons name="barbell-outline" size={28} color="#059669" />
-        )}
+        <ExpoImage
+          source={{ uri: currentUri }}
+          style={styles.thumbGif}
+          contentFit="contain"
+          autoplay={isPlaying}
+          cachePolicy="memory-disk"
+          onError={() => {
+            if (currentUri !== FALLBACK_API_GIF) {
+              setCurrentUri(FALLBACK_API_GIF);
+            }
+          }}
+        />
       </View>
     );
   }
@@ -56,18 +61,21 @@ export default function ExerciseVisual({
               style={styles.loaderOverlay}
             />
           )}
-          {gifUrl && (
-            <ExpoImage
-              source={{ uri: gifUrl }}
-              style={{ width: boxSize, height: boxSize }}
-              contentFit="contain"
-              autoplay={isPlaying}
-              cachePolicy="memory-disk"
-              onLoadStart={() => setLoadingGif(true)}
-              onLoad={() => setLoadingGif(false)}
-              onError={() => setLoadingGif(false)}
-            />
-          )}
+          <ExpoImage
+            source={{ uri: currentUri }}
+            style={{ width: boxSize, height: boxSize }}
+            contentFit="contain"
+            autoplay={isPlaying}
+            cachePolicy="memory-disk"
+            onLoadStart={() => setLoadingGif(true)}
+            onLoad={() => setLoadingGif(false)}
+            onError={() => {
+              setLoadingGif(false);
+              if (currentUri !== FALLBACK_API_GIF) {
+                setCurrentUri(FALLBACK_API_GIF);
+              }
+            }}
+          />
         </View>
       )}
 
