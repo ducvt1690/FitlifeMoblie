@@ -11,12 +11,13 @@ const { createQuestRouter } = require('./routes/quest.routes');
 const { createAuthRouter } = require('./routes/auth.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
+const { corsOptions } = require('./utils/cors-options');
 
-function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, logger = console }) {
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, logger = console }) {
   if (!db) throw new Error('A connected MongoDB database is required.');
   const app = express();
   app.disable('x-powered-by');
-  app.use(cors());
+  app.use(cors(corsOptions(corsOrigins)));
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
     if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');

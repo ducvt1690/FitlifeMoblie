@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const dotenv = require('dotenv');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
+const { parseCorsOrigins } = require('./utils/cors-options');
 
 function readEnv(file) {
   return fs.existsSync(file) ? dotenv.parse(fs.readFileSync(file)) : {};
@@ -35,6 +36,7 @@ function loadConfig(env = process.env) {
   return {
     uri,
     databaseName,
+    corsOrigins: parseCorsOrigins(values.CORS_ORIGINS),
     port: integerOption('PORT', 5000, 1, 65535),
     sessionTtlSeconds: integerOption('AUTH_SESSION_TTL_SECONDS', DEFAULT_SESSION_TTL_SECONDS, 60, DEFAULT_SESSION_TTL_SECONDS),
   };
