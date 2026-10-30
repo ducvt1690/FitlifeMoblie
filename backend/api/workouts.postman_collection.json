@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "FitLife — Workout logs (Run all)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run all 4 requests in order with an existing, active user-role Bearer token supplied as the local environment variable token. baseUrl defaults to http://localhost:5000. Each run creates one workout log and may grant the first daily workout quest reward (10 coins) and daily water bonus (350 ml). The second POST reuses the run-local workoutId and must not duplicate the log or reward. No account is created and no credentials are included in this file. Send either GET request alone for read-only access; assertions depending on this run's workoutId are skipped when it is absent. See workouts.md."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Create a workout log",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/workout-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workout_id\": \"{{workoutId}}\",\n  \"title\": \"Hít đất\",\n  \"category\": \"fullbody\",\n  \"duration_seconds\": 600,\n  \"calories_burned\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('workoutId', pm.variables.replaceIn('{{$guid}}').toLowerCase());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('New workout returns 201', () => pm.response.to.have.status(201));",
+              "const b = pm.response.json();",
+              "pm.test('Workout created without replay', () => { pm.expect(b.success).to.eql(true); pm.expect(b.replayed).to.eql(false); });",
+              "pm.test('Saved workout matches the submitted data', () => { pm.expect(b.log.workout_id).to.eql(pm.variables.get('workoutId')); pm.expect(b.log.title).to.eql('Hít đất'); pm.expect(b.log.category).to.eql('fullbody'); pm.expect(b.log.duration_seconds).to.eql(600); pm.expect(b.log.calories_burned).to.eql(50); pm.expect(b.log).not.to.have.property('_id'); });",
+              "pm.test('Workout reward is zero or ten coins', () => pm.expect(b.reward_coins).to.be.oneOf([0, 10]));",
+              "pm.test('Balance is a nonnegative integer', () => { pm.expect(Number.isInteger(b.fit_coins)).to.eql(true); pm.expect(b.fit_coins).to.be.at.least(b.reward_coins); });",
+              "pm.test('Workout day water target is within the schema limit', () => { pm.expect(Number.isInteger(b.target_water)).to.eql(true); pm.expect(b.target_water).to.be.within(350, 4350); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Replay the same workout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/workout-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workout_id\": \"{{workoutId}}\",\n  \"title\": \"Hít đất\",\n  \"category\": \"fullbody\",\n  \"duration_seconds\": 600,\n  \"calories_burned\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Replay returns 200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('Replay succeeds without creating another workout', () => { pm.expect(b.success).to.eql(true); pm.expect(b.replayed).to.eql(true); });",
+              "pm.test('Replay returns the original workout ID', () => pm.expect(b.log.workout_id).to.eql(pm.variables.get('workoutId')));",
+              "pm.test('Replay grants no coins', () => pm.expect(b.reward_coins).to.eql(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Read today's workout logs",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/workout-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Workout list returns 200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('Workout list succeeds', () => { pm.expect(b.success).to.eql(true); pm.expect(b.logs).to.be.an('array'); });",
+              "const workoutId = pm.variables.get('workoutId');",
+              "if (workoutId) pm.test('Created workout occurs exactly once in today\u2019s list', () => pm.expect(b.logs.filter(log => log.workout_id === workoutId)).to.have.lengthOf(1));",
+              "pm.test('Daily workout totals are nonnegative integers', () => { pm.expect(Number.isInteger(b.total_duration_seconds)).to.eql(true); pm.expect(b.total_duration_seconds).to.be.at.least(0); pm.expect(Number.isInteger(b.total_calories_burned)).to.eql(true); pm.expect(b.total_calories_burned).to.be.at.least(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Read today's quests",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/quests"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Quest list returns 200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "if (pm.variables.get('workoutId')) pm.test('Workout quest is completed', () => { pm.expect(b.success).to.eql(true); const quest = b.quests.find(q => q.quest_key === 'q_workout'); pm.expect(quest).to.be.an('object'); pm.expect(quest.is_completed).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

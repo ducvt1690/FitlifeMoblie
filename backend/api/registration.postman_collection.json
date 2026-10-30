@@ -1,0 +1,349 @@
+{
+  "info": {
+    "name": "FitLife — Auth 12h (Run all)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run all 10 requests in order. Backend: http://localhost:5000. No environment required: each run generates a unique test email and password in run-local variables. Optional environment: baseUrl and registrationPassword. This creates one test account in fitlife and logs out both sessions; it does not delete the account. Expected 400/409/401 cases are successful assertions. Repeated runs may reach the backend limit of 20 registration attempts per IP per 15 minutes."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Invalid onboarding rejected",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Missing onboarding returns 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const configuredUrl = pm.environment.get('baseUrl');",
+              "pm.variables.set('baseUrl', (typeof configuredUrl === 'string' && configuredUrl.trim() ? configuredUrl.trim() : 'http://localhost:5000').replace(/\\/$/, ''));",
+              "['registrationToken', 'registrationLoginToken', 'registeredUserId', 'registrationBody', 'injectedBody', 'registeredLoginBody'].forEach(key => pm.variables.unset(key));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Register an account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{{registrationBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const configured = pm.environment.get('registrationPassword');",
+              "const password = typeof configured === 'string' && [...configured].length >= 8 && configured.trim() ? configured : 'FitLife-' + pm.variables.replaceIn('{{$guid}}');",
+              "pm.variables.set('registrationEmail', 'postman-' + pm.variables.replaceIn('{{$guid}}') + '@fitlife.example');",
+              "pm.variables.set('registrationBody', JSON.stringify({email:pm.variables.get('registrationEmail'),password,full_name:'Nguyễn Văn An',gender:'male',age:23,height:170,weight:65,activity_level:'moderate',goal:'maintain',timezone:'Asia/Ho_Chi_Minh'}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Created', () => pm.response.to.have.status(201));",
+              "const b = pm.response.json();",
+              "pm.test('Server assigns user role, targets and zero coins', () => { pm.expect(b.user.role).to.eql('user'); pm.expect(b.user.profile).to.deep.eql({height:170,weight:65,target_water:2275,target_calories:2484,coins:0}); });",
+              "pm.test('Bearer token issued without password/hash', () => { pm.expect(b.token_type).to.eql('Bearer'); pm.expect(b.token).to.match(/^[A-Za-z0-9_-]{43}$/); pm.expect(b.user).not.to.have.property('password_hash'); pm.expect(b.user).not.to.have.property('password'); });",
+              "if (pm.response.code === 201) { pm.variables.set('registrationToken', b.token); pm.variables.set('registeredUserId', b.user.user_id); }",
+              "pm.test('Session expiry is valid and at most 12 hours', () => { const remaining = Date.parse(pm.response.json().expires_at) - Date.now(); pm.expect(remaining).to.be.above(0); pm.expect(remaining).to.be.at.most(43200000); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Me with registration token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{registrationToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Registration session resolves the new user', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().user.user_id).to.eql(pm.variables.get('registeredUserId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Duplicate email rejected",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{{registrationBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Duplicate returns 409 without another token', () => { pm.response.to.have.status(409); pm.expect(pm.response.json()).not.to.have.property('token'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — Privilege injection rejected",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{{injectedBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('injectedBody', JSON.stringify({...JSON.parse(pm.variables.get('registrationBody')), role:'admin', fit_coins:9999}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Role/coin fields rejected before any write', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Login with the registered password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{{registeredLoginBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = JSON.parse(pm.variables.get('registrationBody')); pm.variables.set('registeredLoginBody', JSON.stringify({email:b.email,password:b.password}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('New account can log in', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().user.user_id).to.eql(pm.variables.get('registeredUserId')); });",
+              "if (pm.response.code === 200) pm.variables.set('registrationLoginToken', pm.response.json().token);",
+              "pm.test('Session expiry is valid and at most 12 hours', () => { const remaining = Date.parse(pm.response.json().expires_at) - Date.now(); pm.expect(remaining).to.be.above(0); pm.expect(remaining).to.be.at.most(43200000); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — Logout registration session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{registrationToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Logout returns 204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — Revoked registration session rejected",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{registrationToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Revoked token returns 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 — Independent login session still works",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{registrationLoginToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Other session remains valid', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().user.user_id).to.eql(pm.variables.get('registeredUserId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 — Logout remaining session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{registrationLoginToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Second session logout returns 204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

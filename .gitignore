@@ -15,6 +15,8 @@ yarn-error.log*
 /.postman/
 /postman/
 /backend/postman/
+/backend/api/.*.postman_environment.json
+/backend/api/.postman-*-user
 
 # Database runtime files
 backend/fitlife_db.json

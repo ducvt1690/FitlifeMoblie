@@ -1,0 +1,207 @@
+{
+  "info": {
+    "name": "FitLife — Meal logs (Run all)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "CRUD smoke test. Requires an active user token in a local environment. Works with existing meals: checks the created meal and calculated daily totals, rather than assuming a fresh account. Creates and deletes one meal; a daily quest reward is 0 or 10 depending on existing activity. For complete fresh-token regression use all-api.postman_collection.json."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Create meal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/meal-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"meal_id\": \"{{mealId}}\",\n  \"meal_name\": \"Phở bò\",\n  \"calories\": 450,\n  \"protein\": 25,\n  \"carbs\": 55,\n  \"fat\": 14,\n  \"meal_type\": \"breakfast\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('mealId', pm.variables.replaceIn('{{$guid}}').toLowerCase());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Create meal returns 201', () => pm.response.to.have.status(201));",
+              "const b = pm.response.json();",
+              "pm.test('Meal is persisted and rewarded once', () => { pm.expect(b.success).to.eql(true); pm.expect(b.log.meal_id).to.eql(pm.variables.get('mealId')); pm.expect(b.reward_coins).to.be.oneOf([0, 10]); });",
+              "pm.test('Nutrition fields match', () => { pm.expect(b.log.calories).to.eql(450); pm.expect(b.log.protein).to.eql(25); pm.expect(b.log.carbs).to.eql(55); pm.expect(b.log.fat).to.eql(14); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Replay same meal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/meal-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"meal_id\": \"{{mealId}}\",\n  \"meal_name\": \" Phở bò \",\n  \"calories\": 450,\n  \"protein\": 25,\n  \"carbs\": 55,\n  \"fat\": 14,\n  \"meal_type\": \"breakfast\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Replay returns 200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('Replay does not reward twice', () => { pm.expect(b.replayed).to.eql(true); pm.expect(b.reward_coins).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Read meal totals",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/meal-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Meal list returns 200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('Totals are correct', () => { pm.expect(b.logs).to.be.an('array'); pm.expect(b.logs.filter(x=>x.meal_id===pm.variables.get('mealId'))).to.have.lengthOf(1); pm.expect(b.total_calories).to.eql(b.logs.reduce((s,x)=>s+x.calories,0)); pm.expect(b.total_protein).to.be.closeTo(b.logs.reduce((s,x)=>s+x.protein,0),0.000001); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Patch meal",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/meal-logs/{{mealId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"meal_name\": \"Cơm gà\",\n  \"calories\": 600,\n  \"protein\": 35,\n  \"carbs\": 65,\n  \"fat\": 18,\n  \"meal_type\": \"lunch\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Patch meal returns 200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('Patched meal is returned', () => { pm.expect(b.meal.meal_name).to.eql('Cơm gà'); pm.expect(b.meal.calories).to.eql(600); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — Delete meal",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/meal-logs/{{mealId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Delete meal returns 204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Verify created meal was deleted",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/meal-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Meal list remains readable', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('Deleted meal is absent', () => pm.expect(b.logs.filter(x => x.meal_id === pm.variables.get('mealId'))).to.have.lengthOf(0));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
