@@ -6,7 +6,7 @@ const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const files = ['app.js', 'server.js', 'config.js', 'database/connection.js'];
-for (const folder of ['auth', 'routes', 'scripts']) {
+for (const folder of ['auth', 'routes', 'services', 'middleware', 'utils', 'scripts']) {
   for (const entry of fs.readdirSync(path.join(root, folder), { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith('.js')) files.push(path.join(folder, entry.name));
   }

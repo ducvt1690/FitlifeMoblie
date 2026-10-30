@@ -1,6 +1,6 @@
 'use strict';
 
-const { scrypt, timingSafeEqual } = require('node:crypto');
+const { randomBytes, scrypt, timingSafeEqual } = require('node:crypto');
 const { promisify } = require('node:util');
 
 const deriveKey = promisify(scrypt);
@@ -35,4 +35,10 @@ async function verifyPassword(password, storedHash) {
   return validPassword && parsed !== null && equal;
 }
 
-module.exports = { verifyPassword };
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const derived = await deriveKey(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt$16384$8$1$${salt}$${derived.toString('hex')}`;
+}
+
+module.exports = { verifyPassword, hashPassword };

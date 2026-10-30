@@ -1,6 +1,7 @@
 'use strict';
 
 const { createHash } = require('node:crypto');
+const DEFAULT_SESSION_TTL_SECONDS = 12 * 60 * 60;
 
 function hashToken(token) {
   return createHash('sha256').update(token, 'utf8').digest('hex');
@@ -23,26 +24,4 @@ function publicUser(user) {
   };
 }
 
-function createRequireAuth({ db }) {
-  return async (req, res, next) => {
-    try {
-      const token = readBearerToken(req);
-      if (!token) return res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ.' });
-      const tokenHash = hashToken(token);
-      // TTL deletion is asynchronous: always enforce expiry in the lookup.
-      const session = await db.collection('auth_sessions').findOne({
-        token_hash: tokenHash, expires_at: { $gt: new Date() },
-      });
-      if (!session) return res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
-      const user = await db.collection('users').findOne({ user_id: session.user_id }, {
-        projection: { password_hash: 0 },
-      });
-      if (!user) return res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ.' });
-      if (user.is_active !== true) return res.status(403).json({ success: false, message: 'Tài khoản đã bị khóa.' });
-      req.auth = { user, session, tokenHash };
-      return next();
-    } catch (error) { return next(error); }
-  };
-}
-
-module.exports = { hashToken, readBearerToken, publicUser, createRequireAuth };
+module.exports = { DEFAULT_SESSION_TTL_SECONDS, hashToken, readBearerToken, publicUser };

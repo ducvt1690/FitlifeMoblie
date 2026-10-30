@@ -2,16 +2,19 @@
 
 const express = require('express');
 const cors = require('cors');
+const { createProfileRouter } = require('./routes/profile.routes');
 const { createAuthRouter } = require('./routes/auth.routes');
+const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
+const { HttpError } = require('./utils/http-error');
 
-function createApp({ db, sessionTtlSeconds = 604800, logger = console }) {
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, logger = console }) {
   if (!db) throw new Error('A connected MongoDB database is required.');
   const app = express();
   app.disable('x-powered-by');
   app.use(cors());
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
-    if (req.path.startsWith('/api/auth')) res.set('Cache-Control', 'no-store');
+    if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
     next();
   });
   const parseJSON = express.json({ limit: '16kb' });
@@ -34,7 +37,10 @@ function createApp({ db, sessionTtlSeconds = 604800, logger = console }) {
   app.get('/', (req, res) => {
     res.json({
       status: 'online', project: 'FitLife Health & MMA API', version: '2.0.0',
-      endpoints: { auth: ['POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me'] },
+      endpoints: {
+        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me'],
+        profile: ['GET /api/profile', 'PATCH /api/profile'],
+      },
     });
   });
   app.get('/health', async (req, res, next) => {
@@ -44,12 +50,16 @@ function createApp({ db, sessionTtlSeconds = 604800, logger = console }) {
     } catch (error) { next(error); }
   });
   app.use('/api/auth', createAuthRouter({ db, sessionTtlSeconds }));
+  app.use('/api/profile', createProfileRouter({ db }));
   // Legacy JSON routes are not mounted on the Atlas-backed authentication API.
   app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Endpoint không tồn tại.' });
   });
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
+    if (error instanceof HttpError) {
+      return res.status(error.httpStatus).json({ success: false, message: error.message });
+    }
     const unavailable = /^(MongoNetwork|MongoServerSelection|MongoTopologyClosed|MongoNotConnected)/.test(error.name || '');
     // Driver errors can contain credentials or query data; log only the type.
     logger.error?.('API request failed:', error.name || 'Error');
