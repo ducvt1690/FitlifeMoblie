@@ -2,7 +2,7 @@
 
 Hệ thống ứng dụng sức khỏe và thể lực toàn diện theo mô hình **Monorepo**:
 - **`frontend/`**: Ứng dụng di động (React Native & Expo) với giao diện Minimalist Neo-Fitness UI, Dark Mode, Gamification (Quests, Shop, Coins), Bấm giờ Tabata/HIIT, AI Coach, Offline-first (AsyncStorage).
-- **`backend/`**: RESTful API Server (Node.js & Express) quản lý xác thực (Auth), dữ liệu nhật ký sức khỏe, AI tư vấn và DDL Database SQL 10 bảng chuẩn hóa 3NF.
+- **`backend/`**: RESTful API Server (Node.js & Express) dùng MongoDB Atlas, quản lý auth/session, hồ sơ, nhật ký sức khỏe, bài tập ExerciseDB và quest.
 
 ---
 
@@ -23,15 +23,9 @@ projectMMA/
 │   ├── package.json              # Thư viện Frontend (Expo 51, Lucide icons, Audio, etc.)
 │   └── .gitignore
 │
-├── backend/                      # MÁY CHỦ API & CƠ SỞ DỮ LIỆU (EXPRESS / SQL)
-│   ├── database/
-│   │   ├── schema.sql            # File DDL SQL 10 bảng chuẩn hóa 3NF + Dữ liệu mẫu (Seed Data)
-│   │   └── db.js                 # Database connector / local JSON fallback cho test nhanh
-│   ├── routes/
-│   │   ├── auth.routes.js        # Đăng ký, Đăng nhập, Profile user
-│   │   ├── health.routes.js      # Lịch sử Nước, Tập luyện, Dinh dưỡng, BMI
-│   │   ├── ai.routes.js          # API AI Trợ lý tư vấn MMA & Dinh dưỡng
-│   │   └── shop.routes.js        # Mua vật phẩm bằng Coins & quản lý Inventory
+├── backend/                      # MÁY CHỦ API & MONGODB ATLAS (EXPRESS)
+│   ├── database/mongodb/         # Schema, validator, seed, migration và test MongoDB
+│   ├── routes/                   # Auth, profile, water, workout, meals, exercises, quests
 │   ├── server.js                 # REST API Server Express (Port 5000)
 │   ├── package.json              # Express, Cors, Dotenv
 │   ├── .env.example              # Mẫu biến môi trường
@@ -51,10 +45,10 @@ projectMMA/
 ```bash
 cd backend
 npm install
-npm start
+npm run dev
 ```
 > Server sẽ chạy tại: `http://localhost:5000` (hoặc `http://<IP_MAY_TINH>:5000`)  
-> Kiểm tra sức khỏe hệ thống: `http://localhost:5000/api/health`
+> Kiểm tra sức khỏe hệ thống: `http://localhost:5000/health`
 
 ### 2. Khởi động Frontend (React Native Expo App)
 Mở một cửa sổ Terminal mới:
@@ -68,22 +62,23 @@ npx expo start
 
 ---
 
-## 🗄️ Cơ Sở Dữ Liệu (Database Specs)
+## 🗄️ Cơ Sở Dữ Liệu MongoDB Atlas
 
-File thiết kế SQL chi tiết đặt tại: [`backend/database/schema.sql`](backend/database/schema.sql)  
-Tài liệu phân tích nghiệp vụ database chuẩn học viện: xem trong thư mục tài liệu dự án (`FitLife_Database_Specification.md`).
+Tài liệu schema và cách kết nối đặt tại [`backend/database/mongodb/README.md`](backend/database/mongodb/README.md). Đặc tả nghiệp vụ đặt tại [`backend/database/FitLife_Database_Specification.md`](backend/database/FitLife_Database_Specification.md).
 
-Hệ thống gồm **10 thực thể chính**:
-1. `users`: Tài khoản, mật khẩu băm, vai trò (`member`, `guest`, `coach`, `admin`), số dư xu `coins`.
-2. `water_logs`: Lịch sử nạp nước (ml) theo ngày và các mốc thời gian.
-3. `workout_logs`: Nhật ký các bài tập MMA, Tabata, thời lượng và calo tiêu hao.
-4. `meal_logs`: Nhật ký dinh dưỡng 4 bữa kèm Protein, Carb, Fat.
-5. `daily_quest_logs`: Tiến độ hoàn thành 7 nhiệm vụ ngày và lịch sử cộng xu thưởng.
-6. `bmi_history`: Theo dõi cân nặng, chiều cao, BMI, BMR, TDEE theo thời gian.
-7. `sleep_logs`: Thời gian ngủ, thức, phân tích giấc ngủ sâu.
-8. `mood_logs`: Theo dõi cảm xúc hàng ngày và ghi chú tâm trạng.
-9. `reward_items`: Danh mục vật phẩm trong Shop (Huy hiệu VIP, Khung avatar, Giáo án).
-10. `purchases`: Lịch sử giao dịch đổi vật phẩm bằng coin của người dùng.
+Database `fitlife` gồm **17 collection nghiệp vụ**:
+
+- Tài khoản: `users`, role `user`, `trainer`, `admin`; mật khẩu băm và số dư `fit_coins`.
+- Nhật ký: `water_logs`, `workout_logs`, `meal_logs`, `bmi_history`, `sleep_logs`, `mood_logs`.
+- Thư viện 30 bài ExerciseDB V1: `exercises`, có tên/hướng dẫn tiếng Việt và URL GIF.
+- Nhiệm vụ và thử thách: `daily_quest_logs`, `challenges`, `user_challenges`.
+- Cửa hàng: `reward_items`, `purchases`.
+- Trainer: `workout_templates`, `trainer_assignments`.
+- Chat: `ai_chat_sessions`, `ai_chat_messages`.
+
+`auth_sessions` là collection kỹ thuật lưu hash token và hạn phiên. Các API đã có: auth, profile, nước, tập luyện, bữa ăn, exercises và đọc quest. Shop, Challenge, Trainer, AI cùng các API ngủ/tâm trạng/BMI còn cần triển khai; có collection không đồng nghĩa đã có API. Frontend hiện vẫn dùng nhiều dữ liệu local và cần tích hợp với backend.
+
+Chạy và cấu hình backend: [backend/README.md](backend/README.md). Hướng dẫn Postman: [backend/api/HUONG_DAN_POSTMAN.md](backend/api/HUONG_DAN_POSTMAN.md).
 
 ---
 
@@ -104,7 +99,7 @@ Dự án đã được cấu hình sẵn file [`.gitignore`](.gitignore) ở c�
    git add .
 
    # 3. Tạo commit đầu tiên
-   git commit -m "feat: Monorepo split into frontend (Expo) and backend (Express + SQL)"
+   git commit -m "feat: FitLife frontend Expo and backend Express with MongoDB"
 
    # 4. Đổi tên nhánh chính thành main
    git branch -M main

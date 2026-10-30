@@ -1,7 +1,7 @@
-# FitLife Backend — Hướng dẫn chạy BE + Database và gọi API login/logout
+# FitLife Backend — Hướng dẫn chạy BE + Database và gọi API xác thực
 
 Dành cho team FE (Mobile + Web). Stack: **Node.js + Express.js**, database **MongoDB Atlas**.
-Backend hiện có 3 API xác thực: **login / me / logout**. Chưa có register, AI, health, shop.
+Backend hiện có 4 API xác thực **register / login / me / logout**; thêm API hồ sơ, nhật ký nước, nhật ký tập luyện và nhiệm vụ hôm nay. Mã xử lý được chia theo service trong `services/`.
 
 ---
 
@@ -65,7 +65,8 @@ Mở `.env`, điền **cùng** `MONGODB_URI` và `MONGODB_DB_NAME` như phần A
 | `MONGODB_URI` | Connection string Atlas |
 | `MONGODB_DB_NAME` | `fitlife` |
 | `PORT` | `5000` (mặc định) |
-| `AUTH_SESSION_TTL_SECONDS` | `604800` = 7 ngày (mặc định, không cần sửa) |
+| `AUTH_SESSION_TTL_SECONDS` | `43200` = 12 giờ (mặc định, có thể rút ngắn) |
+| `CORS_ORIGINS` | `http://localhost:8081,http://127.0.0.1:8081` (web Expo; có thể thêm origin web của nhóm) |
 
 > Thứ tự ưu tiên cấu hình: biến môi trường process → `backend/.env` → `backend/database/mongodb/.env`.
 
@@ -172,8 +173,20 @@ Mọi lỗi: `{ "success": false, "message": "..." }`. Response không bao giờ
 ### C6. Lưu ý
 
 1. Token là chuỗi ngẫu nhiên (không phải JWT, không decode được). Gửi lại qua header `Authorization: Bearer <token>`.
-2. Chưa có API register — tài khoản do BE tạo sẵn trên database (phần A2).
+2. Có `POST /api/auth/register` kèm onboarding; không chỉ gửi email/password. Xem mục C7 bên dưới.
 3. Test login sai liên tục sẽ bị `429` — đợi hết thời gian hoặc restart server khi dev.
+
+### C7. Đăng ký và onboarding — `POST /api/auth/register`
+
+Gửi JSON gồm `email`, `password`, `full_name`, `gender`, `age`, `height`, `weight`, `activity_level`, `goal`; `timezone` tùy chọn, mặc định `Asia/Ho_Chi_Minh`. Dùng tên field snake_case; gửi tuổi/chiều cao/cân nặng dạng số, không phải chuỗi.
+
+Có thể thay `age` bằng `date_of_birth` dạng `YYYY-MM-DD`; khi có ngày sinh, server tự tính tuổi theo ngày hiện tại. Nếu gửi cả hai thì phải khớp. Xem [API hồ sơ](api/profile.md) để đọc/sửa ngày sinh và email qua `GET/PATCH /api/profile`.
+
+Password tối thiểu 8 ký tự Unicode, tối đa 1024 byte UTF-8, không chỉ có khoảng trắng. Không gửi role, xu/streak, targets, user_id hoặc password_hash: server từ chối field lạ/hệ thống. Server tự tính targets theo schema v2, tạo role user với 0 xu, 7 quest chưa hoàn thành và phiên đăng nhập trong một transaction.
+
+Thành công trả `201` với cùng cấu trúc token/user như login. FE lưu token rồi dùng `/me`; `409` nghĩa email đã tồn tại, chuyển sang đăng nhập. Nếu mất response sau khi đăng ký, thử login thay vì tạo lại hồ sơ. Register có giới hạn riêng 20 request/IP/15 phút; `429` kèm `Retry-After`.
+
+Body mẫu và giới hạn chi tiết ở [README — register](README.md#post-apiauthregister). Collection import Postman ở [api/registration.postman_collection.json](api/registration.postman_collection.json); cấu hình password chỉ trong environment local. Luồng FE hiện tại vẫn dùng auth local, cần tích hợp riêng.
 
 ---
 
@@ -184,12 +197,14 @@ Mọi lỗi: `{ "success": false, "message": "..." }`. Response không bao giờ
 3. Lấy `token` từ response, gửi `GET http://localhost:5000/api/auth/me` với header `Authorization: Bearer <token>` → cần `200`.
 4. Gửi `POST http://localhost:5000/api/auth/logout` với cùng header → cần `204`. Gọi lại `/me` bằng token đó → cần `401`.
 
-Cấu hình collection và environment Postman được giữ riêng trên máy, không nằm trong Git. Không chia sẻ mật khẩu hoặc token trong file cấu hình.
+Collection register có thể import từ `api/registration.postman_collection.json`; collection không chứa mật khẩu/token. Cấu hình environment được giữ riêng trên máy. Không chia sẻ mật khẩu hoặc token trong file cấu hình.
 
 ---
 
 ## Tài liệu liên quan
 
+- [API hồ sơ](api/profile.md) — email, ngày sinh, tuổi theo ngày hiện tại, validation và cập nhật schema Atlas.
+- [API nhật ký tập luyện](api/workouts.md) — GET/POST, gửi lại yêu cầu, thưởng nhiệm vụ và mục tiêu nước. FE cần map `durationSec` → `duration_seconds`, `calories` → `calories_burned`, bổ sung `category` và UUID `workout_id`.
 - [README.md](README.md) — tài liệu kỹ thuật chi tiết Backend.
 - [database/mongodb/README.md](database/mongodb/README.md) — khởi tạo, seed, migration database.
 - [database/mongodb/ROLE_CONTRACT.md](database/mongodb/ROLE_CONTRACT.md) — hợp đồng role user/trainer/admin.
