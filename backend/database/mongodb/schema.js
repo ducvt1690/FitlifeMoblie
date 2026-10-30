@@ -16,6 +16,9 @@ const number = (minimum, maximum) => ({
 });
 const choice = (...values) => ({ bsonType: 'string', enum: values });
 const bool = { bsonType: 'bool' };
+const textArray = (maxItems, maxLength = 100) => ({
+  bsonType: 'array', maxItems, items: text(maxLength),
+});
 const weight = number(25, 300);
 const height = number(80, 250);
 const index = (key, name, options = {}) => ({ key, name, ...options });
@@ -69,6 +72,7 @@ const collections = [
     is_active: bool,
     gender: choice('male', 'female'),
     age: { ...integer(5), maximum: 100 },
+    date_of_birth: { ...day, description: 'Optional date of birth; API validates the calendar date and derives age.' },
     height,
     weight,
     activity_level: choice('sedentary', 'light', 'moderate', 'active'),
@@ -102,6 +106,33 @@ const collections = [
     calories_burned: integer(),
     workout_date: day,
   }, [userDayIndex('workout_date')]),
+
+  collection('exercises', 'exercise_id', {
+    source: choice('exercisedb_v1'),
+    source_exercise_id: text(100),
+    name: text(200),
+    gif_url: text(1000),
+    body_parts: textArray(20),
+    equipments: textArray(20),
+    target_muscles: textArray(20),
+    secondary_muscles: textArray(20),
+    instructions: textArray(50, 2000),
+    name_vi: text(200, 0),
+    body_parts_vi: textArray(20),
+    equipments_vi: textArray(20),
+    target_muscles_vi: textArray(20),
+    secondary_muscles_vi: textArray(20),
+    instructions_vi: textArray(50, 2000),
+    is_active: bool,
+    synced_at: timestamp,
+  }, [
+    unique({ source: 1, source_exercise_id: 1 }, 'uq_exercise_source_id'),
+    index({ is_active: 1, source: 1, name: 1 }, 'by_active_source_name'),
+    index({ body_parts: 1, is_active: 1 }, 'by_body_part_active'),
+    index({ target_muscles: 1, is_active: 1 }, 'by_target_muscle_active'),
+    index({ equipments: 1, is_active: 1 }, 'by_equipment_active'),
+  ], ['source', 'source_exercise_id', 'name', 'gif_url', 'body_parts', 'equipments',
+    'target_muscles', 'secondary_muscles', 'instructions', 'is_active', 'synced_at']),
 
   collection('meal_logs', 'meal_id', {
     user_id: identity,

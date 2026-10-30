@@ -37,14 +37,16 @@ beforeEach(async () => {
 });
 test('plan writes nothing and names only removable collections', async()=>{
  const before=await db.listCollections().toArray();const user=await db.collection('users').findOne();
+ const coreCounts=await Promise.all(collections.map(def=>db.collection(def.name).countDocuments()));
  const p=await simplifyDatabase(db,client);assert.equal(p.applied,false);assert.deepEqual(p.issues,[]);
- assert.equal(p.retainedDocuments,31);assert.ok(p.removeCollections.includes('user_inventory'));
+ assert.equal(p.retainedDocuments,coreCounts.reduce((sum,count)=>sum+count,0));assert.ok(p.removeCollections.includes('user_inventory'));
  assert.deepEqual(await db.listCollections().toArray(),before);assert.deepEqual(await db.collection('users').findOne(),user);
 });
 test('simplification preserves all core documents and auth sessions, exports backups and removes only approved extras/demo',async()=>{
+ await db.collection('users').updateOne({user_id:DEMO_USER_ID},{$set:{date_of_birth:'2003-10-20'}});
  const before=await db.collection('users').findOne({user_id:DEMO_USER_ID});
  const result=await simplifyDatabase(db,client,{apply:true,backupDirectory:directory,deleteDemo:true});
- assert.equal(result.applied,true);assert.equal(result.audit.ok,true);assert.equal(result.visibleCollections.length,17);
+ assert.equal(result.applied,true);assert.equal(result.audit.ok,true);assert.equal(result.visibleCollections.length,18);
  const after=await db.collection('users').findOne({user_id:DEMO_USER_ID});delete before.revision;assert.deepEqual(after,before);
  assert.equal(await db.collection('purchases').countDocuments(),1);assert.equal(result.deletedDemoDatabase,true);
  const names=(await client.db('admin').admin().listDatabases({nameOnly:true})).databases.map(row=>row.name);

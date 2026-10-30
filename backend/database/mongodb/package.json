@@ -14,6 +14,10 @@
     "db:verify": "node scripts/cli.js verify",
     "db:migrate:plan": "node scripts/cli.js migrate-plan",
     "db:migrate": "node scripts/cli.js migrate",
+    "db:profile:plan": "node scripts/profile-birth-date.js",
+    "db:profile:apply": "node scripts/profile-birth-date.js --apply",
+    "db:exercises:import": "node scripts/import-exercisedb-v1.js",
+    "db:language:vi": "node scripts/localize-vietnamese.js",
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "db:simplify:plan": "node scripts/cli.js simplify-plan",
     "db:simplify": "node scripts/cli.js simplify"

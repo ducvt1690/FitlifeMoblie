@@ -6,6 +6,9 @@ const catalogs = require('./data/catalogs.json');
 
 const VERSION = 'compass-samples-v1';
 const MINIMUM = 6;
+// The ExerciseDB catalog is imported by its own sync script; sample fixtures
+// must not invent or overwrite third-party exercise records.
+const sampleCollections = collections.filter(entry => entry.name !== 'exercises');
 const id = (key) => demoId(`${VERSION}:${key}`);
 const members = [
   { key: 'minh', full_name: 'Trần Quang Minh (Mẫu)', gender: 'male', age: 28,
@@ -32,13 +35,14 @@ function bmiStatus(value) {
 
 async function planSampleData(db, password, now = new Date()) {
   const existing = {};
-  await Promise.all(collections.map(async ({ name }) => {
+  await Promise.all(sampleCollections.map(async ({ name }) => {
     existing[name] = await db.collection(name).find({}).toArray();
   }));
-  const beforeCounts = Object.fromEntries(collections.map(({ name }) => [name, existing[name].length]));
+  const beforeCounts = Object.fromEntries(sampleCollections.map(({ name }) => [name, existing[name].length]));
+  beforeCounts.exercises = existing.exercises?.length || 0;
   const plan = { version: VERSION, database: db.databaseName, minimum: MINIMUM,
     fixtureDate: null, userIds: [], beforeCounts, afterCounts: { ...beforeCounts }, documents: {} };
-  if (Object.values(beforeCounts).every((count) => count >= MINIMUM)) return plan;
+  if (sampleCollections.every(({ name }) => beforeCounts[name] >= MINIMUM)) return plan;
 
   // This supplement extends the existing three-role fixture, never real user histories.
   if (beforeCounts.users !== 3 || existing.users.some((user) => !user.email?.endsWith('@fitlife.example'))) {
@@ -193,7 +197,7 @@ async function planSampleData(db, password, now = new Date()) {
     user.fit_coins = earned - spent;
     user.updated_at = at(date, '20:15');
   }
-  for (const { name } of collections) plan.afterCounts[name] += plan.documents[name]?.length || 0;
+  for (const { name } of sampleCollections) plan.afterCounts[name] += plan.documents[name]?.length || 0;
   verifySamplePlan(plan);
   return plan;
 }
@@ -201,7 +205,7 @@ async function planSampleData(db, password, now = new Date()) {
 function verifySamplePlan(plan) {
   if (!Object.keys(plan.documents).length) return true;
   const check = (condition, message) => { if (!condition) throw new Error(`Sample plan: ${message}`); };
-  check(Object.values(plan.afterCounts).every((count) => count >= MINIMUM), 'collection below six records');
+  check(sampleCollections.every(({ name }) => plan.afterCounts[name] >= MINIMUM), 'collection below six records');
   const rows = plan.documents;
   const activities = { q_water: ['water_logs', 'log_date'], q_workout: ['workout_logs', 'workout_date'],
     q_meal: ['meal_logs', 'meal_date'], q_sleep: ['sleep_logs', 'sleep_date'],
@@ -243,11 +247,11 @@ async function applySampleData(db, client, plan) {
   try {
     await session.withTransaction(async () => {
       // Counts also detect a concurrent writer before inserting this fixed cohort.
-      for (const { name } of collections) {
+      for (const { name } of sampleCollections) {
         const count = await db.collection(name).countDocuments({}, { session });
         if (count !== plan.beforeCounts[name]) throw new Error(`Data changed after planning: ${name}. Rebuild the plan.`);
       }
-      for (const { name } of collections) {
+      for (const { name } of sampleCollections) {
         const rows = plan.documents[name] || [];
         if (rows.length) await db.collection(name).insertMany(rows, { session });
         inserted[name] = rows.length;

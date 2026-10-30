@@ -7,7 +7,7 @@ Phiên bản 2 theo yêu cầu user/trainer/admin ngày 25/10/2026. Triển khai
 
 ## 1. Quy ước
 
-- **16 collection nghiệp vụ**; mỗi document có `_id: ObjectId` và ID nghiệp vụ unique.
+- **17 collection nghiệp vụ**; mỗi document có `_id: ObjectId` và ID nghiệp vụ unique.
 - `user_id` là chuỗi từ token đã verify, tương ứng `auth.uid`, không bắt buộc UUID; `trainer_id` tham chiếu cùng field. Các ID khác dùng UUID.
 - Timestamp là BSON Date UTC; ngày nghiệp vụ là YYYY-MM-DD theo users.timezone; log_time là HH:mm.
 - Mọi document có created_at/updated_at bắt buộc. BE phải điền, database không tự gán.
@@ -31,6 +31,7 @@ ID user_id unique; email unique, chữ thường.
 - email: 3–100 ký tự; full_name: 1–100.
 - role: user/trainer/admin; is_active: boolean, BE mặc định true.
 - gender: male/female; age: số nguyên 5–100.
+- date_of_birth: tùy chọn, chuỗi ngày `YYYY-MM-DD`; API kiểm tra ngày có thật, không ở tương lai và tính tuổi theo ngày hiện tại trong timezone tài khoản. Không suy đoán ngày sinh cho tài khoản cũ. Khi có ngày sinh, `age` lưu là cache; API đọc tính lại theo sinh nhật.
 - height: 80–250 cm; weight: 25–300 kg.
 - activity_level: sedentary/light/moderate/active; goal: lose/maintain/gain.
 - target_water: int ml = round(min(weight×35,4000)), +350 một lần nếu có >=1 workout trong ngày; tối đa 4350 khi tập, 4000 cơ bản.
@@ -40,7 +41,7 @@ ID user_id unique; email unique, chữ thường.
 - password_hash: tùy chọn, scrypt/bcrypt/Argon2 nếu BE tự quản lý password; external auth có thể bỏ.
 - streak_last_date: tùy chọn, ngày gần nhất đã tăng streak.
 
-Hồ sơ thông thường chỉ sửa full_name/gender/age/height/weight/activity_level/goal/timezone. Role/khóa/coins/streak/targets/auth là field hệ thống, không nhận ghi từ body thông thường. Không trả hash qua API. Tính BMI/targets khi onboarding hoặc đổi chỉ số sẽ được BE triển khai ở giai đoạn sau.
+API hồ sơ hiện cho sửa email/date_of_birth/full_name/gender/age/height/weight/activity_level/goal; timezone chưa cho sửa qua PATCH. Email lowercase/trim và duy nhất, trùng trả 409. Có ngày sinh thì tuổi do server tính, không nhận tuổi mâu thuẫn. Role/khóa/coins/streak/targets/auth là field hệ thống, không nhận ghi từ body thông thường. Không trả hash qua API. Backend tính lại targets khi đổi hồ sơ; API lịch sử BMI còn cần triển khai.
 
 ## 4. Nhật ký sức khỏe
 
@@ -48,6 +49,7 @@ Tất cả đều có user_id tham chiếu users:
 
 - **water_logs**, ID log_id: amount int >0 ml, log_time HH:mm, log_date. Nhiều lần/ngày, index (user_id,log_date).
 - **workout_logs**, ID workout_id: title 1–150, category 1–50, duration_seconds int >0, calories_burned int >=0, workout_date. Nhiều lần/ngày, index (user_id,workout_date).
+- **exercises**, ID exercise_id: thư viện ExerciseDB V1 đồng bộ theo `source_exercise_id`, tên, nhóm cơ, dụng cụ, hướng dẫn và `gif_url`; unique `(source,source_exercise_id)`. GIF là URL CDN, không lưu binary.
 - **meal_logs**, ID meal_id: meal_name 1–150, calories int >0, protein/carbs/fat số >=0 gram, meal_type breakfast/lunch/dinner/snack, meal_date. Nhiều lần/ngày, index (user_id,meal_date).
 - **sleep_logs**, ID sleep_id: hours 0–24, quality Sâu/Bình thường/Chập chờn, sleep_date. Unique (user_id,sleep_date).
 - **mood_logs**, ID mood_id: mood_label 1–50, note tùy chọn 0–2000, mood_date. Unique (user_id,mood_date).
