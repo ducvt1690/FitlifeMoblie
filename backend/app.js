@@ -3,6 +3,9 @@
 const express = require('express');
 const cors = require('cors');
 const { createProfileRouter } = require('./routes/profile.routes');
+const { createWaterRouter } = require('./routes/water.routes');
+const { createWorkoutRouter } = require('./routes/workout.routes');
+const { createQuestRouter } = require('./routes/quest.routes');
 const { createAuthRouter } = require('./routes/auth.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
@@ -40,6 +43,9 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, logger
       endpoints: {
         auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me'],
         profile: ['GET /api/profile', 'PATCH /api/profile'],
+        water: ['GET /api/water-logs', 'POST /api/water-logs'],
+        workouts: ['GET /api/workout-logs', 'POST /api/workout-logs'],
+        quests: ['GET /api/quests'],
       },
     });
   });
@@ -51,6 +57,9 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, logger
   });
   app.use('/api/auth', createAuthRouter({ db, sessionTtlSeconds }));
   app.use('/api/profile', createProfileRouter({ db }));
+  app.use('/api/water-logs', createWaterRouter({ db }));
+  app.use('/api/workout-logs', createWorkoutRouter({ db }));
+  app.use('/api/quests', createQuestRouter({ db }));
   // Legacy JSON routes are not mounted on the Atlas-backed authentication API.
   app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Endpoint không tồn tại.' });

@@ -195,6 +195,18 @@ test('registration accepts birthdays without redundant age and rejects conflicti
   assert.equal(await db.collection('users').countDocuments({ email: conflict.email }), 0);
 });
 
+test('birthday updates after workout preserve the daily water bonus and existing coins', async () => {
+  const workout = await request('/api/workout-logs', first.token, 'POST', {
+    workout_id: randomUUID(), title: 'Hít đất', category: 'fullbody', duration_seconds: 600, calories_burned: 50,
+  });
+  assert.equal(workout.status, 201);
+  const result = await patch({ date_of_birth: birthOnJanuaryFirst(29), weight: 75 });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.profile.target_water, 2975);
+  assert.equal(result.body.profile.fit_coins, 10);
+  assert.equal((await request('/api/water-logs', first.token)).body.target, 2975);
+});
+
 test('profile reads derive the current age and calorie target rather than trusting a stale cached age', async () => {
   const dateOfBirth = birthOnJanuaryFirst(29);
   assert.equal((await patch({ date_of_birth: dateOfBirth })).status, 200);

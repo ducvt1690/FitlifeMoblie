@@ -298,9 +298,14 @@ test('register and login default to fixed 12-hour sessions; requests do not exte
   assert.equal((await request('/api/auth/me', { token: signedIn.token })).status, 200);
   assert.equal((await db.collection('auth_sessions').findOne({ token_hash: tokenHash(signedIn.token) })).expires_at.getTime(), expiry);
   t.mock.timers.setTime(expiry);
-  for (const path of ['/api/auth/me', '/api/profile']) {
+  for (const path of ['/api/auth/me', '/api/profile', '/api/quests', '/api/water-logs']) {
     assert.equal((await request(path, { token: signedIn.token })).status, 401, path);
   }
+  const before = await db.collection('water_logs').countDocuments();
+  assert.equal((await request('/api/water-logs', {
+    method: 'POST', token: signedIn.token, body: { log_id: randomUUID(), amount: 250 },
+  })).status, 401);
+  assert.equal(await db.collection('water_logs').countDocuments(), before);
   t.mock.timers.reset();
   assert.equal((await request('/api/auth/logout', { method: 'POST', token: signedIn.token })).status, 204);
 });
