@@ -5,6 +5,7 @@ const cors = require('cors');
 const { createProfileRouter } = require('./routes/profile.routes');
 const { createWaterRouter } = require('./routes/water.routes');
 const { createWorkoutRouter } = require('./routes/workout.routes');
+const { createMealRouter } = require('./routes/meal.routes');
 const { createQuestRouter } = require('./routes/quest.routes');
 const { createAuthRouter } = require('./routes/auth.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
@@ -45,6 +46,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, logger
         profile: ['GET /api/profile', 'PATCH /api/profile'],
         water: ['GET /api/water-logs', 'POST /api/water-logs'],
         workouts: ['GET /api/workout-logs', 'POST /api/workout-logs'],
+        meals: ['GET /api/meal-logs', 'POST /api/meal-logs', 'PATCH /api/meal-logs/:mealId', 'DELETE /api/meal-logs/:mealId'],
         quests: ['GET /api/quests'],
       },
     });
@@ -59,6 +61,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, logger
   app.use('/api/profile', createProfileRouter({ db }));
   app.use('/api/water-logs', createWaterRouter({ db }));
   app.use('/api/workout-logs', createWorkoutRouter({ db }));
+  app.use('/api/meal-logs', createMealRouter({ db }));
   app.use('/api/quests', createQuestRouter({ db }));
   // Legacy JSON routes are not mounted on the Atlas-backed authentication API.
   app.use((req, res) => {

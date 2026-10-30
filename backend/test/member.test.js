@@ -117,3 +117,30 @@ test('invalid water amounts cannot corrupt totals or select another user', async
     log_id: randomUUID(), amount: 500, userId: second.user.user_id,
   })).status, 400);
 });
+
+test('health logs at early Vietnam morning use local date for water, workout and meals', async t => {
+  const day = localDay(new Date(), 'Asia/Ho_Chi_Minh');
+  // Advance to next local midnight; renew only this disposable test session.
+  const now = new Date(day + 'T18:05:00Z'); // 01:05 the next day in Vietnam.
+  t.mock.timers.enable({ apis: ['Date'], now });
+  await db.collection('auth_sessions').updateMany({ user_id: first.user.user_id }, {
+    $set: { created_at: now, expires_at: new Date(now.getTime() + 3600000) },
+  });
+  const expectedDay = localDay(now, 'Asia/Ho_Chi_Minh');
+  assert.notEqual(expectedDay, now.toISOString().slice(0, 10));
+  const water = await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount: 250 });
+  assert.equal(water.status, 201);
+  assert.equal(water.body.log.log_date, expectedDay);
+  assert.equal(water.body.log.log_time, '01:05');
+  const workout = await request('/api/workout-logs', first.token, 'POST', {
+    workout_id: randomUUID(), title: 'Hít đất', category: 'Toàn thân', duration_seconds: 60, calories_burned: 10,
+  });
+  assert.equal(workout.status, 201);
+  assert.equal(workout.body.log.workout_date, expectedDay);
+  const meal = await request('/api/meal-logs', first.token, 'POST', {
+    meal_id: randomUUID(), meal_name: 'Bữa ăn kiểm thử', calories: 450, protein: 25, carbs: 55, fat: 14, meal_type: 'breakfast',
+  });
+  assert.equal(meal.status, 201);
+  assert.equal(meal.body.log.meal_date, expectedDay);
+  assert.equal((await request('/api/quests', first.token)).body.date, expectedDay);
+});
