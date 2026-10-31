@@ -4,23 +4,11 @@ import { IoArrowBack, IoCheckmark } from 'react-icons/io5';
 import { useAuth } from '../lib/auth.jsx';
 import AuthLayout from '../components/AuthLayout.jsx';
 import Field from '../components/Field.jsx';
+import { ACTIVITY, GENDERS, GOALS } from '../lib/options.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STEPS = ['Tài khoản', 'Thể trạng', 'Mục tiêu', 'Xác nhận'];
 
-// Giá trị khớp backend/auth/registration.js
-const ACTIVITY = [
-  { value: 'sedentary', label: 'Ít vận động', hint: 'Ngồi nhiều, hầu như không tập' },
-  { value: 'light', label: 'Vận động nhẹ', hint: 'Tập 1–3 buổi/tuần' },
-  { value: 'moderate', label: 'Vận động vừa', hint: 'Tập 3–5 buổi/tuần' },
-  { value: 'active', label: 'Vận động nhiều', hint: 'Tập 6–7 buổi/tuần' },
-];
-const GOALS = [
-  { value: 'lose', label: 'Giảm cân' },
-  { value: 'maintain', label: 'Giữ cân' },
-  { value: 'gain', label: 'Tăng cân' },
-];
-const GENDERS = [{ value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }];
 
 function ageOf(dateStr) {
   if (!dateStr) return null;

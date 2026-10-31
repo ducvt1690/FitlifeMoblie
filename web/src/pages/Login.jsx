@@ -7,7 +7,7 @@ import Field from '../components/Field.jsx';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
-  const { user, login, enterDemo } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -38,10 +38,6 @@ export default function Login() {
     }
   }
 
-  function onDemo() {
-    enterDemo();
-    navigate('/app', { replace: true });
-  }
 
   return (
     <AuthLayout title="Chào mừng trở lại" subtitle="Đăng nhập để tiếp tục hành trình sức khỏe của bạn.">
@@ -55,8 +51,6 @@ export default function Login() {
           {submitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
         </button>
       </form>
-      <div className="divider"><span>hoặc</span></div>
-      <button className="btn btn-ghost btn-block" onClick={onDemo}>Xem thử chế độ demo (dữ liệu mẫu)</button>
       <p className="muted center">Chưa có tài khoản? <Link to="/register">Đăng ký</Link></p>
     </AuthLayout>
   );

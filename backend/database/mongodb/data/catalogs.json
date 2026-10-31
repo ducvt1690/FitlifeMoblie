@@ -17,8 +17,8 @@
     { "item_id": "10000000-0000-4000-8000-000000000006", "title": "Voucher minh họa - không có giá trị đổi thực tế", "category": "voucher", "cost_coins": 300, "icon": "ticket-outline", "is_available": false }
   ],
   "challenges": [
-    { "challenge_id": "20000000-0000-4000-8000-000000000001", "title": "7 ngày ghi nhận nước uống", "description": "Dữ liệu mẫu: điểm danh ghi nhận nước uống trong 7 ngày. Quy tắc ngày liên tiếp do backend triển khai sau.", "target_days": 7, "reward_coins": 70, "badge_icon": "water-outline", "is_active": true },
-    { "challenge_id": "20000000-0000-4000-8000-000000000002", "title": "14 ngày vận động", "description": "Dữ liệu mẫu: ghi nhận vận động trong 14 ngày.", "target_days": 14, "reward_coins": 140, "badge_icon": "barbell-outline", "is_active": true },
-    { "challenge_id": "20000000-0000-4000-8000-000000000003", "title": "30 ngày ghi nhận giấc ngủ", "description": "Dữ liệu mẫu: theo dõi giấc ngủ trong 30 ngày.", "target_days": 30, "reward_coins": 300, "badge_icon": "bed-outline", "is_active": true }
+    { "challenge_id": "20000000-0000-4000-8000-000000000001", "title": "7 ngày ghi nhận nước uống", "description": "Check-in mỗi ngày bạn uống đủ nước, đủ 7 ngày để nhận thưởng.", "target_days": 7, "reward_coins": 70, "badge_icon": "water-outline", "is_active": true },
+    { "challenge_id": "20000000-0000-4000-8000-000000000002", "title": "14 ngày vận động", "description": "Check-in mỗi ngày bạn có vận động, đủ 14 ngày để nhận thưởng.", "target_days": 14, "reward_coins": 140, "badge_icon": "barbell-outline", "is_active": true },
+    { "challenge_id": "20000000-0000-4000-8000-000000000003", "title": "30 ngày ghi nhận giấc ngủ", "description": "Check-in mỗi ngày bạn ghi giấc ngủ, đủ 30 ngày để nhận thưởng.", "target_days": 30, "reward_coins": 300, "badge_icon": "bed-outline", "is_active": true }
   ]
 }

@@ -124,11 +124,11 @@ async function planSampleData(db, password, now = new Date()) {
   });
   plan.documents.challenges = Array.from({ length: deficit('challenges') }, (_, index) => {
     const challenge = [
-      ['7 ngày ghi nhận bữa sáng (Mẫu)', 'Ghi nhận bữa sáng mỗi ngày trong một tuần.', 'restaurant-outline'],
-      ['7 ngày theo dõi tâm trạng (Mẫu)', 'Ghi nhận tâm trạng mỗi ngày trong một tuần.', 'happy-outline'],
-      ['7 ngày khởi động nhẹ (Mẫu)', 'Ghi nhận một buổi vận động nhẹ mỗi ngày.', 'walk-outline'],
+      ['7 ngày ghi nhận bữa sáng', 'Check-in mỗi ngày bạn ăn sáng, đủ 7 ngày để nhận thưởng.', 'restaurant-outline'],
+      ['7 ngày theo dõi tâm trạng', 'Check-in mỗi ngày bạn ghi lại tâm trạng, đủ 7 ngày để nhận thưởng.', 'happy-outline'],
+      ['7 ngày khởi động nhẹ', 'Check-in mỗi ngày bạn vận động nhẹ, đủ 7 ngày để nhận thưởng.', 'walk-outline'],
     ][index % 3];
-    return record('challenges', index, { title: challenge[0], description: `${challenge[1]} Dữ liệu minh họa.`,
+    return record('challenges', index, { title: challenge[0], description: challenge[1],
       target_days: 7, reward_coins: 70, badge_icon: challenge[2], is_active: true }, at(previousDate, '06:00'));
   });
   plan.documents.workout_templates = Array.from({ length: deficit('workout_templates') }, (_, index) => {

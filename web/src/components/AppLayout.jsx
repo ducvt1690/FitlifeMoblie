@@ -21,12 +21,25 @@ const NAV = [
 ];
 
 export default function AppLayout() {
-  const { user, isDemo, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
+
+  // Link dạng /app/logs#meal: đợi trang tải xong rồi cuộn tới đúng mục.
+  useEffect(() => {
+    if (!location.hash) { window.scrollTo(0, 0); return; }
+    const id = location.hash.slice(1);
+    let tries = 0;
+    const timer = setInterval(() => {
+      const el = document.getElementById(id);
+      if (el || ++tries > 20) clearInterval(timer);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => clearInterval(timer);
+  }, [location.pathname, location.hash]);
 
   async function handleLogout() {
     await logout();
@@ -54,7 +67,7 @@ export default function AppLayout() {
             <div className="avatar">{user.name?.[0]?.toUpperCase() ?? 'F'}</div>
             <div className="user-chip-text">
               <strong>{user.name}</strong>
-              <span>{isDemo ? 'Chế độ demo' : user.email}</span>
+              <span>{user.email}</span>
             </div>
           </div>
           <button className="nav-item logout" onClick={handleLogout}>
@@ -70,16 +83,11 @@ export default function AppLayout() {
             <IoMenuOutline />
           </button>
           <div className="topbar-spacer" />
-          <div className="coin-pill" title="Xu FitLife">
+          <NavLink to="/app/rewards" className="coin-pill" title="Xu FitLife — bấm để đổi thưởng">
             <IoSparkles /> {user.profile?.coins ?? 0} xu
-          </div>
+          </NavLink>
         </header>
         <main className="content">
-          {isDemo && (
-            <div className="demo-banner">
-              Bạn đang xem <strong>chế độ demo</strong>: số liệu là dữ liệu mẫu, không được lưu.
-            </div>
-          )}
           <Outlet />
         </main>
       </div>

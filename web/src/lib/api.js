@@ -46,3 +46,50 @@ export const authApi = {
   me: (token) => request('/api/auth/me', { token }),
   logout: (token) => request('/api/auth/logout', { method: 'POST', token }),
 };
+
+// UUID do client tạo để backend bỏ qua request gửi lặp (bấm 2 lần, mạng chập chờn).
+export const newId = () => crypto.randomUUID();
+
+function query(params) {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+  return qs.toString() ? `?${qs}` : '';
+}
+
+// Các API cần đăng nhập. `call(path, { method, body })` đã gắn sẵn token.
+export function createApi(call) {
+  const post = (path, body) => call(path, { method: 'POST', body });
+  const put = (path, body) => call(path, { method: 'PUT', body });
+
+  return {
+    profile: () => call('/api/profile'),
+    updateProfile: (changes) => call('/api/profile', { method: 'PATCH', body: changes }),
+
+    water: () => call('/api/water-logs'),
+    addWater: (amount) => post('/api/water-logs', { log_id: newId(), amount }),
+    meals: () => call('/api/meal-logs'),
+    addMeal: (meal) => post('/api/meal-logs', { meal_id: newId(), ...meal }),
+    deleteMeal: (mealId) => call(`/api/meal-logs/${mealId}`, { method: 'DELETE' }),
+    workouts: () => call('/api/workout-logs'),
+    addWorkout: (workout) => post('/api/workout-logs', { workout_id: newId(), ...workout }),
+    sleep: () => call('/api/sleep-logs'),
+    saveSleep: (log) => put('/api/sleep-logs', log),
+    mood: () => call('/api/mood-logs'),
+    saveMood: (log) => put('/api/mood-logs', log),
+
+    quests: () => call('/api/quests'),
+    checkin: () => post('/api/quests/checkin'),
+    challenges: () => call('/api/challenges'),
+    joinChallenge: (id) => post(`/api/challenges/${id}/join`),
+    checkinChallenge: (id) => post(`/api/challenges/${id}/checkin`),
+    rewards: () => call('/api/rewards'),
+    buyReward: (itemId) => post(`/api/rewards/${itemId}/purchase`, { purchase_id: newId() }),
+
+    exercises: (params = {}) => call(`/api/exercises${query(params)}`),
+    stats: (days) => call(`/api/stats${query({ days })}`),
+    bmi: () => call('/api/bmi-records'),
+
+    chatSessions: () => call('/api/chat/sessions'),
+    chatMessages: (sessionId) => call(`/api/chat/sessions/${sessionId}/messages`),
+    sendChat: (sessionId, content) => post('/api/chat/messages', { session_id: sessionId, message_id: newId(), content }),
+  };
+}
