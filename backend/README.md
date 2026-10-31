@@ -151,11 +151,28 @@ API hồ sơ/nước/tập luyện/quest yêu cầu Bearer token và role `user`
 - `GET /api/workout-logs?date=YYYY-MM-DD`: xem nhật ký của người gọi theo ngày; mặc định hôm nay theo timezone tài khoản, trả tổng giây tập và kcal ước tính.
 - `POST /api/workout-logs`: nhận `workout_id` UUID, `title`, `category`, `duration_seconds`, `calories_burned`. Server tự gắn người dùng và ngày. Tạo mới trả `201`; gửi lại cùng ID/nội dung trả `200` mà không tạo log hoặc thưởng lặp; ID xung đột trả `409`.
 
-Ghi nhật ký, thưởng `q_workout` 10 xu tối đa một lần/ngày và cập nhật mục tiêu nước cùng transaction. Ngày có tập cộng 350 ml một lần, tối đa 4350 ml; đọc profile, nước hoặc `/me` phản ánh mục tiêu ngày hiện tại, kể cả khi sang ngày mới. Sửa hồ sơ giữ bonus nếu hôm nay đã tập. Calo là ước tính do người dùng/FE nhập, không phải số đo đã xác minh. Chưa có API sửa/xóa nhật ký hay template/GIF trainer.
+Ghi nhật ký, thưởng `q_workout` 10 xu tối đa một lần/ngày và cập nhật mục tiêu nước cùng transaction. Ngày có tập cộng 350 ml một lần, tối đa 4350 ml; đọc profile, nước hoặc `/me` phản ánh mục tiêu ngày hiện tại, kể cả khi sang ngày mới. Sửa hồ sơ giữ bonus nếu hôm nay đã tập. Calo là ước tính do người dùng/FE nhập, không phải số đo đã xác minh. Chưa có API sửa/xóa nhật ký tập.
 
 Ví dụ request/response, giới hạn và hướng dẫn nối FE: [API nhật ký tập luyện](api/workouts.md). Dùng collection `workout_logs` và schema Atlas hiện có, không cần migrate database.
 
-API Shop, Challenge, trainer/admin và AI chưa triển khai. Khi bổ sung chức năng, tạo route và service cùng tên; dùng middleware xác thực và truyền transaction giữa các service có bước ghi liên quan.
+### Huấn luyện viên và quản trị
+
+Mỗi khu chỉ nhận đúng role (`requireRole`), sai role trả `403`. Trainer/admin chỉ dùng trên website; app mobile dành cho thành viên.
+
+- Trainer (`/api/trainer`): `GET overview`; `GET/POST links` (tạo mã mời 8 ký tự, tối đa 10 mã chưa dùng); `DELETE links/:linkId` (hủy mã hoặc kết thúc kết nối, đồng thời hủy bài đang giao); `GET/POST templates`, `PATCH templates/:id` (chỉ giáo án của mình, `is_active` để ngừng dùng); `GET assignments?status=`, `POST assignments` (`id` UUID, `user_id`, `template_id`, `note`), `POST assignments/:id/cancel`; `GET students/:userId?days=7`.
+- Thành viên (`/api/coaching`): `GET` kết nối và bài được giao; `POST links` nhập `{ "code" }` để đồng ý; `DELETE links/:linkId`; `POST assignments/:id/complete|decline`.
+- Quyền xem dữ liệu: trainer chỉ thấy học viên đã nhập mã mời. Nhật ký sức khỏe (`health`) chỉ trả về khi kết nối còn mở **và** có ít nhất một bài đang giao; ngược lại `health: null`. Không có API nào cho trainer/admin đọc chat AI.
+- Admin (`/api/admin`): `GET overview`; `GET accounts?q=&role=&status=&page=`; `PATCH accounts/:userId` nhận `is_active`, `role` (`user`|`trainer`), `note` — không sửa được chính mình hay admin khác, đổi role sẽ kết thúc kết nối/bài giao liên quan và đăng xuất tài khoản đó; `GET/POST challenges`, `PATCH challenges/:id`; `GET/POST rewards`, `PATCH rewards/:id`; `GET transactions?page=`; `GET logs?page=`. Mọi thao tác ghi vào `admin_logs`.
+
+Admin đầu tiên không tạo qua API. Đăng ký tài khoản bình thường rồi chạy trong `backend/`:
+
+```bash
+npm run role -- <email> admin     # hoặc trainer / user
+```
+
+Script đọc `.env`, đổi role, xóa phiên cũ và ghi `admin_logs`. Sau đó admin cấp/thu hồi quyền huấn luyện viên trên web (Quản trị → Tài khoản).
+
+AI chat dùng `/api/chat`. Khi bổ sung chức năng, tạo route và service cùng tên; dùng middleware xác thực và truyền transaction giữa các service có bước ghi liên quan.
 
 ## Kiểm thử
 

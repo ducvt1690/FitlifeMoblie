@@ -219,6 +219,29 @@ const collections = [
     ],
   }),
 
+  // Consent record: a trainer issues an invite code, the member accepts it, either side can end it.
+  collection('trainer_links', 'link_id', {
+    trainer_id: identity,
+    user_id: { bsonType: ['string', 'null'], minLength: 1, maxLength: 128 },
+    invite_code: { bsonType: 'string', pattern: '^[A-Z0-9]{8}$' },
+    status: choice('pending', 'active', 'ended'),
+    accepted_at: { bsonType: ['date', 'null'] },
+    ended_at: { bsonType: ['date', 'null'] },
+  }, [
+    unique({ invite_code: 1 }, 'uq_link_invite_code'),
+    unique({ trainer_id: 1, user_id: 1 }, 'uq_active_trainer_user', { partialFilterExpression: { status: 'active' } }),
+    index({ trainer_id: 1, status: 1 }, 'by_trainer_link_status'),
+    index({ user_id: 1, status: 1 }, 'by_user_link_status'),
+  ]),
+
+  collection('admin_logs', 'log_id', {
+    admin_id: identity,
+    action: text(50),
+    target_type: choice('user', 'challenge', 'reward_item'),
+    target_id: text(128),
+    note: text(500, 0),
+  }, [index({ created_at: -1 }, 'by_admin_log_time')], ['admin_id', 'action', 'target_type', 'target_id']),
+
   collection('challenges', 'challenge_id', {
     title: text(150),
     description: text(2000),
@@ -287,6 +310,8 @@ const collections = [
 const references = collections
   .filter((entry) => entry.name !== 'users' && entry.validator.$jsonSchema.properties.user_id)
   .map((entry) => ({ from: entry.name, field: 'user_id', to: 'users', target: 'user_id' }));
+// A pending invite has no member yet, so only linked rows are audited.
+references.find((entry) => entry.from === 'trainer_links').match = { user_id: { $ne: null } };
 references.push(
   { from: 'user_challenges', field: 'challenge_id', to: 'challenges', target: 'challenge_id' },
   { from: 'purchases', field: 'item_id', to: 'reward_items', target: 'item_id' },
@@ -294,6 +319,8 @@ references.push(
   { from: 'trainer_assignments', field: 'trainer_id', to: 'users', target: 'user_id' },
   { from: 'trainer_assignments', field: 'template_id', to: 'workout_templates', target: 'template_id' },
   { from: 'ai_chat_messages', field: 'session_id', to: 'ai_chat_sessions', target: 'session_id' },
+  { from: 'trainer_links', field: 'trainer_id', to: 'users', target: 'user_id' },
+  { from: 'admin_logs', field: 'admin_id', to: 'users', target: 'user_id' },
 );
 
 module.exports = { collections, references, QUEST_KEYS, ROLES, SCHEMA_VERSION };

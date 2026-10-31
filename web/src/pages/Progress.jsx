@@ -33,7 +33,7 @@ export default function Progress() {
   );
 }
 
-function Charts({ stats, long }) {
+export function Charts({ stats, long }) {
   const series = (pick) => stats.days.map((d) => ({ key: d.date, label: dayLabel(d.date, long), value: pick(d) }));
   const charts = [
     { title: 'Nước uống', unit: 'ml', target: stats.target_water, pick: (d) => d.water_ml },

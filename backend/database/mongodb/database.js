@@ -68,6 +68,7 @@ async function verifyDatabase(db) {
   for (const reference of references) {
     if (!present.has(reference.from) || !present.has(reference.to)) continue;
     const [result] = await db.collection(reference.from).aggregate([
+      ...(reference.match ? [{ $match: reference.match }] : []),
       { $lookup: {
         from: reference.to, localField: reference.field, foreignField: reference.target, as: '_references',
       } },

@@ -41,6 +41,7 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     setUser(data.user);
     setChecking(false);
+    return data.user;
   }, []);
 
   // Response nào có fit_coins thì cập nhật luôn số xu trên thanh trên cùng.
@@ -61,8 +62,8 @@ export function AuthProvider({ children }) {
     user,
     checking,
     api,
-    async login(email, password) { acceptSession(await authApi.login(email, password)); },
-    async register(payload) { acceptSession(await authApi.register(payload)); },
+    async login(email, password) { return acceptSession(await authApi.login(email, password)); },
+    async register(payload) { return acceptSession(await authApi.register(payload)); },
     // Sau khi sửa hồ sơ, mục tiêu nước/calo được backend tính lại.
     async refreshUser() { setUser((await authApi.me(token)).user); },
     async logout() {

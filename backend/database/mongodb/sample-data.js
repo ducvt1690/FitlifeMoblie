@@ -7,8 +7,9 @@ const catalogs = require('./data/catalogs.json');
 const VERSION = 'compass-samples-v1';
 const MINIMUM = 6;
 // The ExerciseDB catalog is imported by its own sync script; sample fixtures
-// must not invent or overwrite third-party exercise records.
-const sampleCollections = collections.filter(entry => entry.name !== 'exercises');
+// must not invent or overwrite third-party exercise records. Trainer consent and
+// admin history are only written through the API.
+const sampleCollections = collections.filter(entry => !['exercises', 'trainer_links', 'admin_logs'].includes(entry.name));
 const id = (key) => demoId(`${VERSION}:${key}`);
 const members = [
   { key: 'minh', full_name: 'Trần Quang Minh (Mẫu)', gender: 'male', age: 28,

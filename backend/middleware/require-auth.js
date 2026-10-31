@@ -13,4 +13,12 @@ function requireMember(req, res, next) {
   if (req.auth.user.role !== 'user') return res.status(403).json({ success: false, message: 'Chức năng này dành cho tài khoản user.' });
   next();
 }
-module.exports = { createRequireAuth, requireMember };
+const ROLE_LABELS = { trainer: 'huấn luyện viên', admin: 'quản trị viên' };
+function requireRole(role) {
+  return (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.auth.user.role !== role) return res.status(403).json({ success: false, message: `Chức năng này dành cho ${ROLE_LABELS[role]}.` });
+    next();
+  };
+}
+module.exports = { createRequireAuth, requireMember, requireRole };

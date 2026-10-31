@@ -3,12 +3,13 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   IoGridOutline, IoJournalOutline, IoTrophyOutline, IoFlagOutline, IoGiftOutline,
   IoBarbellOutline, IoStatsChartOutline, IoChatbubbleEllipsesOutline, IoPersonOutline,
-  IoLogOutOutline, IoMenuOutline, IoCloseOutline, IoSparkles,
+  IoLogOutOutline, IoMenuOutline, IoCloseOutline, IoSparkles, IoPeopleOutline, IoDocumentTextOutline,
+  IoClipboardOutline, IoShieldCheckmarkOutline, IoReceiptOutline, IoFitnessOutline,
 } from 'react-icons/io5';
 import { useAuth } from '../lib/auth.jsx';
 import Logo from './Logo.jsx';
 
-const NAV = [
+const MEMBER_NAV = [
   { to: '/app', label: 'Tổng quan', icon: IoGridOutline, end: true },
   { to: '/app/logs', label: 'Nhật ký', icon: IoJournalOutline },
   { to: '/app/quests', label: 'Nhiệm vụ', icon: IoFlagOutline },
@@ -17,14 +18,37 @@ const NAV = [
   { to: '/app/workouts', label: 'Bài tập', icon: IoBarbellOutline },
   { to: '/app/progress', label: 'Thống kê', icon: IoStatsChartOutline },
   { to: '/app/coach', label: 'AI Coach', icon: IoChatbubbleEllipsesOutline },
+  { to: '/app/coaching', label: 'Huấn luyện viên', icon: IoFitnessOutline },
   { to: '/app/profile', label: 'Hồ sơ', icon: IoPersonOutline },
 ];
+
+const TRAINER_NAV = [
+  { to: '/trainer', label: 'Tổng quan', icon: IoGridOutline, end: true },
+  { to: '/trainer/students', label: 'Học viên', icon: IoPeopleOutline },
+  { to: '/trainer/templates', label: 'Giáo án', icon: IoDocumentTextOutline },
+  { to: '/trainer/assignments', label: 'Bài đã giao', icon: IoClipboardOutline },
+];
+
+const ADMIN_NAV = [
+  { to: '/admin', label: 'Tổng quan', icon: IoGridOutline, end: true },
+  { to: '/admin/accounts', label: 'Tài khoản', icon: IoPeopleOutline },
+  { to: '/admin/challenges', label: 'Thử thách', icon: IoTrophyOutline },
+  { to: '/admin/rewards', label: 'Vật phẩm', icon: IoGiftOutline },
+  { to: '/admin/transactions', label: 'Giao dịch xu', icon: IoReceiptOutline },
+];
+
+const AREAS = {
+  user: { nav: MEMBER_NAV },
+  trainer: { nav: TRAINER_NAV, label: 'Huấn luyện viên' },
+  admin: { nav: ADMIN_NAV, label: 'Quản trị' },
+};
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const area = AREAS[user.role] ?? AREAS.user;
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
@@ -56,7 +80,8 @@ export default function AppLayout() {
           </button>
         </div>
         <nav className="sidebar-nav">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {area.label && <span className="area-label"><IoShieldCheckmarkOutline /> {area.label}</span>}
+          {area.nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className="nav-item">
               <Icon /> <span>{label}</span>
             </NavLink>
@@ -83,9 +108,11 @@ export default function AppLayout() {
             <IoMenuOutline />
           </button>
           <div className="topbar-spacer" />
-          <NavLink to="/app/rewards" className="coin-pill" title="Xu FitLife — bấm để đổi thưởng">
-            <IoSparkles /> {user.profile?.coins ?? 0} xu
-          </NavLink>
+          {user.role === 'user' && (
+            <NavLink to="/app/rewards" className="coin-pill" title="Xu FitLife — bấm để đổi thưởng">
+              <IoSparkles /> {user.profile?.coins ?? 0} xu
+            </NavLink>
+          )}
         </header>
         <main className="content">
           <Outlet />

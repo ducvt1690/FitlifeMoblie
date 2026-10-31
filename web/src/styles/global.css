@@ -438,6 +438,61 @@ a.quest-title:hover { text-decoration: underline; }
 .chat-input textarea { flex: 1; font: inherit; border: 1px solid #D9DDD5; border-radius: var(--radius-sm); padding: 10px 12px; resize: none; outline: 0; }
 .chat-input textarea:focus { border-color: var(--lime-dark); }
 
+/* ---------- Huấn luyện viên & quản trị ---------- */
+.area-label {
+  display: inline-block; margin: 0 8px 14px; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; background: var(--dark-card); color: var(--lime);
+}
+.row-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.row-list li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.row-list li:last-child { border-bottom: 0; }
+.row-list li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.is-off { opacity: .6; }
+.tile-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.tile-link { color: inherit; transition: border-color .15s; }
+.tile-link:hover { border-color: var(--lime-dark); }
+.table-wrap { overflow-x: auto; }
+.cell-actions { text-align: right; white-space: nowrap; }
+.cell-actions .btn + .btn { margin-left: 6px; }
+.filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.filter-bar .search-bar { flex: 1; min-width: 240px; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
+.back-link:hover { color: var(--text); }
+.notice-card { display: flex; align-items: center; gap: 12px; color: var(--text-2); background: var(--card-muted); }
+.notice-card svg { font-size: 22px; color: var(--muted); flex: none; }
+.notice-card p { margin: 0; }
+.invite-code {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; border: 1px dashed var(--lime-dark); background: var(--lime-light);
+  border-radius: 8px; padding: 4px 10px; font: 700 16px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; color: var(--black);
+}
+.invite-code svg { font-size: 14px; color: var(--lime-deep); }
+.code-input {
+  flex: 1; min-width: 0; font: 700 16px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase;
+  border: 1px solid #D9DDD5; border-radius: var(--radius-sm); padding: 10px 12px; outline: 0; background: var(--card); color: var(--text);
+}
+.code-input:focus { border-color: var(--lime-dark); box-shadow: 0 0 0 3px var(--lime-light); }
+.inline-form + .muted { margin: 12px 0 4px; }
+.assignment-list { display: flex; flex-direction: column; gap: 12px; }
+.assignment { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-muted); }
+.assignment-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.assignment p { margin: 0; }
+.assignment-note { font-style: italic; color: var(--text-2); }
+.pre-line { white-space: pre-line; font-size: 13px; color: var(--text-2); }
+.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 360px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.tag-done { background: var(--p-green); color: #166534; }
+.tag-warn { background: var(--accent-light); color: #92400E; }
+.tag-danger { background: var(--danger-light); color: #991B1B; }
+.btn.is-armed { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-danger-ghost { background: none; border: 1px solid var(--danger-light); color: var(--danger); }
+.btn-danger-ghost:hover { background: var(--danger-light); }
+@media (max-width: 640px) {
+  .cell-actions { white-space: normal; }
+  .cell-actions .btn { margin: 2px 0 2px 4px; }
+  .filter-bar .search-bar { min-width: 100%; }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .dash-grid, .log-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

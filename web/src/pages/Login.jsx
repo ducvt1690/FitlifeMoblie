@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import AuthLayout from '../components/AuthLayout.jsx';
 import Field from '../components/Field.jsx';
+import { homeFor } from '../lib/options.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,7 +16,14 @@ export default function Login() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) return <Navigate to={location.state?.from ?? '/app'} replace />;
+  // Chỉ quay lại trang cũ nếu trang đó thuộc khu của vai trò này.
+  const target = (role) => {
+    const home = homeFor(role);
+    const from = location.state?.from;
+    return from?.startsWith(home) ? from : home;
+  };
+
+  if (user) return <Navigate to={target(user.role)} replace />;
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -29,8 +37,8 @@ export default function Login() {
     if (Object.keys(next).length) return;
     setSubmitting(true);
     try {
-      await login(form.email.trim(), form.password);
-      navigate(location.state?.from ?? '/app', { replace: true });
+      const signedIn = await login(form.email.trim(), form.password);
+      navigate(target(signedIn.role), { replace: true });
     } catch (err) {
       setFormError(err.message);
     } finally {

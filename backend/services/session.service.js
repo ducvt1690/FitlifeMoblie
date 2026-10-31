@@ -6,6 +6,14 @@ const { currentWaterTarget } = require('../utils/water-target');
 const { withCurrentAge } = require('../utils/birth-date');
 const { calculateTargets } = require('../utils/health-targets');
 
+// Age, calorie and water targets depend on today's date and logs, so derive them on every read.
+async function withLiveTargets(db, stored, now = new Date()) {
+  const user = withCurrentAge(stored, now);
+  if (user.date_of_birth !== undefined) user.target_calories = calculateTargets(user, now).target_calories;
+  if (user.role === 'user') user.target_water = await currentWaterTarget(db, user, { now });
+  return user;
+}
+
 function createSessionService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS }) {
   if (!db || !Number.isSafeInteger(sessionTtlSeconds) || sessionTtlSeconds < 1 || sessionTtlSeconds > DEFAULT_SESSION_TTL_SECONDS) {
     throw new Error('Invalid authentication configuration.');
@@ -28,13 +36,10 @@ function createSessionService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECO
         created_at: { $gt: new Date(now.getTime() - DEFAULT_SESSION_TTL_SECONDS * 1000) },
       });
       if (!session) throw new HttpError(401, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
-      let user = await db.collection('users').findOne({ user_id: session.user_id }, { projection: { password_hash: 0 } });
-      if (!user) throw new HttpError(401, 'Phiên đăng nhập không hợp lệ.');
-      if (user.is_active !== true) throw new HttpError(403, 'Tài khoản đã bị khóa.');
-      user = withCurrentAge(user, now);
-      if (user.date_of_birth !== undefined) user.target_calories = calculateTargets(user, now).target_calories;
-      if (user.role === 'user') user.target_water = await currentWaterTarget(db, user, { now });
-      return { user, session, tokenHash };
+      const stored = await db.collection('users').findOne({ user_id: session.user_id }, { projection: { password_hash: 0 } });
+      if (!stored) throw new HttpError(401, 'Phiên đăng nhập không hợp lệ.');
+      if (stored.is_active !== true) throw new HttpError(403, 'Tài khoản đã bị khóa.');
+      return { user: await withLiveTargets(db, stored, now), session, tokenHash };
     },
     async revoke(token) {
       if (!token) throw new HttpError(401, 'Phiên đăng nhập không hợp lệ.');
@@ -42,4 +47,4 @@ function createSessionService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECO
     },
   };
 }
-module.exports = { createSessionService };
+module.exports = { createSessionService, withLiveTargets };

@@ -59,6 +59,8 @@ function query(params) {
 export function createApi(call) {
   const post = (path, body) => call(path, { method: 'POST', body });
   const put = (path, body) => call(path, { method: 'PUT', body });
+  const patch = (path, body) => call(path, { method: 'PATCH', body });
+  const del = (path) => call(path, { method: 'DELETE' });
 
   return {
     profile: () => call('/api/profile'),
@@ -91,5 +93,40 @@ export function createApi(call) {
     chatSessions: () => call('/api/chat/sessions'),
     chatMessages: (sessionId) => call(`/api/chat/sessions/${sessionId}/messages`),
     sendChat: (sessionId, content) => post('/api/chat/messages', { session_id: sessionId, message_id: newId(), content }),
+
+    // Thành viên: kết nối huấn luyện viên và bài được giao.
+    coaching: () => call('/api/coaching'),
+    acceptInvite: (code) => post('/api/coaching/links', { code }),
+    leaveTrainer: (linkId) => del(`/api/coaching/links/${linkId}`),
+    completeAssignment: (id) => post(`/api/coaching/assignments/${id}/complete`),
+    declineAssignment: (id) => post(`/api/coaching/assignments/${id}/decline`),
+
+    trainer: {
+      overview: () => call('/api/trainer/overview'),
+      links: () => call('/api/trainer/links'),
+      createInvite: () => post('/api/trainer/links'),
+      endLink: (linkId) => del(`/api/trainer/links/${linkId}`),
+      templates: () => call('/api/trainer/templates'),
+      createTemplate: (template) => post('/api/trainer/templates', { template_id: newId(), ...template }),
+      updateTemplate: (id, changes) => patch(`/api/trainer/templates/${id}`, changes),
+      assignments: (status) => call(`/api/trainer/assignments${query({ status })}`),
+      assign: (assignment) => post('/api/trainer/assignments', { id: newId(), ...assignment }),
+      cancelAssignment: (id) => post(`/api/trainer/assignments/${id}/cancel`),
+      student: (userId, days) => call(`/api/trainer/students/${userId}${query({ days })}`),
+    },
+
+    admin: {
+      overview: () => call('/api/admin/overview'),
+      accounts: (params) => call(`/api/admin/accounts${query(params)}`),
+      updateAccount: (userId, changes) => patch(`/api/admin/accounts/${userId}`, changes),
+      challenges: () => call('/api/admin/challenges'),
+      createChallenge: (challenge) => post('/api/admin/challenges', { challenge_id: newId(), ...challenge }),
+      updateChallenge: (id, changes) => patch(`/api/admin/challenges/${id}`, changes),
+      rewards: () => call('/api/admin/rewards'),
+      createReward: (item) => post('/api/admin/rewards', { item_id: newId(), ...item }),
+      updateReward: (id, changes) => patch(`/api/admin/rewards/${id}`, changes),
+      transactions: (page) => call(`/api/admin/transactions${query({ page })}`),
+      logs: (page) => call(`/api/admin/logs${query({ page })}`),
+    },
   };
 }

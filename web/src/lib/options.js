@@ -23,3 +23,30 @@ export const WORKOUT_CATEGORIES = ['Cardio', 'Sức mạnh', 'HIIT', 'Yoga', 'Đ
 
 export const labelOf = (options, value) => options.find((o) => o.value === value)?.label ?? '—';
 export const fmt = (n) => Math.round(n ?? 0).toLocaleString('vi-VN');
+
+// Trainer/admin: khớp services/trainer.service.js và services/admin.service.js.
+export const ROLES = [
+  { value: 'user', label: 'Thành viên' },
+  { value: 'trainer', label: 'Huấn luyện viên' },
+  { value: 'admin', label: 'Quản trị viên' },
+];
+export const LEVELS = [
+  { value: 'beginner', label: 'Cơ bản' },
+  { value: 'intermediate', label: 'Trung bình' },
+  { value: 'advanced', label: 'Nâng cao' },
+];
+export const ASSIGNMENT_STATUS = [
+  { value: 'assigned', label: 'Đang giao' },
+  { value: 'done', label: 'Hoàn thành' },
+  { value: 'cancelled', label: 'Đã hủy' },
+];
+export const REWARD_CATEGORIES = [
+  { value: 'badge', label: 'Huy hiệu' },
+  { value: 'theme', label: 'Giao diện' },
+  { value: 'voucher', label: 'Voucher' },
+];
+
+// Mỗi vai trò có khu riêng; đăng nhập xong đưa về đúng khu.
+export const homeFor = (role) => ({ trainer: '/trainer', admin: '/admin' })[role] ?? '/app';
+export const fmtDate = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '—');
+export const fmtDateTime = (value) => (value ? new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—');

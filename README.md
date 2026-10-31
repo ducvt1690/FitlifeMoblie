@@ -66,17 +66,18 @@ npx expo start
 
 Tài liệu schema và cách kết nối đặt tại [`backend/database/mongodb/README.md`](backend/database/mongodb/README.md). Đặc tả nghiệp vụ đặt tại [`backend/database/FitLife_Database_Specification.md`](backend/database/FitLife_Database_Specification.md).
 
-Database `fitlife` gồm **17 collection nghiệp vụ**:
+Database `fitlife` gồm **19 collection nghiệp vụ**:
 
 - Tài khoản: `users`, role `user`, `trainer`, `admin`; mật khẩu băm và số dư `fit_coins`.
 - Nhật ký: `water_logs`, `workout_logs`, `meal_logs`, `bmi_history`, `sleep_logs`, `mood_logs`.
 - Thư viện 30 bài ExerciseDB V1: `exercises`, có tên/hướng dẫn tiếng Việt và URL GIF.
 - Nhiệm vụ và thử thách: `daily_quest_logs`, `challenges`, `user_challenges`.
 - Cửa hàng: `reward_items`, `purchases`.
-- Trainer: `workout_templates`, `trainer_assignments`.
+- Trainer: `trainer_links` (kết nối bằng mã mời), `workout_templates`, `trainer_assignments`.
+- Quản trị: `admin_logs` (nhật ký thao tác admin).
 - Chat: `ai_chat_sessions`, `ai_chat_messages`.
 
-`auth_sessions` là collection kỹ thuật lưu hash token và hạn phiên. Các API đã có: auth, profile, nước, tập luyện, bữa ăn, exercises và đọc quest. Shop, Challenge, Trainer, AI cùng các API ngủ/tâm trạng/BMI còn cần triển khai; có collection không đồng nghĩa đã có API. Frontend hiện vẫn dùng nhiều dữ liệu local và cần tích hợp với backend.
+`auth_sessions` là collection kỹ thuật lưu hash token và hạn phiên. Website có ba khu theo role: thành viên (`/app`), huấn luyện viên (`/trainer`) và quản trị (`/admin`); app mobile chỉ dành cho thành viên. Tạo admin đầu tiên bằng `npm run role -- <email> admin` trong `backend/`.
 
 Chạy và cấu hình backend: [backend/README.md](backend/README.md). Hướng dẫn Postman: [backend/api/HUONG_DAN_POSTMAN.md](backend/api/HUONG_DAN_POSTMAN.md).
 
