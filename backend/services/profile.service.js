@@ -1,10 +1,11 @@
 'use strict';
-const { validateProfile, normalizeEmail } = require('../auth/registration');
+const { validateProfile, normalizeEmail, localDay } = require('../auth/registration');
 const { withCurrentAge } = require('../utils/birth-date');
 const { calculateTargets } = require('../utils/health-targets');
 const { currentWaterTarget } = require('../utils/water-target');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
+const { upsertBmi } = require('../utils/bmi');
 const fail = (status, message) => new HttpError(status, message);
 const profileFields = ['full_name', 'gender', 'age', 'height', 'weight', 'activity_level', 'goal'];
 const editableFields = ['email', 'date_of_birth', ...profileFields];
@@ -44,6 +45,10 @@ function createProfileService({ db }) {
           Object.assign(update, calculateTargets(valid, now), { updated_at: now });
           update.target_water = await currentWaterTarget(db, { ...current, ...valid }, { session, now });
           await db.collection('users').updateOne({ user_id: current.user_id }, { $set: update }, { session });
+          // A body/height change is also today's BMI history entry.
+          if (update.weight !== current.weight || update.height !== current.height) {
+            await upsertBmi(db, { ...current, ...update }, localDay(now, current.timezone), now, session);
+          }
           return publicProfile({ ...current, ...update }, now);
         });
       } catch (error) {

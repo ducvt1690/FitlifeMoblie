@@ -8,6 +8,7 @@ function createQuestRouter({ db }) {
   const service = createQuestService({ db });
   router.use(createRequireAuth({ db }), requireMember);
   router.get('/', asyncHandler(async (req, res) => res.json(await service.getToday(req.auth.user))));
+  router.post('/checkin', asyncHandler(async (req, res) => res.json(await service.checkin(req.auth.user))));
   return router;
 }
 module.exports = { createQuestRouter };

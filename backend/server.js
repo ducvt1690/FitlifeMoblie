@@ -7,7 +7,7 @@ const { createApp } = require('./app');
 async function startServer() {
   const config = loadConfig();
   const { client, db } = await connectDatabase(config);
-  const app = createApp({ db, sessionTtlSeconds: config.sessionTtlSeconds, corsOrigins: config.corsOrigins });
+  const app = createApp({ db, sessionTtlSeconds: config.sessionTtlSeconds, corsOrigins: config.corsOrigins, ai: config.ai });
   let server;
   try {
     server = await new Promise((resolve, reject) => {

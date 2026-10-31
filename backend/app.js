@@ -9,11 +9,17 @@ const { createExerciseRouter } = require('./routes/exercise.routes');
 const { createMealRouter } = require('./routes/meal.routes');
 const { createQuestRouter } = require('./routes/quest.routes');
 const { createAuthRouter } = require('./routes/auth.routes');
+const { createDailyLogRouter } = require('./routes/daily-log.routes');
+const { createBmiRouter } = require('./routes/bmi.routes');
+const { createChallengeRouter } = require('./routes/challenge.routes');
+const { createRewardRouter } = require('./routes/reward.routes');
+const { createStatsRouter } = require('./routes/stats.routes');
+const { createChatRouter } = require('./routes/chat.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
 const { corsOptions } = require('./utils/cors-options');
 
-function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, logger = console }) {
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, logger = console }) {
   if (!db) throw new Error('A connected MongoDB database is required.');
   const app = express();
   app.disable('x-powered-by');
@@ -50,7 +56,14 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         workouts: ['GET /api/workout-logs', 'POST /api/workout-logs'],
         exercises: ['GET /api/exercises', 'GET /api/exercises/:exerciseId'],
         meals: ['GET /api/meal-logs', 'POST /api/meal-logs', 'PATCH /api/meal-logs/:mealId', 'DELETE /api/meal-logs/:mealId'],
-        quests: ['GET /api/quests'],
+        quests: ['GET /api/quests', 'POST /api/quests/checkin'],
+        sleep: ['GET /api/sleep-logs', 'PUT /api/sleep-logs'],
+        mood: ['GET /api/mood-logs', 'PUT /api/mood-logs'],
+        bmi: ['GET /api/bmi-records', 'POST /api/bmi-records'],
+        challenges: ['GET /api/challenges', 'POST /api/challenges/:challengeId/join', 'POST /api/challenges/:challengeId/checkin'],
+        rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
+        stats: ['GET /api/stats'],
+        chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'POST /api/chat/messages'],
       },
     });
   });
@@ -67,7 +80,13 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
   app.use('/api/exercises', createExerciseRouter({ db }));
   app.use('/api/meal-logs', createMealRouter({ db }));
   app.use('/api/quests', createQuestRouter({ db }));
-  // Legacy JSON routes are not mounted on the Atlas-backed authentication API.
+  app.use('/api/sleep-logs', createDailyLogRouter({ db, kind: 'sleep' }));
+  app.use('/api/mood-logs', createDailyLogRouter({ db, kind: 'mood' }));
+  app.use('/api/bmi-records', createBmiRouter({ db }));
+  app.use('/api/challenges', createChallengeRouter({ db }));
+  app.use('/api/rewards', createRewardRouter({ db }));
+  app.use('/api/stats', createStatsRouter({ db }));
+  app.use('/api/chat', createChatRouter({ db, ai }));
   app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Endpoint không tồn tại.' });
   });

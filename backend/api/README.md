@@ -33,3 +33,7 @@ Mỗi lần chạy tạo một tài khoản thử trong database `fitlife` và l
 ## API thông tin cá nhân
 
 [Hợp đồng API thông tin cá nhân](profile.md) mô tả `GET /api/profile` và `PATCH /api/profile`, cập nhật email/ngày sinh, tuổi tự tính, xử lý email trùng và migration bổ sung `users.date_of_birth`.
+
+## Giấc ngủ, tâm trạng, BMI, thử thách, đổi thưởng, thống kê, AI Coach
+
+[Hợp đồng các API còn lại](features.md) mô tả sleep/mood upsert theo ngày, BMI, điểm danh và chuỗi ngày, thử thách, đổi thưởng có idempotency, thống kê nhiều ngày và AI Coach.
