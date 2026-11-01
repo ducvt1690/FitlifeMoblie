@@ -198,7 +198,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
         </View>
 
         <Text style={styles.progressSubtext}>
-          Hoàn thành toàn bộ nhiệm vụ hôm nay để nhận tới 70 xu thưởng!
+          Hoàn thành cả 7 nhiệm vụ hôm nay để nhận tổng cộng 70 xu!
         </Text>
       </View>
 

@@ -27,6 +27,7 @@ import {
   getCoins,
   getMoodToday,
   saveMoodToday,
+  getStreak,
 } from '../utils/storage';
 import { soundManager } from '../utils/audio';
 
@@ -55,6 +56,7 @@ export default function HomeScreen({ onNavigate }) {
   const [overallProgress, setOverallProgress] = useState(0);
   const [completedQuestCount, setCompletedQuestCount] = useState(0);
   const [totalQuestCount, setTotalQuestCount] = useState(7);
+  const [streakDays, setStreakDays] = useState(0);
 
   // Quick water modal
   const [waterModalVisible, setWaterModalVisible] = useState(false);
@@ -76,6 +78,7 @@ export default function HomeScreen({ onNavigate }) {
 
     setProfile(prof);
     setCoins(userCoins);
+    setStreakDays(await getStreak());
     if (moodData?.mood) setCurrentMood(moodData.mood);
 
     // Water
@@ -177,7 +180,7 @@ export default function HomeScreen({ onNavigate }) {
                 {profile?.name || 'Hội viên FitLife'}
               </Text>
               <View style={styles.streakBadge}>
-                <Text style={styles.streakText}>🔥 5 ngày</Text>
+                <Text style={styles.streakText}>🔥 {streakDays} ngày</Text>
               </View>
             </View>
             <Text style={styles.greeting}>{getVietnameseGreeting()}</Text>

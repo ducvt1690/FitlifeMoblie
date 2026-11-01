@@ -1,4 +1,38 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import RawAsyncStorage from '@react-native-async-storage/async-storage';
+import { hashPassword } from './hash';
+
+// ===================== Per-account data isolation =====================
+// Mọi dữ liệu sức khỏe (nước, tập luyện, xu, nhiệm vụ...) được lưu theo từng tài khoản
+// bằng cách gắn hậu tố `:<userId>` vào key. Chỉ phiên đăng nhập & danh sách tài khoản là dùng chung.
+const GLOBAL_KEYS = new Set([
+  '@fitlife_auth_session',
+  '@fitlife_auth_accounts',
+  '@fitlife_ai_api_key',
+]);
+
+let activeUserId = null;
+
+export const setActiveUser = (userId) => {
+  activeUserId = userId || null;
+};
+
+export const getActiveUser = () => activeUserId;
+
+const scopedKey = (key) =>
+  GLOBAL_KEYS.has(key) || !activeUserId ? key : `${key}:${activeUserId}`;
+
+const AsyncStorage = {
+  getItem: async (key) => {
+    const value = await RawAsyncStorage.getItem(scopedKey(key));
+    // Di chuyển dữ liệu cũ (chưa gắn user) sang tài khoản demo để không mất dữ liệu đã có
+    if (value === null && activeUserId === 'acc_demo' && !GLOBAL_KEYS.has(key)) {
+      return RawAsyncStorage.getItem(key);
+    }
+    return value;
+  },
+  setItem: (key, value) => RawAsyncStorage.setItem(scopedKey(key), value),
+  removeItem: (key) => RawAsyncStorage.removeItem(scopedKey(key)),
+};
 
 const KEYS = {
   USER_PROFILE: '@fitlife_user_profile',
@@ -240,6 +274,20 @@ export const addCoins = async (amount) => {
 };
 
 // --- Daily Quests ---
+// Tiêu đề & mô tả tiếng Việt cho 7 nhiệm vụ (áp dụng cả với dữ liệu đã lưu trước đó)
+const QUEST_VI = {
+  q_weight: { title: 'Cân nặng', subtitle: 'Ghi lại cân nặng hôm nay.' },
+  q_water: { title: 'Uống nước', subtitle: 'Theo dõi lượng nước uống trong ngày.' },
+  q_meals: { title: 'Bữa ăn', subtitle: 'Hôm nay bạn đã ăn gì?' },
+  q_sleep: { title: 'Giấc ngủ', subtitle: 'Ghi lại thời gian ngủ đêm qua.' },
+  q_mood: { title: 'Tâm trạng', subtitle: 'Hôm nay bạn cảm thấy thế nào?' },
+  q_bowel: { title: 'Tiêu hóa', subtitle: 'Theo dõi sức khỏe đường ruột.' },
+  q_workout: { title: 'Tập luyện', subtitle: 'Hoàn thành một buổi tập 15 phút.' },
+};
+
+const localizeQuests = (quests) =>
+  (quests || []).map((q) => (QUEST_VI[q.id] ? { ...q, ...QUEST_VI[q.id] } : q));
+
 export const getDailyQuests = async () => {
   try {
     const raw = await AsyncStorage.getItem(KEYS.DAILY_QUESTS);
@@ -247,21 +295,21 @@ export const getDailyQuests = async () => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.date === today && parsed.quests) {
-        return parsed.quests;
+        return localizeQuests(parsed.quests);
       }
     }
     // Default initial quests
     const defaultQuests = [
-      { id: 'q_weight', title: 'Weight', subtitle: 'Log your weight progress.', icon: 'scale-outline', iconColor: '#B45309', bgColor: '#FEF08A', reward: 10, completed: false, value: null },
-      { id: 'q_water', title: 'Water intake', subtitle: 'Monitor daily water intake.', icon: 'water-outline', iconColor: '#0369A1', bgColor: '#BAE6FD', reward: 10, completed: false, value: null },
-      { id: 'q_meals', title: 'Meals', subtitle: "What's on your plate?", icon: 'restaurant-outline', iconColor: '#BE185D', bgColor: '#FBCFE8', reward: 10, completed: false, value: null },
-      { id: 'q_sleep', title: 'Sleep', subtitle: 'Log your sleep duration.', icon: 'bed-outline', iconColor: '#15803D', bgColor: '#BBF7D0', reward: 10, completed: false, value: null },
-      { id: 'q_mood', title: 'Mood', subtitle: "How's your mood?", icon: 'happy-outline', iconColor: '#0F766E', bgColor: '#99F6E4', reward: 10, completed: false, value: null },
-      { id: 'q_bowel', title: 'Bowel Movement', subtitle: 'Track your gut health.', icon: 'fitness-outline', iconColor: '#C2410C', bgColor: '#FED7AA', reward: 10, completed: false, value: null },
-      { id: 'q_workout', title: 'Workout', subtitle: 'Finish a 15-min workout session.', icon: 'barbell-outline', iconColor: '#6D28D9', bgColor: '#DDD6FE', reward: 10, completed: false, value: null },
+      { id: 'q_weight', icon: 'scale-outline', iconColor: '#B45309', bgColor: '#FEF08A', reward: 10, completed: false, value: null },
+      { id: 'q_water', icon: 'water-outline', iconColor: '#0369A1', bgColor: '#BAE6FD', reward: 10, completed: false, value: null },
+      { id: 'q_meals', icon: 'restaurant-outline', iconColor: '#BE185D', bgColor: '#FBCFE8', reward: 10, completed: false, value: null },
+      { id: 'q_sleep', icon: 'bed-outline', iconColor: '#15803D', bgColor: '#BBF7D0', reward: 10, completed: false, value: null },
+      { id: 'q_mood', icon: 'happy-outline', iconColor: '#0F766E', bgColor: '#99F6E4', reward: 10, completed: false, value: null },
+      { id: 'q_bowel', icon: 'fitness-outline', iconColor: '#C2410C', bgColor: '#FED7AA', reward: 10, completed: false, value: null },
+      { id: 'q_workout', icon: 'barbell-outline', iconColor: '#6D28D9', bgColor: '#DDD6FE', reward: 10, completed: false, value: null },
     ];
     await AsyncStorage.setItem(KEYS.DAILY_QUESTS, JSON.stringify({ date: today, quests: defaultQuests }));
-    return defaultQuests;
+    return localizeQuests(defaultQuests);
   } catch (e) {
     return [];
   }
@@ -274,6 +322,44 @@ export const saveDailyQuests = async (quests) => {
     return true;
   } catch (e) {
     return false;
+  }
+};
+
+// --- Streak: số ngày liên tiếp có ít nhất 1 nhiệm vụ hoàn thành ---
+const STREAK_KEY = '@fitlife_active_days';
+
+const dayKeyOffset = (offset) => {
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const recordActiveDay = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(STREAK_KEY);
+    const days = raw ? JSON.parse(raw) : [];
+    const today = getTodayKey();
+    if (!days.includes(today)) {
+      days.push(today);
+      await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(days.slice(-400)));
+    }
+  } catch (e) {}
+};
+
+export const getStreak = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(STREAK_KEY);
+    const days = new Set(raw ? JSON.parse(raw) : []);
+    // Nếu hôm nay chưa hoạt động, vẫn giữ chuỗi tính đến hôm qua
+    let offset = days.has(dayKeyOffset(0)) ? 0 : 1;
+    let streak = 0;
+    while (days.has(dayKeyOffset(offset))) {
+      streak += 1;
+      offset += 1;
+    }
+    return streak;
+  } catch (e) {
+    return 0;
   }
 };
 
@@ -291,6 +377,7 @@ export const completeQuest = async (questId, extraValue = null) => {
     await saveDailyQuests(updated);
     if (rewardGiven > 0) {
       await addCoins(rewardGiven);
+      await recordActiveDay();
     }
     return { updated, rewardGiven };
   } catch (e) {
@@ -405,9 +492,9 @@ export const getStepsToday = async () => {
   try {
     const raw = await AsyncStorage.getItem(EXTRA_KEYS.STEPS);
     const map = raw ? JSON.parse(raw) : {};
-    return map[getTodayKey()] ?? 7420;
+    return map[getTodayKey()] ?? 0;
   } catch (e) {
-    return 7420;
+    return 0;
   }
 };
 
@@ -416,11 +503,11 @@ export const addStepsToday = async (amount) => {
     const raw = await AsyncStorage.getItem(EXTRA_KEYS.STEPS);
     const map = raw ? JSON.parse(raw) : {};
     const key = getTodayKey();
-    map[key] = (map[key] ?? 7420) + amount;
+    map[key] = (map[key] ?? 0) + amount;
     await AsyncStorage.setItem(EXTRA_KEYS.STEPS, JSON.stringify(map));
     return map[key];
   } catch (e) {
-    return 7420;
+    return 0;
   }
 };
 
@@ -538,7 +625,10 @@ export const clearAiChatHistory = async () => {
 export const getAuthSession = async () => {
   try {
     const raw = await AsyncStorage.getItem(EXTRA_KEYS.AUTH_SESSION);
-    return raw ? JSON.parse(raw) : null;
+    const session = raw ? JSON.parse(raw) : null;
+    // Khôi phục tài khoản đang hoạt động để mọi dữ liệu được đọc đúng theo user
+    setActiveUser(session?.isLoggedIn ? session.user?.id : null);
+    return session;
   } catch (e) {
     return null;
   }
@@ -547,6 +637,7 @@ export const getAuthSession = async () => {
 export const saveAuthSession = async (session) => {
   try {
     await AsyncStorage.setItem(EXTRA_KEYS.AUTH_SESSION, JSON.stringify(session));
+    setActiveUser(session?.isLoggedIn ? session.user?.id : null);
     return true;
   } catch (e) {
     return false;
@@ -556,6 +647,7 @@ export const saveAuthSession = async (session) => {
 export const clearAuthSession = async () => {
   try {
     await AsyncStorage.removeItem(EXTRA_KEYS.AUTH_SESSION);
+    setActiveUser(null);
     return true;
   } catch (e) {
     return false;
@@ -572,7 +664,7 @@ export const getRegisteredAccounts = async () => {
         id: 'acc_demo',
         name: 'Nguyễn Thành Nam',
         email: 'demo@fitlife.app',
-        password: '123',
+        passwordHash: hashPassword('demo@fitlife.app', '123'),
         createdAt: new Date().toISOString(),
       });
       await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(list));
@@ -597,7 +689,7 @@ export const registerAccount = async (name, email, password) => {
       id: Date.now().toString(),
       name: cleanName,
       email: cleanEmail,
-      password,
+      passwordHash: hashPassword(cleanEmail, password),
       createdAt: new Date().toISOString(),
     };
 
@@ -628,10 +720,21 @@ export const loginAccount = async (email, password) => {
     const cleanEmail = email.trim().toLowerCase();
     const accounts = await getRegisteredAccounts();
 
-    // Check credentials
-    const found = accounts.find((a) => a.email === cleanEmail && a.password === password);
+    // Check credentials (hỗ trợ cả tài khoản cũ còn lưu mật khẩu thô và tự nâng cấp lên hash)
+    const inputHash = hashPassword(cleanEmail, password);
+    const found = accounts.find(
+      (a) =>
+        a.email === cleanEmail &&
+        (a.passwordHash ? a.passwordHash === inputHash : a.password === password)
+    );
     if (!found) {
       return { success: false, message: 'Email hoặc mật khẩu không chính xác!' };
+    }
+
+    if (!found.passwordHash) {
+      found.passwordHash = inputHash;
+      delete found.password;
+      await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(accounts));
     }
 
     const session = {
