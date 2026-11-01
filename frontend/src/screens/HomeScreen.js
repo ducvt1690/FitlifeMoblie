@@ -204,46 +204,6 @@ export default function HomeScreen({ onNavigate }) {
         </View>
       </View>
 
-      {/* Hero Section */}
-      <View style={styles.heroSection}>
-        <View style={styles.heroTextContainer}>
-          <Text style={styles.heroEyebrow}>TỔNG QUAN SỨC KHỎE</Text>
-          <Text style={styles.heroTitle}>Hôm nay bạn</Text>
-          <Text style={styles.heroTitleAccent}>cảm thấy thế nào?</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.questMiniCard}
-          activeOpacity={0.85}
-          onPress={() => onNavigate && onNavigate('quests')}
-        >
-          <Text style={styles.questMiniLabel}>Nhiệm vụ</Text>
-          <Text style={styles.questMiniValue}>
-            {completedQuestCount}/{totalQuestCount}
-          </Text>
-          <Text style={styles.questMiniSub}>Hoàn thành →</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Interactive Mood Quick-Chips */}
-      <View style={styles.moodRow}>
-        {MOODS.map((m) => {
-          const isSelected = currentMood.includes(m.label.split(' ')[1] || m.label);
-          return (
-            <TouchableOpacity
-              key={m.id}
-              style={[styles.moodChip, isSelected && styles.moodChipActive]}
-              onPress={() => handleSelectMood(m.label)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.moodText, isSelected && styles.moodTextActive]}>
-                {m.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
       {/* Neon Lime Waveform Activity Card with Live Progress */}
       <TouchableOpacity
         activeOpacity={0.9}

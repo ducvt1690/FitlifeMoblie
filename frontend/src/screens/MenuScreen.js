@@ -18,7 +18,6 @@ import AnalyticsScreen from './AnalyticsScreen';
 import AiCoachScreen from './AiCoachScreen';
 import ShopScreen from './ShopScreen';
 import ProfileScreen from './ProfileScreen';
-import { scheduleAllReminders, sendInstantNotification } from '../utils/notifications';
 
 export default function MenuScreen({ initialModal = null, onLogout }) {
   const [activeModal, setActiveModal] = useState(initialModal);
@@ -100,23 +99,6 @@ export default function MenuScreen({ initialModal = null, onLogout }) {
     },
   ];
 
-  const handleSetupNotifications = async () => {
-    const success = await scheduleAllReminders();
-    if (success) {
-      Alert.alert(
-        '🔔 Đã kích hoạt lịch nhắc nhở!',
-        'FitLife sẽ tự động nhắc nhở bạn:\n• 07:30 - Chào buổi sáng & check-in nhiệm vụ\n• 14:00 - Nhắc uống nước nạp năng lượng\n• 18:30 - Nhắc nhở tập luyện\n• 22:30 - Nhắc nhở đi ngủ đúng giờ.'
-      );
-    }
-  };
-
-  const handleTestNotification = async () => {
-    await sendInstantNotification(
-      '💧 FitLife: Đã đến giờ uống nước!',
-      'Uống một ly nước 250ml mát lạnh để nạp năng lượng cho buổi chiều nào!'
-    );
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -146,40 +128,6 @@ export default function MenuScreen({ initialModal = null, onLogout }) {
               <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
           ))}
-        </View>
-
-        {/* Smart Notifications Setting Box */}
-        <Text style={styles.groupTitle}>🔔 Lời Nhắc & Thông Báo Thông Minh</Text>
-        <View style={styles.notificationCard}>
-          <View style={styles.notifHeader}>
-            <View style={[styles.iconWrap, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="notifications-outline" size={22} color="#DC2626" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>Lịch Nhắc Sức Khỏe Tự Động</Text>
-              <Text style={styles.cardDesc}>Tự động gửi thông báo uống nước, tập luyện & giấc ngủ</Text>
-            </View>
-          </View>
-
-          <View style={styles.notifBtnRow}>
-            <TouchableOpacity
-              style={styles.notifActionBtn}
-              onPress={handleSetupNotifications}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="alarm-outline" size={16} color={COLORS.black} />
-              <Text style={styles.notifBtnText}>Kích hoạt lịch nhắc 24h</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.notifActionBtn, { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border }]}
-              onPress={handleTestNotification}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="paper-plane-outline" size={16} color={COLORS.textSecondary} />
-              <Text style={[styles.notifBtnText, { color: COLORS.textSecondary }]}>Thử thông báo</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Standard Fitness Trackers */}
