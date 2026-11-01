@@ -11,7 +11,6 @@ import {
   Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image as ExpoImage } from 'expo-image';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import WaveformCard from '../components/WaveformCard';
 import MetricCard from '../components/MetricCard';
@@ -220,58 +219,6 @@ export default function HomeScreen({ onNavigate }) {
               : 'Duy trì nhịp độ rèn luyện rất tốt!'
           }
         />
-      </TouchableOpacity>
-
-      {/* AI Coach Quick Launcher Banner */}
-      <TouchableOpacity
-        style={styles.aiQuickBanner}
-        activeOpacity={0.85}
-        onPress={() => onNavigate && onNavigate('aicoach')}
-      >
-        <View style={styles.aiQuickIcon}>
-          <Ionicons name="sparkles" size={18} color={COLORS.black} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.aiQuickTitle}>Trợ Lý AI FitLife Coach</Text>
-            <View style={styles.aiTurboBadge}>
-              <Text style={styles.aiTurboText}>AI 24/7</Text>
-            </View>
-          </View>
-          <Text style={styles.aiQuickSub}>
-            Tư vấn thực đơn, tra cứu calo món Việt & lịch tập cá nhân
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
-      </TouchableOpacity>
-
-      {/* ExerciseDB API 1500 Workouts Quick Launcher Card */}
-      <TouchableOpacity
-        style={styles.aiQuickBanner}
-        activeOpacity={0.85}
-        onPress={() => onNavigate && onNavigate('workout')}
-      >
-        <View style={styles.workoutPreviewBox}>
-          <ExpoImage
-            source={{ uri: 'https://static.exercisedb.dev/media/0JtKWum.gif' }}
-            style={{ width: 46, height: 46 }}
-            contentFit="contain"
-            autoplay={true}
-            cachePolicy="memory-disk"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.aiQuickTitle}>Kho Bài Tập Thể Lực</Text>
-            <View style={[styles.aiTurboBadge, { backgroundColor: '#ECFDF5' }]}>
-              <Text style={[styles.aiTurboText, { color: '#059669' }]}>1,500 Bài</Text>
-            </View>
-          </View>
-          <Text style={styles.aiQuickSub}>
-            Hướng dẫn động tác trực quan • Giọng đọc HLV & Bấm giờ 3 hiệp
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
       </TouchableOpacity>
 
       {/* 2x2 Metric Grid Cards */}
@@ -596,68 +543,6 @@ const styles = StyleSheet.create({
   moodChipActive: {
     backgroundColor: COLORS.limeLight,
     borderColor: COLORS.limeDark,
-  },
-  moodText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  moodTextActive: {
-    color: '#365314',
-    fontWeight: '800',
-  },
-  aiQuickBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: 22,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-    marginBottom: 12,
-    ...SHADOWS.card,
-  },
-  aiQuickIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: COLORS.lime,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  workoutPreviewBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  aiQuickTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.black,
-  },
-  aiTurboBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  aiTurboText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#15803D',
-  },
-  aiQuickSub: {
-    fontSize: 11.5,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-    marginTop: 2,
   },
   metricGrid: {
     gap: 12,
