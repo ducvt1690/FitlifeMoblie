@@ -80,6 +80,30 @@ router.post('/login', (req, res) => {
   });
 });
 
+// POST /api/auth/reset-password
+router.post('/reset-password', (req, res) => {
+  const { email, newPassword } = req.body;
+  if (!email || !newPassword) {
+    return res.status(400).json({ success: false, message: 'Vui lòng nhập Email và mật khẩu mới!' });
+  }
+
+  const db = readDb();
+  const cleanEmail = email.trim().toLowerCase();
+  const userIndex = db.users.findIndex((u) => u.email === cleanEmail);
+
+  if (userIndex === -1) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản với email này!' });
+  }
+
+  db.users[userIndex].password = newPassword.trim();
+  writeDb(db);
+
+  return res.json({
+    success: true,
+    message: 'Đặt lại mật khẩu thành công!',
+  });
+});
+
 // GET /api/auth/users (Dành cho Admin / Kiểm thử)
 router.get('/users', (req, res) => {
   const db = readDb();

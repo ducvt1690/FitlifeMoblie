@@ -22,14 +22,7 @@ const scopedKey = (key) =>
   GLOBAL_KEYS.has(key) || !activeUserId ? key : `${key}:${activeUserId}`;
 
 const AsyncStorage = {
-  getItem: async (key) => {
-    const value = await RawAsyncStorage.getItem(scopedKey(key));
-    // Di chuyển dữ liệu cũ (chưa gắn user) sang tài khoản demo để không mất dữ liệu đã có
-    if (value === null && activeUserId === 'acc_demo' && !GLOBAL_KEYS.has(key)) {
-      return RawAsyncStorage.getItem(key);
-    }
-    return value;
-  },
+  getItem: (key) => RawAsyncStorage.getItem(scopedKey(key)),
   setItem: (key, value) => RawAsyncStorage.setItem(scopedKey(key), value),
   removeItem: (key) => RawAsyncStorage.removeItem(scopedKey(key)),
 };
@@ -621,13 +614,29 @@ export const clearAiChatHistory = async () => {
   }
 };
 
+const BACKEND_AUTH_URL = 'http://localhost:5000/api/auth';
+
 // --- Authentication & Account Management ---
 export const getAuthSession = async () => {
   try {
     const raw = await AsyncStorage.getItem(EXTRA_KEYS.AUTH_SESSION);
     const session = raw ? JSON.parse(raw) : null;
-    // Khôi phục tài khoản đang hoạt động để mọi dữ liệu được đọc đúng theo user
-    setActiveUser(session?.isLoggedIn ? session.user?.id : null);
+    if (!session || !session.isLoggedIn) {
+      setActiveUser(null);
+      return null;
+    }
+    // Xóa bỏ các phiên tài khoản Demo hoặc Khách cũ để sử dụng hệ thống tài khoản thực
+    if (
+      session.isGuest ||
+      session.user?.id === 'acc_demo' ||
+      session.user?.id === 'guest' ||
+      session.user?.email === 'demo@fitlife.app'
+    ) {
+      await AsyncStorage.removeItem(EXTRA_KEYS.AUTH_SESSION);
+      setActiveUser(null);
+      return null;
+    }
+    setActiveUser(session.user?.id || null);
     return session;
   } catch (e) {
     return null;
@@ -658,18 +667,14 @@ export const getRegisteredAccounts = async () => {
   try {
     const raw = await AsyncStorage.getItem(EXTRA_KEYS.AUTH_ACCOUNTS);
     const list = raw ? JSON.parse(raw) : [];
-    // Pre-populate with a demo account if empty
-    if (list.length === 0) {
-      list.push({
-        id: 'acc_demo',
-        name: 'Nguyễn Thành Nam',
-        email: 'demo@fitlife.app',
-        passwordHash: hashPassword('demo@fitlife.app', '123'),
-        createdAt: new Date().toISOString(),
-      });
-      await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(list));
+    // Loại bỏ tài khoản demo mặc định cũ nếu tồn tại
+    const cleaned = list.filter(
+      (a) => a.id !== 'acc_demo' && a.email !== 'demo@fitlife.app'
+    );
+    if (cleaned.length !== list.length) {
+      await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(cleaned));
     }
-    return list;
+    return cleaned;
   } catch (e) {
     return [];
   }
@@ -679,24 +684,39 @@ export const registerAccount = async (name, email, password) => {
   try {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
+    const cleanPass = password.trim();
     const accounts = await getRegisteredAccounts();
 
     if (accounts.some((a) => a.email === cleanEmail)) {
       return { success: false, message: 'Email này đã được đăng ký tài khoản!' };
     }
 
+    let backendUserId = null;
+    try {
+      const resp = await fetch(`${BACKEND_AUTH_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, password: cleanPass }),
+      });
+      const data = await resp.json();
+      if (data?.user?.id) {
+        backendUserId = data.user.id;
+      }
+    } catch (_) {
+      // Hoạt động bình thường ngay cả khi server offline
+    }
+
     const newAcc = {
-      id: Date.now().toString(),
+      id: backendUserId || Date.now().toString(),
       name: cleanName,
       email: cleanEmail,
-      passwordHash: hashPassword(cleanEmail, password),
+      passwordHash: hashPassword(cleanEmail, cleanPass),
       createdAt: new Date().toISOString(),
     };
 
     accounts.push(newAcc);
     await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(accounts));
 
-    // Save current session & update user profile name
     const session = {
       isLoggedIn: true,
       user: { id: newAcc.id, name: cleanName, email: cleanEmail },
@@ -704,9 +724,9 @@ export const registerAccount = async (name, email, password) => {
     };
     await saveAuthSession(session);
 
-    // Update profile
     const prof = (await getUserProfile()) || {};
     prof.name = cleanName;
+    prof.email = cleanEmail;
     await saveUserProfile(prof);
 
     return { success: true, user: session.user };
@@ -718,15 +738,41 @@ export const registerAccount = async (name, email, password) => {
 export const loginAccount = async (email, password) => {
   try {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password.trim();
     const accounts = await getRegisteredAccounts();
 
-    // Check credentials (hỗ trợ cả tài khoản cũ còn lưu mật khẩu thô và tự nâng cấp lên hash)
-    const inputHash = hashPassword(cleanEmail, password);
-    const found = accounts.find(
+    const inputHash = hashPassword(cleanEmail, cleanPass);
+    let found = accounts.find(
       (a) =>
         a.email === cleanEmail &&
-        (a.passwordHash ? a.passwordHash === inputHash : a.password === password)
+        (a.passwordHash ? a.passwordHash === inputHash : a.password === cleanPass)
     );
+
+    // Nếu không tìm thấy ở Local, kiểm tra đồng bộ từ Backend Server
+    if (!found) {
+      try {
+        const resp = await fetch(`${BACKEND_AUTH_URL}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password: cleanPass }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data?.success && data?.user) {
+          found = {
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            passwordHash: inputHash,
+            createdAt: new Date().toISOString(),
+          };
+          accounts.push(found);
+          await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(accounts));
+        }
+      } catch (_) {
+        // Bỏ qua nếu backend không phản hồi
+      }
+    }
+
     if (!found) {
       return { success: false, message: 'Email hoặc mật khẩu không chính xác!' };
     }
@@ -744,9 +790,9 @@ export const loginAccount = async (email, password) => {
     };
     await saveAuthSession(session);
 
-    // Update profile name
     const prof = (await getUserProfile()) || {};
     prof.name = found.name;
+    prof.email = found.email;
     await saveUserProfile(prof);
 
     return { success: true, user: session.user };
@@ -755,16 +801,41 @@ export const loginAccount = async (email, password) => {
   }
 };
 
-export const loginAsGuest = async () => {
+export const resetPasswordAccount = async (email, newPassword) => {
   try {
-    const session = {
-      isLoggedIn: true,
-      user: { id: 'guest', name: 'Khách Demo', email: 'guest@fitlife.local' },
-      isGuest: true,
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = newPassword.trim();
+    const accounts = await getRegisteredAccounts();
+    const idx = accounts.findIndex((a) => a.email === cleanEmail);
+
+    let backendUpdated = false;
+    try {
+      const resp = await fetch(`${BACKEND_AUTH_URL}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, newPassword: cleanPass }),
+      });
+      if (resp.ok) backendUpdated = true;
+    } catch (_) {}
+
+    if (idx === -1 && !backendUpdated) {
+      return {
+        success: false,
+        message: 'Không tìm thấy tài khoản nào đăng ký với địa chỉ Email này!',
+      };
+    }
+
+    if (idx !== -1) {
+      accounts[idx].passwordHash = hashPassword(cleanEmail, cleanPass);
+      delete accounts[idx].password;
+      await AsyncStorage.setItem(EXTRA_KEYS.AUTH_ACCOUNTS, JSON.stringify(accounts));
+    }
+
+    return {
+      success: true,
+      message: 'Đặt lại mật khẩu mới thành công! Vui lòng đăng nhập lại.',
     };
-    await saveAuthSession(session);
-    return { success: true, user: session.user };
   } catch (e) {
-    return { success: false, message: e.message };
+    return { success: false, message: 'Lỗi đặt lại mật khẩu: ' + e.message };
   }
 };

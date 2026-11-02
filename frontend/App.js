@@ -21,7 +21,7 @@ import QuestScreen from './src/screens/QuestScreen';
 import ChallengeScreen from './src/screens/ChallengeScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import AuthScreen from './src/screens/AuthScreen';
-import { getAuthSession } from './src/utils/storage';
+import { getAuthSession, clearAuthSession } from './src/utils/storage';
 
 // Ẩn tất cả cảnh báo LogBox dạng thanh vàng/đen ở đáy màn hình
 LogBox.ignoreAllLogs();
@@ -120,7 +120,8 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await clearAuthSession();
     setAuthSession(null);
     setActiveTab('home');
     setMenuInitialModal(null);
@@ -246,20 +247,41 @@ export default function App() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={styles.webWidthToggle}
-              onPress={() => setWebWideMode((v) => !v)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={webWideMode ? 'phone-portrait-outline' : 'desktop-outline'}
-                size={14}
-                color="#E2E8F0"
-              />
-              <Text style={styles.webWidthToggleText}>
-                {webWideMode ? 'Khung Mobile' : 'Mở rộng khung'}
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                style={styles.webWidthToggle}
+                onPress={() => setWebWideMode((v) => !v)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={webWideMode ? 'phone-portrait-outline' : 'desktop-outline'}
+                  size={14}
+                  color="#E2E8F0"
+                />
+                <Text style={styles.webWidthToggleText}>
+                  {webWideMode ? 'Khung Mobile' : 'Mở rộng khung'}
+                </Text>
+              </TouchableOpacity>
+
+              {authSession?.isLoggedIn && (
+                <TouchableOpacity
+                  style={[
+                    styles.webWidthToggle,
+                    {
+                      backgroundColor: 'rgba(239, 68, 68, 0.14)',
+                      borderColor: 'rgba(239, 68, 68, 0.3)',
+                    },
+                  ]}
+                  onPress={handleLogout}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="log-out-outline" size={14} color="#FCA5A5" />
+                  <Text style={[styles.webWidthToggleText, { color: '#FCA5A5' }]}>
+                    Đăng xuất
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Centered App Viewport Card */}
