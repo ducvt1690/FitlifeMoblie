@@ -9,6 +9,7 @@
     "build": "node scripts/check-syntax.js",
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "test:postman": "node scripts/run-postman-regression.js",
+    "test:postman:review": "node scripts/build-review-postman.js && node scripts/run-review-postman.js",
     "test:postman:atlas": "node scripts/run-postman-regression.js --atlas",
     "role": "node scripts/set-role.js"
   },

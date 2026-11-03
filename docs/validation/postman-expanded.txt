@@ -1,0 +1,695 @@
+No authorization data found. Please use the `postman login` command.
+Refer:https://learning.postman.com/docs/postman-cli/postman-cli-options/#postman-login
+
+Running your collection...
+postman
+
+FitLife — Review full API + bug reproductions
+
+Root 01 — API index
+
+  GET http://127.0.0.1:64834/ [200 OK, 2.11 KB, 20 ms]
+  Pass  01 — API index — HTTP 200
+  Pass  Route catalog contains all business groups
+
+Root 02 — Database health
+
+  GET http://127.0.0.1:64834/health [200 OK, 341 B, 5 ms]
+  Pass  02 — Database health — HTTP 200
+  Pass  Database connected
+
+Root 03 — Invalid registration
+
+  POST http://127.0.0.1:64834/api/auth/register [400 Bad Request, 451 B, 15 ms]
+  Pass  03 — Invalid registration — HTTP 400
+
+Root 04 — Register isolated user
+
+  POST http://127.0.0.1:64834/api/auth/register [201 Created, 823 B, 90 ms]
+  Pass  04 — Register isolated user — HTTP 201
+  Pass  New account has user role, zero coins and valid token
+  Pass  Session expiry is positive and no longer than 12h
+
+Root 05 — Duplicate account
+
+  POST http://127.0.0.1:64834/api/auth/register [409 Conflict, 395 B, 5 ms]
+  Pass  05 — Duplicate account — HTTP 409
+
+Root 06 — Login fresh session
+
+  POST http://127.0.0.1:64834/api/auth/login [200 OK, 821 B, 87 ms]
+  Pass  06 — Login fresh session — HTTP 200
+  Pass  Login retains the account ID
+
+Root 07 — Reject missing bearer
+
+  GET http://127.0.0.1:64834/api/auth/me [401 Unauthorized, 407 B, 3 ms]
+  Pass  07 — Reject missing bearer — HTTP 401
+
+Root 08 — Current session
+
+  GET http://127.0.0.1:64834/api/auth/me [200 OK, 665 B, 7 ms]
+  Pass  08 — Current session — HTTP 200
+  Pass  Session belongs to this run
+
+Root 09 — Read profile
+
+  GET http://127.0.0.1:64834/api/profile [200 OK, 759 B, 6 ms]
+  Pass  09 — Read profile — HTTP 200
+  Pass  Profile is private and birthday is initially unknown
+
+Root 10 — Patch name, birthday and email
+
+  PATCH http://127.0.0.1:64834/api/profile [200 OK, 773 B, 28 ms]
+  Pass  10 — Patch name, birthday and email — HTTP 200
+  Pass  Birthday and email persisted
+
+Root 11 — Invalid calendar date
+
+  PATCH http://127.0.0.1:64834/api/profile [400 Bad Request, 405 B, 8 ms]
+  Pass  11 — Invalid calendar date — HTTP 400
+
+Root 12 — Reject profile privilege injection
+
+  PATCH http://127.0.0.1:64834/api/profile [400 Bad Request, 479 B, 6 ms]
+  Pass  12 — Reject profile privilege injection — HTTP 400
+
+Root 13 — Water create
+
+  POST http://127.0.0.1:64834/api/water-logs [201 Created, 642 B, 43 ms]
+  Pass  13 — Water create — HTTP 201
+  Pass  Water grants exactly 10 coins
+
+Root 14 — Water retry
+
+  POST http://127.0.0.1:64834/api/water-logs [200 OK, 635 B, 18 ms]
+  Pass  14 — Water retry — HTTP 200
+  Pass  No duplicate water reward
+
+Root 15 — Water read
+
+  GET http://127.0.0.1:64834/api/water-logs [200 OK, 636 B, 8 ms]
+  Pass  15 — Water read — HTTP 200
+  Pass  Water total is 250ml
+
+Root 16 — Workout create
+
+  POST http://127.0.0.1:64834/api/workout-logs [201 Created, 729 B, 34 ms]
+  Pass  16 — Workout create — HTTP 201
+  Pass  Workout reward and daily water bonus
+
+Root 17 — Workout retry
+
+  POST http://127.0.0.1:64834/api/workout-logs [200 OK, 722 B, 19 ms]
+  Pass  17 — Workout retry — HTTP 200
+  Pass  Workout is not duplicated
+
+Root 18 — Workout read
+
+  GET http://127.0.0.1:64834/api/workout-logs [200 OK, 733 B, 7 ms]
+  Pass  18 — Workout read — HTTP 200
+  Pass  Workout totals match
+
+Root 19 — Invalid workout date
+
+  GET http://127.0.0.1:64834/api/workout-logs?date=2026-02-30 [400 Bad Request, 424 B, 7 ms]
+  Pass  19 — Invalid workout date — HTTP 400
+
+Root 20 — Meal create
+
+  POST http://127.0.0.1:64834/api/meal-logs [201 Created, 708 B, 42 ms]
+  Pass  20 — Meal create — HTTP 201
+  Pass  Meal reward increases total to 30
+
+Root 21 — Meal retry
+
+  POST http://127.0.0.1:64834/api/meal-logs [200 OK, 701 B, 20 ms]
+  Pass  21 — Meal retry — HTTP 200
+  Pass  Meal retry awards zero coins
+
+Root 22 — Meal read
+
+  GET http://127.0.0.1:64834/api/meal-logs [200 OK, 748 B, 7 ms]
+  Pass  22 — Meal read — HTTP 200
+  Pass  Nutrition totals reflect the isolated meal
+
+Root 23 — Partial meal patch
+
+  PATCH http://127.0.0.1:64834/api/meal-logs/e054e9ac-8778-4c8a-9a52-ff2871b3b229 [200 OK, 654 B, 19 ms]
+  Pass  23 — Partial meal patch — HTTP 200
+  Pass  Partial PATCH preserves omitted fields
+
+Root 24 — Confirm meal quest
+
+  GET http://127.0.0.1:64834/api/quests [200 OK, 2.76 KB, 8 ms]
+  Pass  24 — Confirm meal quest — HTTP 200
+  Pass  Only water, workout and meal quests are complete
+
+Root 25 — Meal delete
+
+  DELETE http://127.0.0.1:64834/api/meal-logs/e054e9ac-8778-4c8a-9a52-ff2871b3b229 [204 No Content, 227 B, 18 ms]
+  Pass  25 — Meal delete — HTTP 204
+
+Root 26 — Meal absence
+
+  GET http://127.0.0.1:64834/api/meal-logs [200 OK, 442 B, 6 ms]
+  Pass  26 — Meal absence — HTTP 200
+  Pass  Deleted meal no longer contributes calories
+
+Root 27 — Verify refund balance
+
+  GET http://127.0.0.1:64834/api/profile [200 OK, 774 B, 6 ms]
+  Pass  27 — Verify refund balance — HTTP 200
+  Pass  Only meal reward was withdrawn
+
+Root 28 — Verify quest reset
+
+  GET http://127.0.0.1:64834/api/quests [200 OK, 2.74 KB, 7 ms]
+  Pass  28 — Verify quest reset — HTTP 200
+  Pass  Meal quest reset after last meal deletion
+
+Root 29 — Exercise list first page
+
+  GET http://127.0.0.1:64834/api/exercises?limit=2 [200 OK, 1.8 KB, 7 ms]
+  Pass  29 — Exercise list first page — HTTP 200
+  Pass  Exercise catalog is populated and localized
+
+Root 30 — Exercise next page
+
+  GET http://127.0.0.1:64834/api/exercises?limit=2&after=B02 [200 OK, 1.1 KB, 8 ms]
+  Pass  30 — Exercise next page — HTTP 200
+  Pass  Cursor does not repeat exercises
+
+Root 31 — Exercise detail by internal UUID
+
+  GET http://127.0.0.1:64834/api/exercises/747ef45b-de35-48c9-987e-5d11d2fc0561 [200 OK, 1.05 KB, 7 ms]
+  Pass  31 — Exercise detail by internal UUID — HTTP 200
+  Pass  Exercise detail matches selected ID
+
+Root 32 — Invalid exercise identifier
+
+  GET http://127.0.0.1:64834/api/exercises/not-a-uuid [400 Bad Request, 396 B, 7 ms]
+  Pass  32 — Invalid exercise identifier — HTTP 400
+
+Root Login Trainer fixture
+
+  POST http://127.0.0.1:64834/api/auth/login [200 OK, 806 B, 90 ms]
+  Pass  Login Trainer fixture HTTP 200
+
+Root Login Admin fixture
+
+  POST http://127.0.0.1:64834/api/auth/login [200 OK, 800 B, 64 ms]
+  Pass  Login Admin fixture HTTP 200
+
+Root Login Other fixture
+
+  POST http://127.0.0.1:64834/api/auth/login [200 OK, 799 B, 82 ms]
+  Pass  Login Other fixture HTTP 200
+
+Root Missing auth /api/sleep-logs
+
+  GET http://127.0.0.1:64834/api/sleep-logs [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/sleep-logs HTTP 401
+
+Root Missing auth /api/mood-logs
+
+  GET http://127.0.0.1:64834/api/mood-logs [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/mood-logs HTTP 401
+
+Root Missing auth /api/bmi-records
+
+  GET http://127.0.0.1:64834/api/bmi-records [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/bmi-records HTTP 401
+
+Root Missing auth /api/challenges
+
+  GET http://127.0.0.1:64834/api/challenges [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/challenges HTTP 401
+
+Root Missing auth /api/rewards
+
+  GET http://127.0.0.1:64834/api/rewards [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/rewards HTTP 401
+
+Root Missing auth /api/stats
+
+  GET http://127.0.0.1:64834/api/stats [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/stats HTTP 401
+
+Root Missing auth /api/chat/sessions
+
+  GET http://127.0.0.1:64834/api/chat/sessions [401 Unauthorized, 407 B, 2 ms]
+  Pass  Missing auth /api/chat/sessions HTTP 401
+
+Root Missing auth /api/coaching
+
+  GET http://127.0.0.1:64834/api/coaching [401 Unauthorized, 407 B, 3 ms]
+  Pass  Missing auth /api/coaching HTTP 401
+
+Root Member denied trainer
+
+  GET http://127.0.0.1:64834/api/trainer/overview [403 Forbidden, 414 B, 6 ms]
+  Pass  Member denied trainer HTTP 403
+
+Root Member denied admin
+
+  GET http://127.0.0.1:64834/api/admin/overview [403 Forbidden, 412 B, 8 ms]
+  Pass  Member denied admin HTTP 403
+
+Root Trainer denied member
+
+  GET http://127.0.0.1:64834/api/quests [403 Forbidden, 411 B, 5 ms]
+  Pass  Trainer denied member HTTP 403
+
+Root Trainer denied admin
+
+  GET http://127.0.0.1:64834/api/admin/overview [403 Forbidden, 412 B, 3 ms]
+  Pass  Trainer denied admin HTTP 403
+
+Root Admin denied trainer
+
+  GET http://127.0.0.1:64834/api/trainer/overview [403 Forbidden, 414 B, 3 ms]
+  Pass  Admin denied trainer HTTP 403
+
+Root Sleep initial
+
+  GET http://127.0.0.1:64834/api/sleep-logs [200 OK, 375 B, 7 ms]
+  Pass  Sleep initial HTTP 200
+
+Root Sleep save
+
+  PUT http://127.0.0.1:64834/api/sleep-logs [200 OK, 621 B, 43 ms]
+  Pass  Sleep save HTTP 200
+  Pass  Sleep awards once
+
+Root Sleep update
+
+  PUT http://127.0.0.1:64834/api/sleep-logs [200 OK, 629 B, 19 ms]
+  Pass  Sleep update HTTP 200
+  Pass  Sleep upsert keeps ID without reward
+
+Root Sleep invalid
+
+  PUT http://127.0.0.1:64834/api/sleep-logs [400 Bad Request, 463 B, 6 ms]
+  Pass  Sleep invalid HTTP 400
+
+Root Mood initial
+
+  GET http://127.0.0.1:64834/api/mood-logs [200 OK, 375 B, 6 ms]
+  Pass  Mood initial HTTP 200
+
+Root Mood save
+
+  PUT http://127.0.0.1:64834/api/mood-logs [200 OK, 625 B, 42 ms]
+  Pass  Mood save HTTP 200
+  Pass  Mood awards once
+
+Root Mood invalid
+
+  PUT http://127.0.0.1:64834/api/mood-logs [400 Bad Request, 448 B, 6 ms]
+  Pass  Mood invalid HTTP 400
+
+Root BMI write
+
+  POST http://127.0.0.1:64834/api/bmi-records [201 Created, 639 B, 18 ms]
+  Pass  BMI write HTTP 201
+
+Root BMI history
+
+  GET http://127.0.0.1:64834/api/bmi-records [200 OK, 719 B, 6 ms]
+  Pass  BMI history HTTP 200
+  Pass  BMI record persisted
+
+Root BMI invalid limit
+
+  GET http://127.0.0.1:64834/api/bmi-records?limit=366 [400 Bad Request, 415 B, 6 ms]
+  Pass  BMI invalid limit HTTP 400
+
+Root Daily checkin
+
+  POST http://127.0.0.1:64834/api/quests/checkin [200 OK, 416 B, 43 ms]
+  Pass  Daily checkin HTTP 200
+  Pass  Checkin awards 10
+
+Root Daily checkin retry
+
+  POST http://127.0.0.1:64834/api/quests/checkin [200 OK, 429 B, 19 ms]
+  Pass  Daily checkin retry HTTP 200
+  Pass  Checkin retry awards zero
+
+Root Stats 7 days
+
+  GET http://127.0.0.1:64834/api/stats?days=7 [200 OK, 1.99 KB, 16 ms]
+  Pass  Stats 7 days HTTP 200
+  Pass  Stats aggregate actual logs
+
+Root Stats invalid range
+
+  GET http://127.0.0.1:64834/api/stats?days=40 [400 Bad Request, 413 B, 7 ms]
+  Pass  Stats invalid range HTTP 400
+
+Root Chat send
+
+  POST http://127.0.0.1:64834/api/chat/messages [201 Created, 1.19 KB, 65 ms]
+  Pass  Chat send HTTP 201
+  Pass  Rules reply and q_chat reward
+
+Root Chat sessions
+
+  GET http://127.0.0.1:64834/api/chat/sessions [200 OK, 607 B, 7 ms]
+  Pass  Chat sessions HTTP 200
+  Pass  Rules mode disclosed
+
+Root Chat history
+
+  GET http://127.0.0.1:64834/api/chat/sessions/24d30883-7467-4b0a-a311-8073f69fc0fd/messages [200 OK, 1.37 KB, 8 ms]
+  Pass  Chat history HTTP 200
+  Pass  Chat contains both turns
+
+Root Chat cross-user read denied
+
+  GET http://127.0.0.1:64834/api/chat/sessions/24d30883-7467-4b0a-a311-8073f69fc0fd/messages [404 Not Found, 405 B, 6 ms]
+  Pass  Chat cross-user read denied HTTP 404
+
+Root Chat cross-user write denied
+
+  POST http://127.0.0.1:64834/api/chat/messages [404 Not Found, 405 B, 9 ms]
+  Pass  Chat cross-user write denied HTTP 404
+
+Root REGRESSION chat retry must recover reply
+
+  POST http://127.0.0.1:64834/api/chat/messages [200 OK, 755 B, 19 ms]
+  Pass  REGRESSION chat retry must recover reply HTTP 200
+  1. Retry returns the stored reply after a lost response
+
+Root Admin overview
+
+  GET http://127.0.0.1:64834/api/admin/overview [200 OK, 542 B, 12 ms]
+  Pass  Admin overview HTTP 200
+
+Root Admin accounts
+
+  GET http://127.0.0.1:64834/api/admin/accounts?role=user&page=1 [200 OK, 918 B, 6 ms]
+  Pass  Admin accounts HTTP 200
+  Pass  Accounts hide passwords
+
+Root Admin create challenge
+
+  POST http://127.0.0.1:64834/api/admin/challenges [201 Created, 679 B, 28 ms]
+  Pass  Admin create challenge HTTP 201
+
+Root Admin update challenge
+
+  PATCH http://127.0.0.1:64834/api/admin/challenges/1aadbae7-b232-4e94-99f1-10392fe7423e [200 OK, 664 B, 19 ms]
+  Pass  Admin update challenge HTTP 200
+
+Root Admin list challenges
+
+  GET http://127.0.0.1:64834/api/admin/challenges [200 OK, 653 B, 5 ms]
+  Pass  Admin list challenges HTTP 200
+
+Root Member list challenges
+
+  GET http://127.0.0.1:64834/api/challenges [200 OK, 729 B, 8 ms]
+  Pass  Member list challenges HTTP 200
+
+Root Join challenge
+
+  POST http://127.0.0.1:64834/api/challenges/1aadbae7-b232-4e94-99f1-10392fe7423e/join [201 Created, 727 B, 27 ms]
+  Pass  Join challenge HTTP 201
+
+Root Duplicate challenge join
+
+  POST http://127.0.0.1:64834/api/challenges/1aadbae7-b232-4e94-99f1-10392fe7423e/join [409 Conflict, 403 B, 9 ms]
+  Pass  Duplicate challenge join HTTP 409
+
+Root Complete challenge
+
+  POST http://127.0.0.1:64834/api/challenges/1aadbae7-b232-4e94-99f1-10392fe7423e/checkin [200 OK, 482 B, 19 ms]
+  Pass  Complete challenge HTTP 200
+  Pass  One-day completion awards 30
+
+Root Rejoin completed challenge
+
+  POST http://127.0.0.1:64834/api/challenges/1aadbae7-b232-4e94-99f1-10392fe7423e/join [201 Created, 727 B, 18 ms]
+  Pass  Rejoin completed challenge HTTP 201
+
+Root REGRESSION no same-day repeat challenge reward
+
+  POST http://127.0.0.1:64834/api/challenges/1aadbae7-b232-4e94-99f1-10392fe7423e/checkin [200 OK, 483 B, 19 ms]
+  2. REGRESSION no same-day repeat challenge reward HTTP 409
+
+Root Admin create reward
+
+  POST http://127.0.0.1:64834/api/admin/rewards [201 Created, 635 B, 19 ms]
+  Pass  Admin create reward HTTP 201
+
+Root Admin update reward
+
+  PATCH http://127.0.0.1:64834/api/admin/rewards/3792f567-25e1-45f3-b232-0f6a9722237f [200 OK, 628 B, 18 ms]
+  Pass  Admin update reward HTTP 200
+
+Root Admin list rewards
+
+  GET http://127.0.0.1:64834/api/admin/rewards [200 OK, 1.07 KB, 7 ms]
+  Pass  Admin list rewards HTTP 200
+
+Root Member list rewards
+
+  GET http://127.0.0.1:64834/api/rewards [200 OK, 1.08 KB, 9 ms]
+  Pass  Member list rewards HTTP 200
+
+Root Purchase reward
+
+  POST http://127.0.0.1:64834/api/rewards/3792f567-25e1-45f3-b232-0f6a9722237f/purchase [201 Created, 761 B, 19 ms]
+  Pass  Purchase reward HTTP 201
+
+Root Purchase retry
+
+  POST http://127.0.0.1:64834/api/rewards/3792f567-25e1-45f3-b232-0f6a9722237f/purchase [200 OK, 705 B, 19 ms]
+  Pass  Purchase retry HTTP 200
+  Pass  Purchase retry does not debit twice
+
+Root Duplicate badge purchase denied
+
+  POST http://127.0.0.1:64834/api/rewards/3792f567-25e1-45f3-b232-0f6a9722237f/purchase [409 Conflict, 404 B, 12 ms]
+  Pass  Duplicate badge purchase denied HTTP 409
+
+Root REGRESSION ownership beyond 100 purchases
+
+  GET http://127.0.0.1:64834/api/rewards [200 OK, 32.04 KB, 9 ms]
+  Pass  REGRESSION ownership beyond 100 purchases HTTP 200
+  3. Old owned theme remains owned after 101 voucher purchases
+
+Root Admin transactions
+
+  GET http://127.0.0.1:64834/api/admin/transactions?page=1 [200 OK, 7.51 KB, 9 ms]
+  Pass  Admin transactions HTTP 200
+
+Root Admin logs
+
+  GET http://127.0.0.1:64834/api/admin/logs?page=1 [200 OK, 1.33 KB, 7 ms]
+  Pass  Admin logs HTTP 200
+  Pass  Catalog edits are audited
+
+Root Trainer overview
+
+  GET http://127.0.0.1:64834/api/trainer/overview [200 OK, 445 B, 8 ms]
+  Pass  Trainer overview HTTP 200
+
+Root Trainer list links
+
+  GET http://127.0.0.1:64834/api/trainer/links [200 OK, 355 B, 10 ms]
+  Pass  Trainer list links HTTP 200
+
+Root Trainer create invite
+
+  POST http://127.0.0.1:64834/api/trainer/links [201 Created, 725 B, 27 ms]
+  Pass  Trainer create invite HTTP 201
+
+Root Trainer denied unrelated student
+
+  GET http://127.0.0.1:64834/api/trainer/students/9d422173-24d4-4dff-8522-1957f44796f9 [403 Forbidden, 411 B, 6 ms]
+  Pass  Trainer denied unrelated student HTTP 403
+
+Root Member accepts invite
+
+  POST http://127.0.0.1:64834/api/coaching/links [201 Created, 491 B, 18 ms]
+  Pass  Member accepts invite HTTP 201
+
+Root Member coaching overview
+
+  GET http://127.0.0.1:64834/api/coaching [200 OK, 903 B, 8 ms]
+  Pass  Member coaching overview HTTP 200
+
+Root Trainer create template
+
+  POST http://127.0.0.1:64834/api/trainer/templates [201 Created, 757 B, 19 ms]
+  Pass  Trainer create template HTTP 201
+
+Root Trainer update template
+
+  PATCH http://127.0.0.1:64834/api/trainer/templates/9810f16d-dd72-4bf4-a88c-69c76143d84d [200 OK, 750 B, 19 ms]
+  Pass  Trainer update template HTTP 200
+
+Root Trainer list templates
+
+  GET http://127.0.0.1:64834/api/trainer/templates [200 OK, 712 B, 6 ms]
+  Pass  Trainer list templates HTTP 200
+
+Root Trainer assigns plan
+
+  POST http://127.0.0.1:64834/api/trainer/assignments [201 Created, 800 B, 19 ms]
+  Pass  Trainer assigns plan HTTP 201
+
+Root Trainer list assignments
+
+  GET http://127.0.0.1:64834/api/trainer/assignments [200 OK, 1.31 KB, 9 ms]
+  Pass  Trainer list assignments HTTP 200
+
+Root Trainer reads linked student health
+
+  GET http://127.0.0.1:64834/api/trainer/students/9d422173-24d4-4dff-8522-1957f44796f9?days=7 [200 OK, 3.33 KB, 12 ms]
+  Pass  Trainer reads linked student health HTTP 200
+  Pass  Open work grants health access
+
+Root Other member cannot complete assignment
+
+  POST http://127.0.0.1:64834/api/coaching/assignments/e805d7ac-fc07-4938-9784-64bb24c2a1cc/complete [404 Not Found, 419 B, 7 ms]
+  Pass  Other member cannot complete assignment HTTP 404
+
+Root Member completes assignment
+
+  POST http://127.0.0.1:64834/api/coaching/assignments/e805d7ac-fc07-4938-9784-64bb24c2a1cc/complete [200 OK, 805 B, 22 ms]
+  Pass  Member completes assignment HTTP 200
+  Pass  Assignment completed
+
+Root Trainer health access closes after completion
+
+  GET http://127.0.0.1:64834/api/trainer/students/9d422173-24d4-4dff-8522-1957f44796f9 [200 OK, 1.63 KB, 6 ms]
+  Pass  Trainer health access closes after completion HTTP 200
+  Pass  Health is hidden without open work
+
+Root Assign to decline
+
+  POST http://127.0.0.1:64834/api/trainer/assignments [201 Created, 800 B, 21 ms]
+  Pass  Assign to decline HTTP 201
+
+Root Member declines assignment
+
+  POST http://127.0.0.1:64834/api/coaching/assignments/47708840-f5fe-44dd-847c-2c529f958705/decline [200 OK, 773 B, 19 ms]
+  Pass  Member declines assignment HTTP 200
+
+Root Assign to cancel
+
+  POST http://127.0.0.1:64834/api/trainer/assignments [201 Created, 800 B, 21 ms]
+  Pass  Assign to cancel HTTP 201
+
+Root Trainer cancels assignment
+
+  POST http://127.0.0.1:64834/api/trainer/assignments/9745fb13-8338-4e54-aaab-dd79c770c1ef/cancel [200 OK, 766 B, 21 ms]
+  Pass  Trainer cancels assignment HTTP 200
+
+Root Member ends trainer link
+
+  DELETE http://127.0.0.1:64834/api/coaching/links/7db08703-df3a-4e7b-a591-94a35bdcbc1a [200 OK, 478 B, 21 ms]
+  Pass  Member ends trainer link HTTP 200
+
+Root Trainer access revoked
+
+  GET http://127.0.0.1:64834/api/trainer/students/9d422173-24d4-4dff-8522-1957f44796f9 [403 Forbidden, 411 B, 5 ms]
+  Pass  Trainer access revoked HTTP 403
+
+Root Trainer creates invite to cancel
+
+  POST http://127.0.0.1:64834/api/trainer/links [201 Created, 725 B, 18 ms]
+  Pass  Trainer creates invite to cancel HTTP 201
+
+Root Trainer cancels invite
+
+  DELETE http://127.0.0.1:64834/api/trainer/links/a297badb-51b1-47dd-aa23-2606c26652df [200 OK, 404 B, 22 ms]
+  Pass  Trainer cancels invite HTTP 200
+
+Root Admin locks other account
+
+  PATCH http://127.0.0.1:64834/api/admin/accounts/8bca5409-d64c-4473-a3dc-67f4029c434c [200 OK, 649 B, 24 ms]
+  Pass  Admin locks other account HTTP 200
+
+Root Locked token rejected
+
+  GET http://127.0.0.1:64834/api/auth/me [401 Unauthorized, 431 B, 4 ms]
+  Pass  Locked token rejected HTTP 401
+
+Root Admin unlocks other account
+
+  PATCH http://127.0.0.1:64834/api/admin/accounts/8bca5409-d64c-4473-a3dc-67f4029c434c [200 OK, 648 B, 22 ms]
+  Pass  Admin unlocks other account HTTP 200
+
+Root Revoked token stays invalid after unlock
+
+  GET http://127.0.0.1:64834/api/auth/me [401 Unauthorized, 431 B, 3 ms]
+  Pass  Revoked token stays invalid after unlock HTTP 401
+
+Root 33 — Logout registration session
+
+  POST http://127.0.0.1:64834/api/auth/logout [204 No Content, 227 B, 19 ms]
+  Pass  33 — Logout registration session — HTTP 204
+
+Root 34 — Revoked registration token
+
+  GET http://127.0.0.1:64834/api/auth/me [401 Unauthorized, 431 B, 4 ms]
+  Pass  34 — Revoked registration token — HTTP 401
+
+Root 35 — Login session remains active
+
+  GET http://127.0.0.1:64834/api/auth/me [200 OK, 673 B, 5 ms]
+  Pass  35 — Login session remains active — HTTP 200
+
+Root 36 — Logout remaining session
+
+  POST http://127.0.0.1:64834/api/auth/logout [204 No Content, 227 B, 23 ms]
+  Pass  36 — Logout remaining session — HTTP 204
+
+Root 37 — Session revoked immediately
+
+  GET http://127.0.0.1:64834/api/auth/me [401 Unauthorized, 431 B, 4 ms]
+  Pass  37 — Session revoked immediately — HTTP 401
+
+---------------------------------------------------------------------
+|                         |           executed |             failed |
+--------------------------+--------------------+---------------------
+|              iterations |                  1 |                  0 |
+--------------------------+--------------------+---------------------
+|                requests |                121 |                  0 |
+--------------------------+--------------------+---------------------
+|            test-scripts |                242 |                  0 |
+--------------------------+--------------------+---------------------
+|      prerequest-scripts |                  6 |                  0 |
+--------------------------+--------------------+---------------------
+|              assertions |                165 |                  3 |
+---------------------------------------------------------------------
+| total run duration: 12.2 s                                        |
+---------------------------------------------------------------------
+| total data received: 84.05 KB (approx)                            |
+---------------------------------------------------------------------
+| average response time: 16 ms [min: 2 ms, max: 90 ms, s.d.: 17 ms] |
+---------------------------------------------------------------------
+
+  #  failure         detail                                                    
+                                                                               
+ 1.  AssertionError  Retry returns the stored reply after a lost response      
+                     expected null to be an object                             
+                     at assertion:1 in test-script                             
+                     inside "REGRESSION chat retry must recover reply"         
+                                                                               
+ 2.  AssertionError  REGRESSION no same-day repeat challenge reward HTTP 409   
+                     expected response to have status code 409 but got 200     
+                     at assertion:0 in test-script                             
+                     inside "REGRESSION no same-day repeat challenge reward"   
+                                                                               
+ 3.  AssertionError  Old owned theme remains owned after 101 voucher purchases 
+                     expected false to deeply equal true                       
+                     at assertion:1 in test-script                             
+                     inside "REGRESSION ownership beyond 100 purchases"        
+Postman credentials are required for publishing run details to Postman cloud.
+Please specify it by using the `postman login` command

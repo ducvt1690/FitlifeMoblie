@@ -1,0 +1,47 @@
+erDiagram
+    direction LR
+    users {
+        string user_id PK
+        string email UK
+        string full_name
+        string role
+        boolean is_active
+        string date_of_birth
+        int fit_coins
+        int streak_days
+        string timezone
+    }
+    challenges {
+        string challenge_id PK
+        string title
+        int target_days
+        int reward_coins
+        boolean is_active
+    }
+    user_challenges {
+        string id PK
+        string user_id FK
+        string challenge_id FK
+        int current_progress
+        boolean is_completed
+        string last_checkin_date
+    }
+    reward_items {
+        string item_id PK
+        string title
+        string category
+        int cost_coins
+        boolean is_available
+    }
+    purchases {
+        string purchase_id PK
+        string user_id FK
+        string item_id FK
+        string item_category
+        int spent_coins
+        datetime purchased_at
+    }
+    users ||..o{ user_challenges : "user_id"
+    users ||..o{ purchases : "user_id"
+    challenges ||..o{ user_challenges : "challenge_id"
+    reward_items ||..o{ purchases : "item_id"

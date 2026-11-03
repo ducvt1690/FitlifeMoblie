@@ -1,0 +1,111 @@
+
+> fitlife-mongodb-database@2.1.0 test
+> node --test --test-concurrency=1 test/*.test.js
+
+Downloading MongoDB "8.2.6": 0% (0mb / 781.1mb)[0G
+Downloading MongoDB "8.2.6": 27.6% (215.5mb / 781.1mb)[0G
+Downloading MongoDB "8.2.6": 56.2% (438.6mb / 781.1mb)[0G
+Downloading MongoDB "8.2.6": 84.8% (662.3mb / 781.1mb)[0G
+Downloading MongoDB "8.2.6": 100% (781.1mb / 781.1mb)[0G
+Downloading MongoDB "8.2.6": 100% (0mb / 0mb)[0G
+✖ all 17 collections, validators, role fixtures and demo references pass the audit (12586.0851ms)
+✔ schema and catalog reruns preserve catalog edits and existing user data (103.8674ms)
+✔ demo reruns on a different day do not reset balance, password or add rewards (177.4803ms)
+✔ duplicate emails and user/day/quest entries are rejected (3.8321ms)
+✔ negative balance, plaintext password, invalid enum, fractions and unknown fields are rejected (14.587ms)
+✔ completed quests require a completion timestamp (1.3471ms)
+✔ concurrent duplicate badge purchases allow one insert; vouchers can repeat (153.3434ms)
+✔ only one active challenge entry per user; completed entries allow a new attempt (9.0341ms)
+✔ sleep, mood and BMI have one document per user per calendar date (3.2064ms)
+✔ quest keys and fixed 10-coin reward match v2; invalid assignment states fail (4.5127ms)
+✔ auth subject IDs may be non-UUID strings and external auth does not require password_hash (9.5639ms)
+✔ database validator enforces gender-specific calorie floors and the water ceiling (16.896ms)
+✔ audit reports wrong trainer roles, assignment ownership and cross-user chat references (105.2108ms)
+✔ audit detects orphan references and a forged purchase category (97.9788ms)
+✔ demo transaction rolls back all new user data when a later insert fails (931.0426ms)
+✔ demo stores a salted scrypt hash and derives the local date at the Vietnam day boundary (51.6099ms)
+✔ final read-only audit is clean after all constraint checks (103.5842ms)
+✔ ExerciseDB importer follows after cursors and upserts without duplicating source records (1431.194ms)
+✔ ExerciseDB normalization strips invalid array entries and rejects missing media identity (0.5717ms)
+✔ read-only plan reports changes without touching data, schema, or creating backups (1319.4429ms)
+✔ db:init refuses to change populated v1 schemas and directs callers to migration (524.0134ms)
+✔ migration preserves balances, history and original backups; second run is a no-op (3440.1164ms)
+✔ duplicate daily logs stop migration before modifying existing schema or data (981.0296ms)
+✔ non-standard legacy quest rewards require review before data is changed (906.689ms)
+✔ staging validator failures leave original collections untouched (993.5444ms)
+✔ plan catches missing references without overwriting source documents (867.0621ms)
+✔ planning is read-only and reports only counts, without inventing birthdays (3231.4045ms)
+✔ migration preserves documents, indexes and unrelated collections; optional date is accepted afterward (1185.9584ms)
+✔ repeated apply is a no-op and preserves stored birthdays (1071.3145ms)
+✔ unexpected validator changes or weaker validation block apply (1176.8796ms)
+✔ invalid existing data and missing required unique index block apply without changes (913.7318ms)
+✔ missing users or another database cannot be migrated silently (867.2558ms)
+✖ sample plan is read-only and application tops up every business collection coherently (2066.1862ms)
+✔ later rerun does not append records or reset balances and passwords (1576.5086ms)
+✔ a duplicate ID in the last message rolls back all inserts (1857.0029ms)
+✔ plan writes nothing and names only removable collections (2281.2939ms)
+✖ simplification preserves all core documents and auth sessions, exports backups and removes only approved extras/demo (3411.3427ms)
+✔ active v3 consent or inventory usage stops simplification instead of silently discarding it (1560.8583ms)
+✔ transaction failure rolls back field removals and keeps auxiliary collections (2979.1828ms)
+✔ another database name cannot be targeted by simplification (1845.6168ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 37
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56876.8364
+
+✖ failing tests:
+
+test at test\database.test.js:41:1
+✖ all 17 collections, validators, role fixtures and demo references pass the audit (12586.0851ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(Object.entries(report.counts).filter(([name]) => name !== 'exercises').every(([, count]) => count > 0))
+  
+      at TestContext.<anonymous> (C:\hoc tap\FitlifeMoblie\backend\database\mongodb\test\database.test.js:49:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\sample-data.test.js:117:1
+✖ sample plan is read-only and application tops up every business collection coherently (2066.1862ms)
+  AssertionError [ERR_ASSERTION]: trainer_links must have at least six documents
+      at TestContext.<anonymous> (C:\hoc tap\FitlifeMoblie\backend\database\mongodb\test\sample-data.test.js:132:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\simplify.test.js:45:1
+✖ simplification preserves all core documents and auth sessions, exports backups and removes only approved extras/demo (3411.3427ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  20 !== 18
+  
+      at TestContext.<anonymous> (C:\hoc tap\FitlifeMoblie\backend\database\mongodb\test\simplify.test.js:49:78)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 20,
+    expected: 18,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

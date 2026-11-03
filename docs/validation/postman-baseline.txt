@@ -1,0 +1,250 @@
+
+> fitlife-backend@1.0.0 test:postman
+> node scripts/run-postman-regression.js
+
+Postman target: http://127.0.0.1:54797; database: disposable MongoDB with catalog fixtures
+No authorization data found. Please use the `postman login` command.
+Refer:https://learning.postman.com/docs/postman-cli/postman-cli-options/#postman-login
+
+Running your collection...
+postman
+
+FitLife — ALL API (Run all)
+
+Root 01 — API index
+
+  GET http://127.0.0.1:54797/ [200 OK, 2.11 KB, 21 ms]
+  Pass  01 — API index — HTTP 200
+  Pass  Route catalog contains all business groups
+
+Root 02 — Database health
+
+  GET http://127.0.0.1:54797/health [200 OK, 341 B, 5 ms]
+  Pass  02 — Database health — HTTP 200
+  Pass  Database connected
+
+Root 03 — Invalid registration
+
+  POST http://127.0.0.1:54797/api/auth/register [400 Bad Request, 451 B, 17 ms]
+  Pass  03 — Invalid registration — HTTP 400
+
+Root 04 — Register isolated user
+
+  POST http://127.0.0.1:54797/api/auth/register [201 Created, 824 B, 112 ms]
+  Pass  04 — Register isolated user — HTTP 201
+  Pass  New account has user role, zero coins and valid token
+  Pass  Session expiry is positive and no longer than 12h
+
+Root 05 — Duplicate account
+
+  POST http://127.0.0.1:54797/api/auth/register [409 Conflict, 395 B, 5 ms]
+  Pass  05 — Duplicate account — HTTP 409
+
+Root 06 — Login fresh session
+
+  POST http://127.0.0.1:54797/api/auth/login [200 OK, 822 B, 80 ms]
+  Pass  06 — Login fresh session — HTTP 200
+  Pass  Login retains the account ID
+
+Root 07 — Reject missing bearer
+
+  GET http://127.0.0.1:54797/api/auth/me [401 Unauthorized, 407 B, 3 ms]
+  Pass  07 — Reject missing bearer — HTTP 401
+
+Root 08 — Current session
+
+  GET http://127.0.0.1:54797/api/auth/me [200 OK, 666 B, 7 ms]
+  Pass  08 — Current session — HTTP 200
+  Pass  Session belongs to this run
+
+Root 09 — Read profile
+
+  GET http://127.0.0.1:54797/api/profile [200 OK, 760 B, 8 ms]
+  Pass  09 — Read profile — HTTP 200
+  Pass  Profile is private and birthday is initially unknown
+
+Root 10 — Patch name, birthday and email
+
+  PATCH http://127.0.0.1:54797/api/profile [200 OK, 774 B, 18 ms]
+  Pass  10 — Patch name, birthday and email — HTTP 200
+  Pass  Birthday and email persisted
+
+Root 11 — Invalid calendar date
+
+  PATCH http://127.0.0.1:54797/api/profile [400 Bad Request, 405 B, 9 ms]
+  Pass  11 — Invalid calendar date — HTTP 400
+
+Root 12 — Reject profile privilege injection
+
+  PATCH http://127.0.0.1:54797/api/profile [400 Bad Request, 479 B, 9 ms]
+  Pass  12 — Reject profile privilege injection — HTTP 400
+
+Root 13 — Water create
+
+  POST http://127.0.0.1:54797/api/water-logs [201 Created, 642 B, 36 ms]
+  Pass  13 — Water create — HTTP 201
+  Pass  Water grants exactly 10 coins
+
+Root 14 — Water retry
+
+  POST http://127.0.0.1:54797/api/water-logs [200 OK, 635 B, 19 ms]
+  Pass  14 — Water retry — HTTP 200
+  Pass  No duplicate water reward
+
+Root 15 — Water read
+
+  GET http://127.0.0.1:54797/api/water-logs [200 OK, 636 B, 11 ms]
+  Pass  15 — Water read — HTTP 200
+  Pass  Water total is 250ml
+
+Root 16 — Workout create
+
+  POST http://127.0.0.1:54797/api/workout-logs [201 Created, 729 B, 34 ms]
+  Pass  16 — Workout create — HTTP 201
+  Pass  Workout reward and daily water bonus
+
+Root 17 — Workout retry
+
+  POST http://127.0.0.1:54797/api/workout-logs [200 OK, 722 B, 19 ms]
+  Pass  17 — Workout retry — HTTP 200
+  Pass  Workout is not duplicated
+
+Root 18 — Workout read
+
+  GET http://127.0.0.1:54797/api/workout-logs [200 OK, 733 B, 8 ms]
+  Pass  18 — Workout read — HTTP 200
+  Pass  Workout totals match
+
+Root 19 — Invalid workout date
+
+  GET http://127.0.0.1:54797/api/workout-logs?date=2026-02-30 [400 Bad Request, 424 B, 8 ms]
+  Pass  19 — Invalid workout date — HTTP 400
+
+Root 20 — Meal create
+
+  POST http://127.0.0.1:54797/api/meal-logs [201 Created, 708 B, 34 ms]
+  Pass  20 — Meal create — HTTP 201
+  Pass  Meal reward increases total to 30
+
+Root 21 — Meal retry
+
+  POST http://127.0.0.1:54797/api/meal-logs [200 OK, 701 B, 18 ms]
+  Pass  21 — Meal retry — HTTP 200
+  Pass  Meal retry awards zero coins
+
+Root 22 — Meal read
+
+  GET http://127.0.0.1:54797/api/meal-logs [200 OK, 748 B, 8 ms]
+  Pass  22 — Meal read — HTTP 200
+  Pass  Nutrition totals reflect the isolated meal
+
+Root 23 — Partial meal patch
+
+  PATCH http://127.0.0.1:54797/api/meal-logs/a7cf985d-b2b3-4e64-936b-80cfc1497489 [200 OK, 654 B, 19 ms]
+  Pass  23 — Partial meal patch — HTTP 200
+  Pass  Partial PATCH preserves omitted fields
+
+Root 24 — Confirm meal quest
+
+  GET http://127.0.0.1:54797/api/quests [200 OK, 2.76 KB, 7 ms]
+  Pass  24 — Confirm meal quest — HTTP 200
+  Pass  Only water, workout and meal quests are complete
+
+Root 25 — Meal delete
+
+  DELETE http://127.0.0.1:54797/api/meal-logs/a7cf985d-b2b3-4e64-936b-80cfc1497489 [204 No Content, 227 B, 20 ms]
+  Pass  25 — Meal delete — HTTP 204
+
+Root 26 — Meal absence
+
+  GET http://127.0.0.1:54797/api/meal-logs [200 OK, 442 B, 7 ms]
+  Pass  26 — Meal absence — HTTP 200
+  Pass  Deleted meal no longer contributes calories
+
+Root 27 — Verify refund balance
+
+  GET http://127.0.0.1:54797/api/profile [200 OK, 775 B, 7 ms]
+  Pass  27 — Verify refund balance — HTTP 200
+  Pass  Only meal reward was withdrawn
+
+Root 28 — Verify quest reset
+
+  GET http://127.0.0.1:54797/api/quests [200 OK, 2.74 KB, 7 ms]
+  Pass  28 — Verify quest reset — HTTP 200
+  Pass  Meal quest reset after last meal deletion
+
+Root 29 — Exercise list first page
+
+  GET http://127.0.0.1:54797/api/exercises?limit=2 [200 OK, 1.82 KB, 8 ms]
+  Pass  29 — Exercise list first page — HTTP 200
+  Pass  Exercise catalog is populated and localized
+
+Root 30 — Exercise next page
+
+  GET http://127.0.0.1:54797/api/exercises?limit=2&after=B02 [200 OK, 1.11 KB, 6 ms]
+  Pass  30 — Exercise next page — HTTP 200
+  Pass  Cursor does not repeat exercises
+
+Root 31 — Exercise detail by internal UUID
+
+  GET http://127.0.0.1:54797/api/exercises/ae166475-fbf4-4e3d-ba07-cf421861e7a6 [200 OK, 1.06 KB, 6 ms]
+  Pass  31 — Exercise detail by internal UUID — HTTP 200
+  Pass  Exercise detail matches selected ID
+
+Root 32 — Invalid exercise identifier
+
+  GET http://127.0.0.1:54797/api/exercises/not-a-uuid [400 Bad Request, 396 B, 6 ms]
+  Pass  32 — Invalid exercise identifier — HTTP 400
+
+Root 33 — Logout registration session
+
+  POST http://127.0.0.1:54797/api/auth/logout [204 No Content, 227 B, 19 ms]
+  Pass  33 — Logout registration session — HTTP 204
+
+Root 34 — Revoked registration token
+
+  GET http://127.0.0.1:54797/api/auth/me [401 Unauthorized, 431 B, 3 ms]
+  Pass  34 — Revoked registration token — HTTP 401
+
+Root 35 — Login session remains active
+
+  GET http://127.0.0.1:54797/api/auth/me [200 OK, 673 B, 5 ms]
+  Pass  35 — Login session remains active — HTTP 200
+
+Root 36 — Logout remaining session
+
+  POST http://127.0.0.1:54797/api/auth/logout [204 No Content, 227 B, 18 ms]
+  Pass  36 — Logout remaining session — HTTP 204
+
+Root 37 — Session revoked immediately
+
+  GET http://127.0.0.1:54797/api/auth/me [401 Unauthorized, 431 B, 3 ms]
+  Pass  37 — Session revoked immediately — HTTP 401
+
+----------------------------------------------------------------------
+|                         |            executed |             failed |
+--------------------------+---------------------+---------------------
+|              iterations |                   1 |                  0 |
+--------------------------+---------------------+---------------------
+|                requests |                  37 |                  0 |
+--------------------------+---------------------+---------------------
+|            test-scripts |                  74 |                  0 |
+--------------------------+---------------------+---------------------
+|      prerequest-scripts |                   3 |                  0 |
+--------------------------+---------------------+---------------------
+|              assertions |                  62 |                  0 |
+----------------------------------------------------------------------
+| total run duration: 3.8 s                                          |
+----------------------------------------------------------------------
+| total data received: 17.01 KB (approx)                             |
+----------------------------------------------------------------------
+| average response time: 17 ms [min: 3 ms, max: 112 ms, s.d.: 21 ms] |
+----------------------------------------------------------------------
+Postman credentials are required for publishing run details to Postman cloud.
+Please specify it by using the `postman login` command
+
+A new version of Postman CLI is available (v1.84.0). Refer https://go.pstmn.io/cli-release-notes for changelogs.
+To update your Postman CLI, run:
+
+postman update
+

@@ -1,0 +1,71 @@
+erDiagram
+    direction LR
+    users {
+        string user_id PK
+        string email UK
+        string full_name
+        string role
+        boolean is_active
+        string date_of_birth
+        int fit_coins
+        int streak_days
+        string timezone
+    }
+    trainer_links {
+        string link_id PK
+        string trainer_id FK
+        string user_id FK "nullable"
+        string invite_code UK
+        string status
+        datetime accepted_at "nullable"
+        datetime ended_at "nullable"
+    }
+    workout_templates {
+        string template_id PK
+        string trainer_id FK
+        string title
+        int duration_seconds
+        string description
+        boolean is_active
+    }
+    trainer_assignments {
+        string id PK
+        string trainer_id FK
+        string user_id FK
+        string template_id FK
+        string status
+        datetime done_at "nullable"
+    }
+    admin_logs {
+        string log_id PK
+        string admin_id FK
+        string action
+        string target_type
+        string target_id
+        string note
+    }
+    ai_chat_sessions {
+        string session_id PK
+        string user_id FK
+        string title
+        datetime updated_at
+    }
+    ai_chat_messages {
+        string message_id PK
+        string user_id FK
+        string session_id FK
+        string sender
+        string content
+        string ai_engine
+        datetime timestamp
+    }
+    users ||..o{ trainer_assignments : "user_id"
+    users |o..o{ trainer_links : "user_id"
+    users ||..o{ ai_chat_sessions : "user_id"
+    users ||..o{ ai_chat_messages : "user_id"
+    users ||..o{ workout_templates : "trainer_id"
+    users ||..o{ trainer_assignments : "trainer_id"
+    workout_templates ||..o{ trainer_assignments : "template_id"
+    ai_chat_sessions ||..o{ ai_chat_messages : "session_id"
+    users ||..o{ trainer_links : "trainer_id"
+    users ||..o{ admin_logs : "admin_id"

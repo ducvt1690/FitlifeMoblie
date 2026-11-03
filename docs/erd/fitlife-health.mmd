@@ -1,0 +1,91 @@
+erDiagram
+    direction LR
+    users {
+        string user_id PK
+        string email UK
+        string full_name
+        string role
+        boolean is_active
+        string date_of_birth
+        int fit_coins
+        int streak_days
+        string timezone
+    }
+    auth_sessions {
+        string token_hash PK
+        string user_id FK
+        datetime created_at
+        datetime expires_at
+    }
+    water_logs {
+        string log_id PK
+        string user_id FK
+        int amount
+        string log_time
+        string log_date
+    }
+    workout_logs {
+        string workout_id PK
+        string user_id FK
+        string title
+        int duration_seconds
+        int calories_burned
+        string workout_date
+    }
+    meal_logs {
+        string meal_id PK
+        string user_id FK
+        string meal_name
+        int calories
+        decimal protein
+        decimal carbs
+        decimal fat
+        string meal_type
+        string meal_date
+    }
+    daily_quest_logs {
+        string quest_log_id PK
+        string user_id FK
+        string quest_key
+        string quest_date
+        boolean is_completed
+        int reward_coins
+    }
+    bmi_history {
+        string record_id PK
+        string user_id FK
+        decimal weight
+        decimal height
+        decimal bmi_value
+        string record_date
+    }
+    sleep_logs {
+        string sleep_id PK
+        string user_id FK
+        decimal hours
+        string quality
+        string sleep_date
+    }
+    mood_logs {
+        string mood_id PK
+        string user_id FK
+        string mood_label
+        string note
+        string mood_date
+    }
+    exercises {
+        string exercise_id PK
+        string source
+        string source_exercise_id
+        string name_vi
+        string gif_url
+        array instructions_vi
+    }
+    users ||..o{ water_logs : "user_id"
+    users ||..o{ workout_logs : "user_id"
+    users ||..o{ meal_logs : "user_id"
+    users ||..o{ daily_quest_logs : "user_id"
+    users ||..o{ bmi_history : "user_id"
+    users ||..o{ sleep_logs : "user_id"
+    users ||..o{ mood_logs : "user_id"
+    users ||..o{ auth_sessions : "user_id"
