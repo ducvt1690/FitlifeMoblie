@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// CSDL món ăn Việt Nam trên server
+// Cơ sở dữ liệu dinh dưỡng món ăn Việt Nam trên Server
 const VN_FOODS = [
   { name: 'Phở bò tái/chín', kcal: 430, protein: 26, carbs: 58, fat: 11 },
   { name: 'Bún bò Huế', kcal: 520, protein: 28, carbs: 62, fat: 16 },
@@ -20,7 +20,12 @@ router.post('/chat', (req, res) => {
 
   const matched = VN_FOODS.filter((f) => q.includes(f.name.toLowerCase().split(' ')[0]));
   if (matched.length > 0) {
-    const lines = matched.map((f) => `• **${f.name}**: ~${f.kcal} kcal (${f.protein}g Đạm | ${f.carbs}g Tinh bột | ${f.fat}g Béo)`).join('\n');
+    const lines = matched
+      .map(
+        (f) =>
+          `• **${f.name}**: ~${f.kcal} kcal (${f.protein}g Đạm | ${f.carbs}g Tinh bột | ${f.fat}g Béo)`
+      )
+      .join('\n');
     return res.json({
       success: true,
       engine: 'FitLife Turbo Server Engine',
@@ -31,7 +36,7 @@ router.post('/chat', (req, res) => {
   return res.json({
     success: true,
     engine: 'FitLife Turbo Server Engine',
-    reply: `Chào bạn! Về câu hỏi "${question}": Hãy duy trì chế độ thâm hụt calo lành mạnh, ưu tiên đạm và rau xanh, kết hợp 15 phút Tabata mỗi ngày nhé!`,
+    reply: `Chào bạn! Với chỉ số hiện tại (${profile.weight}kg, ${profile.height}cm), về câu hỏi "${question}": Hãy duy trì chế độ thâm hụt calo lành mạnh, ưu tiên đạm và rau xanh, kết hợp 15-20 phút tập luyện mỗi ngày nhé!`,
   });
 });
 

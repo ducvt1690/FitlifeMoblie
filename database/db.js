@@ -3,31 +3,14 @@ const path = require('path');
 
 const DB_FILE = path.join(__dirname, 'fitlife_db.json');
 
-// Dữ liệu ban đầu mặc định
+// Dữ liệu khởi tạo mặc định của hệ thống
 const initialData = {
-  users: [
-    {
-      user_id: 'acc_demo',
-      email: 'demo@fitlife.app',
-      password: '123',
-      full_name: 'Nguyễn Thành Nam',
-      gender: 'male',
-      age: 23,
-      height: 170,
-      weight: 65,
-      activity_level: 'moderate',
-      goal: 'maintain',
-      target_water: 2275,
-      target_calories: 2000,
-      fit_coins: 150,
-      streak_days: 5,
-    },
-  ],
+  users: [],
   water_logs: [],
   workout_logs: [],
   meal_logs: [],
   daily_quests: [],
-  purchases: ['badge_1'],
+  purchases: [],
 };
 
 function readDb() {
@@ -54,6 +37,7 @@ function writeDb(data) {
 }
 
 module.exports = {
+  DB_FILE,
   readDb,
   writeDb,
 };

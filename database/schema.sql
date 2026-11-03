@@ -1,5 +1,6 @@
 -- ====================================================================
--- FITLIFE HEALTH & MMA (projectMMA) - DATABASE SCHEMA DEFINITION (DDL)
+-- FITLIFE PRO (projectMMA) - DATABASE SCHEMA DEFINITION (DDL)
+-- Hệ quản trị tương thích: PostgreSQL / MySQL / SQLite
 -- ====================================================================
 
 -- 1. BẢNG NGƯỜI DÙNG & HỒ SƠ THỂ TRẠNG (USERS)
@@ -16,8 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     goal VARCHAR(20) DEFAULT 'maintain',
     target_water INT DEFAULT 2200,
     target_calories INT DEFAULT 2000,
-    fit_coins INT DEFAULT 150,
-    streak_days INT DEFAULT 5,
+    fit_coins INT DEFAULT 0,
+    streak_days INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -86,23 +87,25 @@ CREATE TABLE IF NOT EXISTS bmi_history (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- 7. BẢNG GIẤC NGỦ (SLEEP_LOGS)
-CREATE TABLE IF NOT EXISTS sleep_logs (
-    sleep_id VARCHAR(36) PRIMARY KEY,
+-- 7. BẢNG THEO DÕI BƯỚC CHÂN (STEP_LOGS)
+CREATE TABLE IF NOT EXISTS step_logs (
+    step_id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
-    hours DECIMAL(3,1) NOT NULL,
-    quality VARCHAR(50) DEFAULT 'Ngủ sâu 😴',
-    sleep_date DATE NOT NULL,
+    steps_count INT DEFAULT 0,
+    goal_steps INT DEFAULT 10000,
+    step_date DATE NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- 8. BẢNG TÂM TRẠNG (MOOD_LOGS)
-CREATE TABLE IF NOT EXISTS mood_logs (
-    mood_id VARCHAR(36) PRIMARY KEY,
+-- 8. BẢNG THỬ THÁCH 30 NGÀY (USER_CHALLENGES)
+CREATE TABLE IF NOT EXISTS user_challenges (
+    challenge_id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
-    mood_label VARCHAR(50) NOT NULL,
-    note TEXT,
-    mood_date DATE NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    progress_percent INT DEFAULT 0,
+    progress_label VARCHAR(50),
+    is_completed BOOLEAN DEFAULT FALSE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
@@ -132,23 +135,13 @@ CREATE TABLE IF NOT EXISTS ai_chat_messages (
     user_id VARCHAR(36) NOT NULL,
     sender VARCHAR(10) NOT NULL,
     content TEXT NOT NULL,
-    ai_engine VARCHAR(50) DEFAULT 'Turbo 0.3s',
+    ai_engine VARCHAR(50) DEFAULT 'FitLife AI Coach',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- ====================================================================
--- DỮ LIỆU MẪU (SEED DATA CHO DEMO ĐỒ ÁN)
--- ====================================================================
-INSERT INTO users (user_id, email, password_hash, full_name, gender, age, height, weight, target_water, target_calories, fit_coins, streak_days)
-VALUES 
-('acc_demo', 'demo@fitlife.app', '123', 'Nguyễn Thành Nam', 'male', 23, 170.0, 65.0, 2275, 2000, 150, 5)
-ON CONFLICT (user_id) DO NOTHING;
-
-INSERT INTO reward_items (item_id, title, category, cost_coins, icon)
-VALUES 
-('badge_1', 'Huy hiệu Người Mới Nhập Môn', 'badge', 0, 'ribbon-outline'),
-('badge_2', 'Chiến Binh Thủy Hỏa 💧', 'badge', 50, 'water-outline'),
-('badge_3', 'Vua Tabata Đốt Mỡ 🔥', 'badge', 100, 'flame-outline'),
-('badge_4', 'Bậc Thầy Kỷ Luật 7 Ngày ⭐', 'badge', 200, 'trophy-outline')
-ON CONFLICT (item_id) DO NOTHING;
+-- CHỈ MỤC TỐI ƯU TRUY VẤN (INDEXES)
+CREATE INDEX IF NOT EXISTS idx_water_user_date ON water_logs(user_id, log_date);
+CREATE INDEX IF NOT EXISTS idx_workout_user_date ON workout_logs(user_id, workout_date);
+CREATE INDEX IF NOT EXISTS idx_meal_user_date ON meal_logs(user_id, meal_date);
+CREATE INDEX IF NOT EXISTS idx_quest_user_date ON daily_quest_logs(user_id, quest_date);

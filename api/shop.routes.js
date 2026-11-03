@@ -16,7 +16,7 @@ router.get('/items', (req, res) => {
 
 // POST /api/shop/buy
 router.post('/buy', (req, res) => {
-  const { userId = 'acc_demo', itemId } = req.body;
+  const { userId, itemId } = req.body;
   const db = readDb();
   const reward = REWARDS.find((r) => r.id === itemId);
 
@@ -26,7 +26,9 @@ router.post('/buy', (req, res) => {
 
   const user = db.users.find((u) => u.user_id === userId);
   if (user && user.fit_coins < reward.cost) {
-    return res.status(400).json({ success: false, message: 'Không đủ FitCoins để đổi vật phẩm này!' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Không đủ FitCoins để đổi vật phẩm này!' });
   }
 
   if (user) {
@@ -41,7 +43,7 @@ router.post('/buy', (req, res) => {
   return res.json({
     success: true,
     message: `Đổi thành công "${reward.title}"!`,
-    remainingCoins: user ? user.fit_coins : 100,
+    remainingCoins: user ? user.fit_coins : 0,
     purchases: db.purchases,
   });
 });

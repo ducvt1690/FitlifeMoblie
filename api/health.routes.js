@@ -4,19 +4,20 @@ const { readDb, writeDb } = require('../database/db');
 
 // GET /api/health/summary (Lấy tổng quan sức khỏe trong ngày)
 router.get('/summary', (req, res) => {
+  const { userId } = req.query;
   const db = readDb();
   const today = new Date().toISOString().slice(0, 10);
 
   const waterToday = db.water_logs
-    .filter((w) => w.log_date === today)
+    .filter((w) => w.log_date === today && (!userId || w.user_id === userId))
     .reduce((sum, item) => sum + item.amount, 0);
 
   const caloriesBurned = db.workout_logs
-    .filter((w) => w.workout_date === today)
+    .filter((w) => w.workout_date === today && (!userId || w.user_id === userId))
     .reduce((sum, item) => sum + item.calories_burned, 0);
 
   const caloriesIn = db.meal_logs
-    .filter((m) => m.meal_date === today)
+    .filter((m) => m.meal_date === today && (!userId || m.user_id === userId))
     .reduce((sum, item) => sum + item.calories, 0);
 
   return res.json({
@@ -26,15 +27,15 @@ router.get('/summary', (req, res) => {
       waterToday,
       caloriesBurned,
       caloriesIn,
-      heartRate: 105,
-      steps: 7420,
+      heartRate: 76,
+      steps: 0,
     },
   });
 });
 
 // POST /api/health/water (Ghi nhận uống nước)
 router.post('/water', (req, res) => {
-  const { userId = 'acc_demo', amount = 250 } = req.body;
+  const { userId = 'user_default', amount = 250 } = req.body;
   const db = readDb();
   const now = new Date();
 
@@ -55,7 +56,12 @@ router.post('/water', (req, res) => {
 
 // POST /api/health/workout (Ghi nhận bài tập)
 router.post('/workout', (req, res) => {
-  const { userId = 'acc_demo', title = 'HIIT Cardio', calories = 180, duration = 900 } = req.body;
+  const {
+    userId = 'user_default',
+    title = 'HIIT Cardio',
+    calories = 180,
+    duration = 900,
+  } = req.body;
   const db = readDb();
   const now = new Date();
 
@@ -73,6 +79,37 @@ router.post('/workout', (req, res) => {
   writeDb(db);
 
   return res.status(201).json({ success: true, workout: newWorkout });
+});
+
+// POST /api/health/meal (Ghi nhận bữa ăn & calo)
+router.post('/meal', (req, res) => {
+  const {
+    userId = 'user_default',
+    mealName = 'Bữa ăn dinh dưỡng',
+    calories = 400,
+    protein = 25,
+    carbs = 45,
+    fat = 12,
+  } = req.body;
+  const db = readDb();
+  const now = new Date();
+
+  const newMeal = {
+    meal_id: Date.now().toString(),
+    user_id: userId,
+    meal_name: mealName,
+    calories: Number(calories),
+    protein: Number(protein),
+    carbs: Number(carbs),
+    fat: Number(fat),
+    meal_date: now.toISOString().slice(0, 10),
+    created_at: now.toISOString(),
+  };
+
+  db.meal_logs.unshift(newMeal);
+  writeDb(db);
+
+  return res.status(201).json({ success: true, meal: newMeal });
 });
 
 // GET /api/health/exercises (Proxy đến ExerciseDB OSS API v1)

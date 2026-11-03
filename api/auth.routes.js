@@ -27,10 +27,11 @@ router.post('/register', (req, res) => {
     weight: 65,
     activity_level: 'moderate',
     goal: 'maintain',
-    target_water: 2275,
+    target_water: 2200,
     target_calories: 2000,
-    fit_coins: 150,
-    streak_days: 1,
+    fit_coins: 0,
+    streak_days: 0,
+    created_at: new Date().toISOString(),
   };
 
   db.users.push(newUser);
@@ -104,7 +105,7 @@ router.post('/reset-password', (req, res) => {
   });
 });
 
-// GET /api/auth/users (Dành cho Admin / Kiểm thử)
+// GET /api/auth/users
 router.get('/users', (req, res) => {
   const db = readDb();
   const safeList = db.users.map(({ password, ...rest }) => rest);
