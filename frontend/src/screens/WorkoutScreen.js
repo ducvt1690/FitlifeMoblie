@@ -38,18 +38,10 @@ function formatDurationLabel(seconds) {
 }
 
 export default function WorkoutScreen() {
-  const [exercisesList, setExercisesList] = useState(EXERCISES);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [exercisesList] = useState(EXERCISES);
+  const [selectedCategory, setSelectedCategory] = useState('cardio');
   const [selectedExercise, setSelectedExercise] = useState(EXERCISES[0]);
   const [completedIds, setCompletedIds] = useState([]);
-
-  // API pagination & search states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoadingApi, setIsLoadingApi] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState('0JtKWum');
-  const [hasNextPage, setHasNextPage] = useState(true);
-  const [totalApiCount, setTotalApiCount] = useState(1500);
 
   // Inline quick timer
   const [quickSecondsLeft, setQuickSecondsLeft] = useState(EXERCISES[0].durationSec);
@@ -70,65 +62,17 @@ export default function WorkoutScreen() {
   const [isMuted, setIsMuted] = useState(soundManager.isMuted);
   const [activeGuideTab, setActiveGuideTab] = useState('guide');
 
-  // Initial fetch from https://oss.exercisedb.dev/api/v1/exercises
-  useEffect(() => {
-    loadInitialFromApi();
-  }, []);
+  const filteredExercises = exercisesList
+    .filter((ex) => ex.category === selectedCategory)
+    .slice(0, 5);
 
-  const loadInitialFromApi = async () => {
-    setIsLoadingApi(true);
-    const res = await fetchExercisesFromApi({ limit: 25 });
-    if (res.exercises && res.exercises.length > 0) {
-      setExercisesList(res.exercises);
-      setSelectedExercise(res.exercises[0]);
-      setNextCursor(res.meta?.nextCursor || null);
-      setHasNextPage(Boolean(res.meta?.hasNextPage));
-      if (res.meta?.total) setTotalApiCount(res.meta.total);
+  const handleSelectCategory = (catId) => {
+    setSelectedCategory(catId);
+    const firstInCat = exercisesList.find((ex) => ex.category === catId);
+    if (firstInCat) {
+      setSelectedExercise(firstInCat);
     }
-    setIsLoadingApi(false);
   };
-
-  const handleSearchSubmit = async () => {
-    const q = searchQuery.trim();
-    if (!q) {
-      loadInitialFromApi();
-      return;
-    }
-    setIsLoadingApi(true);
-    const res = await fetchExercisesFromApi({ search: q });
-    if (res.exercises && res.exercises.length > 0) {
-      setExercisesList(res.exercises);
-      handleSelectExercise(res.exercises[0]);
-      setHasNextPage(false);
-    } else {
-      Alert.alert(
-        'Không tìm thấy',
-        `Không tìm thấy bài tập nào khớp với "${q}". Vui lòng thử từ khóa tiếng Anh (vd: squat, push-up, dumbbell, chest, abs).`
-      );
-    }
-    setIsLoadingApi(false);
-  };
-
-  const handleLoadMoreApi = async () => {
-    if (!hasNextPage || !nextCursor || isLoadingMore) return;
-    setIsLoadingMore(true);
-    const res = await fetchExercisesFromApi({ cursor: nextCursor, limit: 25 });
-    if (res.success && res.exercises.length > 0) {
-      setExercisesList((prev) => {
-        const existingIds = new Set(prev.map((item) => item.id));
-        const newItems = res.exercises.filter((item) => !existingIds.has(item.id));
-        return [...prev, ...newItems];
-      });
-      setNextCursor(res.meta?.nextCursor || null);
-      setHasNextPage(Boolean(res.meta?.hasNextPage));
-    }
-    setIsLoadingMore(false);
-  };
-
-  const filteredExercises =
-    selectedCategory === 'all'
-      ? exercisesList
-      : exercisesList.filter((ex) => ex.category === selectedCategory);
 
   // Reset inline quick timer when switching selected exercise
   useEffect(() => {
@@ -355,37 +299,7 @@ export default function WorkoutScreen() {
       <View style={styles.screenHeader}>
         <View>
           <Text style={styles.screenTitle}>Luyện Tập & Thể Lực</Text>
-          <Text style={styles.screenSub}>
-            Kho 1,500 bài tập chuẩn quốc tế kèm bấm giờ HIIT & giọng đọc HLV
-          </Text>
         </View>
-      </View>
-
-      {/* SEARCH BAR FOR EXERCISEDB API (1,500 EXERCISES) */}
-      <View style={styles.searchBarWrap}>
-        <Ionicons name="search-outline" size={18} color={COLORS.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm trong 1,500 bài tập (vd: squat, push-up, burpee, curl...)"
-          placeholderTextColor="#94A3B8"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearchSubmit}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => {
-              setSearchQuery('');
-              loadInitialFromApi();
-            }}
-          >
-            <Ionicons name="close-circle" size={18} color="#94A3B8" />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.searchBtn} onPress={handleSearchSubmit}>
-          <Text style={styles.searchBtnText}>Tìm kiếm</Text>
-        </TouchableOpacity>
       </View>
 
       {/* SELECTED EXERCISE HERO CARD */}
@@ -523,7 +437,7 @@ export default function WorkoutScreen() {
                   borderColor: '#116B58',
                 },
               ]}
-              onPress={() => setSelectedCategory(cat.id)}
+              onPress={() => handleSelectCategory(cat.id)}
               activeOpacity={0.7}
             >
               <Ionicons
@@ -598,27 +512,6 @@ export default function WorkoutScreen() {
           );
         })}
       </View>
-
-      {/* Load More Pagination Button (`nextCursor` from API) */}
-      {hasNextPage && selectedCategory === 'all' && (
-        <TouchableOpacity
-          style={styles.loadMoreBtn}
-          onPress={handleLoadMoreApi}
-          disabled={isLoadingMore}
-          activeOpacity={0.8}
-        >
-          {isLoadingMore ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="cloud-download-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.loadMoreBtnText}>
-                Tải thêm bài tập từ API (Còn {totalApiCount - exercisesList.length}+ bài)
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
 
       {/* FULLSCREEN EXERCISE & TIMER MODAL */}
       <Modal visible={timerModalVisible} animationType="slide">

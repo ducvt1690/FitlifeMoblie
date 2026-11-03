@@ -11,7 +11,6 @@ export const HEALTH_TIPS = [
 ];
 
 export const WORKOUT_CATEGORIES = [
-  { id: 'all', name: 'Tất cả (API)', icon: 'grid-outline' },
   { id: 'cardio', name: 'Cardio', icon: 'pulse-outline' },
   { id: 'chest', name: 'Ngực (Chest)', icon: 'fitness-outline' },
   { id: 'back', name: 'Lưng (Back)', icon: 'body-outline' },

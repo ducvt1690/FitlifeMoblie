@@ -536,7 +536,7 @@ export default function QuestScreen({ onBack, onNavigate, onQuestCompleted }) {
               >
                 <Ionicons name="play-circle" size={18} color="#FFFFFF" />
                 <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
-                  Mở Kho 1,500 Bài Tập Có Bấm Giờ
+                  Mở Danh Sách Bài Tập Có Bấm Giờ
                 </Text>
               </TouchableOpacity>
             )}
