@@ -3,7 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { localDay } = require('../auth/registration');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
-const { addDays } = require('../utils/validate');
+const { addDays, isDate } = require('../utils/validate');
 const templates = require('../database/mongodb/data/catalogs.json').quest_templates;
 const STREAK_MIN_QUESTS = 5;
 
@@ -57,10 +57,13 @@ function createQuestService({ db }) {
   }
 
   return {
-    async getToday(user) {
-      const date = localDay(new Date(), user.timezone);
+    // Quests of today, or of a past day with ?date=YYYY-MM-DD (days without activity show all 7 as not done).
+    async getToday(user, requestedDate) {
+      const today = localDay(new Date(), user.timezone);
+      const date = requestedDate ?? today;
+      if (!isDate(date) || date > today) throw new HttpError(400, 'Ngày không hợp lệ hoặc ở tương lai. Dùng định dạng YYYY-MM-DD.');
       const quests = await db.collection('daily_quest_logs').find({ user_id: user.user_id, quest_date: date }, { projection: { _id: 0 } }).toArray();
-      return { success: true, date, fit_coins: user.fit_coins, streak_days: currentStreak(user, date), streak_min_quests: STREAK_MIN_QUESTS,
+      return { success: true, date, fit_coins: user.fit_coins, streak_days: currentStreak(user, today), streak_min_quests: STREAK_MIN_QUESTS,
         quests: templates.map(t => quests.find(q => q.quest_key === t.quest_key) || { ...t, quest_date: date, is_completed: false, completed_at: null }) };
     },
     async checkin(member) {

@@ -54,4 +54,17 @@ HTTP `200`:
 - `409`: người dùng đã tiêu số xu đó, không đủ `10` xu để trừ lại. Khi đó **log không bị xóa** (toàn bộ thao tác rollback).
 - Xóa log không làm giảm chuỗi ngày (`streak_days`) đã tính, giống bữa ăn.
 
+## Xóa hết nước của một ngày — `DELETE /api/water-logs?date=YYYY-MM-DD`
+
+Không có `date` thì xóa của **hôm nay**. HTTP `200`:
+
+```json
+{ "success": true, "deleted_count": 3, "date": "2026-11-04", "refund_coins": 10, "fit_coins": 0 }
+```
+
+- Xóa mọi log nước của chính người gọi trong ngày đó; nhiệm vụ `q_water` của ngày đó trở về chưa hoàn thành và trừ lại `10` xu (nếu đã nhận).
+- Ngày không có log: `deleted_count: 0`, không trừ xu.
+- `400`: ngày sai định dạng, không có thật hoặc ở tương lai. `409`: không đủ xu để trừ lại, **không log nào bị xóa**.
+- FE nên hỏi xác nhận trước khi gọi.
+
 FE nên cập nhật số xu từ `fit_coins` trong response thay vì tự tính.

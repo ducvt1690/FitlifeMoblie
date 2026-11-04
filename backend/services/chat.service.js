@@ -94,6 +94,15 @@ function createChatService({ db, ai = {} }) {
         .sort({ timestamp: 1, message_id: 1 }).toArray();
       return { success: true, session, messages };
     },
+    // Delete one conversation and all its messages. The daily free quota (ai_question_usage) is kept.
+    async remove(user, sessionId) {
+      await ownSession(user, sessionId);
+      return transaction(db, async session => {
+        const removed = await db.collection('ai_chat_messages').deleteMany({ user_id: user.user_id, session_id: sessionId }, { session });
+        await db.collection('ai_chat_sessions').deleteOne({ session_id: sessionId, user_id: user.user_id }, { session });
+        return { success: true, deleted: true, session_id: sessionId, deleted_messages: removed.deletedCount };
+      });
+    },
     // Saves the member's message (creating the session on first use), pays q_chat once a day, then stores the coach reply.
     async send(member, body) {
       if (!isPlainBody(body, ['session_id', 'message_id', 'content']) || !isUuid(body.session_id)
@@ -112,8 +121,8 @@ function createChatService({ db, ai = {} }) {
           return { user, message: existing, replayed: true, reward: 0 };
         }
         if (!(await membershipOf(db, user.user_id, session)).premium) {
-          const recent = await db.collection('ai_chat_messages').countDocuments({ user_id: user.user_id, sender: 'user',
-            timestamp: { $gte: new Date(now.getTime() - 86400000) } }, { session });
+          const recent = await db.collection('ai_question_usage').countDocuments({ user_id: user.user_id,
+            created_at: { $gte: new Date(now.getTime() - 86400000) } }, { session });
           if (recent >= FREE_DAILY_MESSAGES) throw fail(402, `Gói miễn phí được hỏi ${FREE_DAILY_MESSAGES} câu mỗi 24 giờ. Nâng cấp Premium để hỏi không giới hạn.`);
         }
         const chat = await db.collection('ai_chat_sessions').findOne({ session_id: body.session_id }, { session });
@@ -124,6 +133,7 @@ function createChatService({ db, ai = {} }) {
         const message = { message_id: body.message_id, user_id: user.user_id, session_id: body.session_id, sender: 'user',
           content, timestamp: now, created_at: now, updated_at: now };
         await db.collection('ai_chat_messages').insertOne(message, { session });
+        await db.collection('ai_question_usage').insertOne({ usage_id: randomUUID(), user_id: user.user_id, created_at: now, updated_at: now }, { session });
         delete message._id;
         const reward = await quests.rewardChat(user, localDay(now, user.timezone), now, session);
         return { user, message, replayed: false, reward };

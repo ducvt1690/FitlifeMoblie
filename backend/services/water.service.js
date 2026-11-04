@@ -41,6 +41,22 @@ function createWaterService({ db }) {
       });
       return result;
     },
+    // Xóa toàn bộ log nước của một ngày (mặc định hôm nay) và hoàn tác 10 xu của q_water ngày đó.
+    async clearDay(member, requestedDate) {
+      return transaction(db, async session => {
+        const now = new Date();
+        const user = await lockMember(db, member.user_id, session, now);
+        const today = localDay(now, user.timezone);
+        const date = requestedDate ?? today;
+        if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+          || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || date > today) {
+          throw fail(400, 'Ngày không hợp lệ hoặc ở tương lai.');
+        }
+        const removed = await db.collection('water_logs').deleteMany({ user_id: user.user_id, log_date: date }, { session });
+        const refund = removed.deletedCount ? await quests.unrewardWater(user, date, now, session) : 0;
+        return { deleted_count: removed.deletedCount, date, refund_coins: refund, fit_coins: user.fit_coins - refund };
+      });
+    },
     // Xóa một log nước của chính mình. Nếu đó là log cuối cùng trong ngày, hoàn tác 10 xu của quest q_water.
     async remove(member, logId) {
       if (typeof logId !== 'string' || !UUID.test(logId)) throw fail(400, 'logId không hợp lệ.');

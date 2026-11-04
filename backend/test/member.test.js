@@ -171,3 +171,21 @@ test('deleting water logs refunds q_water only for the last log and rolls back w
   assert.equal((await request('/api/water-logs', first.token)).body.total, 0);
   assert.equal((await request(`/api/water-logs/${b.body.log.log_id}`, first.token, 'DELETE')).status, 404);
 });
+test('clearing a water day deletes every log of that day and refunds q_water once', async () => {
+  for (const amount of [200, 300]) {
+    assert.equal((await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount })).status, 201);
+  }
+  await request('/api/water-logs', second.token, 'POST', { log_id: randomUUID(), amount: 400 });
+  const cleared = await request('/api/water-logs', first.token, 'DELETE');
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  assert.equal(cleared.body.deleted_count, 2);
+  assert.equal(cleared.body.refund_coins, 10);
+  assert.equal(cleared.body.fit_coins, 0);
+  assert.equal((await request('/api/water-logs', first.token)).body.total, 0);
+  // Không ảnh hưởng người khác
+  assert.equal((await request('/api/water-logs', second.token)).body.total, 400);
+  const again = await request('/api/water-logs', first.token, 'DELETE');
+  assert.equal(again.body.deleted_count, 0);
+  assert.equal(again.body.refund_coins, 0);
+  assert.equal((await request('/api/water-logs?date=2999-01-01', first.token, 'DELETE')).status, 400);
+});

@@ -331,6 +331,15 @@ const collections = [
     premium_until: timestamp,
   }, [index({ premium_until: -1 }, 'by_premium_until')]),
 
+  // One row per AI question, kept 48 h. The free daily quota counts these rows,
+  // so deleting a conversation does not give the member new free questions.
+  collection('ai_question_usage', 'usage_id', {
+    user_id: identity,
+  }, [
+    index({ user_id: 1, created_at: -1 }, 'by_user_ai_question_time'),
+    index({ created_at: 1 }, 'ttl_ai_question_usage', { expireAfterSeconds: 172800 }),
+  ]),
+
   collection('ai_chat_sessions', 'session_id', {
     user_id: identity,
     title: text(150),
