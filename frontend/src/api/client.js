@@ -74,6 +74,7 @@ export function createApi(call) {
       suggest: () => post('/api/nutrition/suggestions'),
       eat: (id) => post(`/api/nutrition/suggestions/${id}/eat`),
       setDay: (completed) => call('/api/nutrition/day', { method: 'PUT', body: { completed } }),
+      setAllergies: (allergies) => call('/api/nutrition/allergies', { method: 'PUT', body: { allergies } }),
       addMeal: (meal) => post('/api/meal-logs', { meal_id: newId(), ...meal }),
       removeMeal: (id) => call(`/api/meal-logs/${id}`, { method: 'DELETE' }),
     },

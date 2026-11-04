@@ -50,6 +50,7 @@ export default function NutritionScreen() {
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
   const [info, setInfo] = useState('');
+  const [allergy, setAllergy] = useState('');
 
   const load = useCallback(async () => {
     try { setData(await api.nutrition.today()); setError(''); } catch (e) { setError(e.message); }
@@ -82,6 +83,12 @@ export default function NutritionScreen() {
     await load();
   });
 
+  const allergies = data?.allergies ?? [];
+  const saveAllergies = (list) => run('allergy', async () => {
+    const res = await api.nutrition.setAllergies(list);
+    setData(d => ({ ...d, allergies: res.allergies })); setAllergy('');
+  });
+
   const suggestion = data?.suggestion;
   const c = data?.consumed ?? {};
   const t = data?.targets ?? {};
@@ -109,6 +116,27 @@ export default function NutritionScreen() {
         </View>
       </Surface>
 
+      <Surface radius={radius.md} style={styles.card}>
+        <Text variant="label">Dị ứng thực phẩm</Text>
+        {allergies.length ? (
+          <View style={styles.chips}>
+            {allergies.map(a => (
+              <Pressable key={a} style={styles.chip} disabled={!!busy} accessibilityLabel={`Bỏ dị ứng ${a}`}
+                onPress={() => saveAllergies(allergies.filter(x => x !== a))}>
+                <Text variant="caption">{a}</Text>
+                <Ionicons name="close" size={14} color={colors.textFaint} />
+              </Pressable>
+            ))}
+          </View>
+        ) : <Text variant="caption" tone="faint">Chưa có. Gợi ý bữa ăn sẽ tránh các món bạn thêm ở đây.</Text>}
+        <View style={styles.addRow}>
+          <TextField value={allergy} onChangeText={setAllergy} placeholder="VD: hải sản, sữa, đậu phộng" style={styles.flex}
+            returnKeyType="done" onSubmitEditing={() => allergy.trim() && saveAllergies([...allergies, allergy.trim()])} />
+          <Button title="Thêm" variant="glass" loading={busy === 'allergy'} disabled={!allergy.trim() || !!busy}
+            onPress={() => saveAllergies([...allergies, allergy.trim()])} />
+        </View>
+      </Surface>
+
       <Text variant="heading" style={styles.section}>Bạn vừa ăn gì?</Text>
       <TextField value={text} onChangeText={setText} placeholder="VD: 300g ức gà, 1 bát cơm, 2 quả trứng" multiline
         returnKeyType="done" onSubmitEditing={() => text.trim() && parse()} />
@@ -123,10 +151,11 @@ export default function NutritionScreen() {
 
       {parsed ? (
         <Surface radius={radius.md} style={styles.card}>
+          {parsed.warnings?.map(w => <Text key={w} variant="label" tone="danger">{w}</Text>)}
           {items.map((it, idx) => (
             <View key={`${it.name}-${idx}`} style={styles.itemRow}>
               <View style={styles.flex}>
-                <Text variant="label">{it.name}</Text>
+                <Text variant="label" tone={it.allergen ? 'danger' : undefined}>{it.name}{it.allergen ? ` · dị ứng ${it.allergen}` : ''}</Text>
                 <Text variant="caption" tone="dim">{fmt(it.calories)} kcal · Đ {it.protein} · TB {it.carbs} · B {it.fat}</Text>
               </View>
               <TextInput value={String(it.grams)} keyboardType="numeric" style={styles.grams} selectionColor={colors.accent}
@@ -240,6 +269,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   grams: { width: 64, minHeight: 40, textAlign: 'right', color: colors.text, fontFamily: fonts.semibold, fontSize: 16,
     paddingHorizontal: 10, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)', outlineStyle: 'none' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)' },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   manual: { gap: 8 },
   manualRow: { flexDirection: 'row', gap: 8 },
   buttons: { gap: 4 },
