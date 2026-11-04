@@ -10,6 +10,8 @@ const { createApp } = require('../app');
 const { initializeDatabase } = require('../database/mongodb/database');
 const { initializeAuthSessions } = require('../database/connection');
 const { seedCatalogs } = require('../database/mongodb/seed');
+const { localDay } = require('../auth/registration');
+const { addDays } = require('../utils/validate');
 
 // Sleep, mood, BMI, check-in/streak, challenges, rewards, stats and chat against disposable MongoDB only.
 let replica, client, db, server, baseUrl, member;
@@ -218,4 +220,27 @@ test('leaving a challenge discards the current run and allows joining again', as
   assert.equal(after.current_progress, 0);
   assert.equal((await request(`/api/challenges/${id}/join`, member.token, 'POST')).status, 201);
   assert.equal((await request('/api/challenges/khong-phai-uuid/leave', member.token, 'POST')).status, 400);
+});
+
+// Regression test from thongle2003 commit 9d1ae12.
+test('challenge daily limits span completed runs and concurrent check-ins', async () => {
+  const challengeId = randomUUID(), now = new Date();
+  const path = `/api/challenges/${challengeId}`;
+  await db.collection('challenges').insertOne({ challenge_id: challengeId, title: 'One day', description: 'Regression',
+    target_days: 1, reward_coins: 30, badge_icon: 'flag-outline', is_active: true, created_at: now, updated_at: now });
+  await request(path + '/join', member.token, 'POST');
+  assert.equal((await request(path + '/checkin', member.token, 'POST')).body.reward_coins, 30);
+  assert.equal((await request(path + '/join', member.token, 'POST')).status, 201);
+  const retries = await Promise.all([1, 2].map(() => request(path + '/checkin', member.token, 'POST')));
+  assert.deepEqual(retries.map(r => r.status), [409, 409]);
+  const listed = (await request('/api/challenges', member.token)).body.challenges.find(c => c.challenge_id === challengeId);
+  assert.equal(listed.checked_in_today, true);
+  assert.equal(listed.current_progress, 0);
+  assert.equal(await coins(member.token), 30);
+
+  // A previous run checked in yesterday must not block today's new run.
+  await db.collection('user_challenges').updateOne({ user_id: member.user.user_id, challenge_id: challengeId, is_completed: true },
+    { $set: { last_checkin_date: addDays(localDay(now, 'Asia/Ho_Chi_Minh'), -1) } });
+  assert.equal((await request(path + '/checkin', member.token, 'POST')).body.reward_coins, 30);
+  assert.equal(await coins(member.token), 60);
 });
