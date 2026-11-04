@@ -4,7 +4,7 @@ const { localDay } = require('../auth/registration');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
 const { currentWaterTarget } = require('../utils/water-target');
-const { createQuestService } = require('./quest.service');
+const { createQuestService, lockMember } = require('./quest.service');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const INT32_MAX = 2147483647;
@@ -76,6 +76,27 @@ function createWorkoutService({ db }) {
         delete log._id;
         return { log, replayed: false, reward_coins: reward,
           fit_coins: user.fit_coins + reward, target_water: targetWater };
+      });
+    },
+
+    // Xóa một buổi tập của chính mình: hoàn tác q_workout nếu là buổi cuối trong ngày
+    // và tính lại mục tiêu nước (mất +350 ml khi hôm nay không còn buổi tập nào).
+    async remove(member, workoutId) {
+      if (typeof workoutId !== 'string' || !UUID.test(workoutId)) throw fail(400, 'workoutId không hợp lệ.');
+      return transaction(db, async session => {
+        const now = new Date();
+        const user = await lockMember(db, member.user_id, session, now);
+        const current = await db.collection('workout_logs').findOne({ workout_id: workoutId, user_id: user.user_id }, { session, projection: { _id: 0 } });
+        if (!current) throw fail(404, 'Không tìm thấy buổi tập.');
+        await db.collection('workout_logs').deleteOne({ workout_id: workoutId, user_id: user.user_id }, { session });
+        const remaining = await db.collection('workout_logs').countDocuments({ user_id: user.user_id, workout_date: current.workout_date }, { session });
+        const refund = remaining ? 0 : await quests.unrewardWorkout(user, current.workout_date, now, session);
+        const targetWater = await currentWaterTarget(db, user, { session, now });
+        await db.collection('users').updateOne({ user_id: user.user_id }, {
+          $set: { target_water: targetWater, updated_at: now },
+        }, { session });
+        return { deleted: true, workout_id: workoutId, refund_coins: refund,
+          fit_coins: user.fit_coins - refund, target_water: targetWater };
       });
     },
   };
