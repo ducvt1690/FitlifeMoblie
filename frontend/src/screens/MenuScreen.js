@@ -1,3 +1,4 @@
+import { Alert } from '../utils/alerts';
 import React, { useState } from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -18,6 +18,7 @@ import AnalyticsScreen from './AnalyticsScreen';
 import AiCoachScreen from './AiCoachScreen';
 import ShopScreen from './ShopScreen';
 import ProfileScreen from './ProfileScreen';
+import CoachingScreen from './CoachingScreen';
 import { scheduleAllReminders, sendInstantNotification } from '../utils/notifications';
 
 export default function MenuScreen({ initialModal = null, onLogout }) {
@@ -31,6 +32,7 @@ export default function MenuScreen({ initialModal = null, onLogout }) {
   // 'profile' | 'analytics' | 'aicoach' | 'shop' | 'notifications' | 'bmi' | 'workout' | 'calorie' | 'water'
 
   const featuredTools = [
+    {id:'coaching', title:'Huấn luyện viên & Bài được giao', desc:'Nhận mã mời và quản lý bài tập từ HLV',icon:'people-outline',iconBg:COLORS.pastelMint,iconColor:'#0F766E'},
     {
       id: 'profile',
       title: '👤 Hồ Sơ Cá Nhân & Mục Tiêu',
@@ -208,11 +210,11 @@ export default function MenuScreen({ initialModal = null, onLogout }) {
       </ScrollView>
 
       {/* Fullscreen Modals for Sub-screens */}
-      <Modal visible={!!activeModal} animationType="slide">
+      <Modal visible={!!activeModal} animationType="slide" onRequestClose={()=>setActiveModal(null)}>
         <View style={styles.modalScreen}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
-              style={styles.modalCloseBtn}
+              accessibilityLabel="Đóng tiện ích" style={styles.modalCloseBtn}
               onPress={() => setActiveModal(null)}
               activeOpacity={0.7}
             >
@@ -220,6 +222,7 @@ export default function MenuScreen({ initialModal = null, onLogout }) {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
               {activeModal === 'profile' && 'Hồ Sơ Cá Nhân & Mục Tiêu'}
+              {activeModal === 'coaching' && 'Huấn luyện viên'}
               {activeModal === 'analytics' && 'Biểu Đồ & Thống Kê Tuần'}
               {activeModal === 'aicoach' && 'Trợ Lý AI FitLife Coach'}
               {activeModal === 'shop' && 'Cửa Hàng Đổi Xu Quà Tặng'}
@@ -240,6 +243,7 @@ export default function MenuScreen({ initialModal = null, onLogout }) {
                 }}
               />
             )}
+            {activeModal === 'coaching' && <CoachingScreen />}
             {activeModal === 'analytics' && <AnalyticsScreen />}
             {activeModal === 'aicoach' && <AiCoachScreen />}
             {activeModal === 'shop' && <ShopScreen />}

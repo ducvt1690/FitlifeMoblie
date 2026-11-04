@@ -1,12 +1,14 @@
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
+import { Alert } from './alerts';
 
 let Notifications = null;
 try {
-  Notifications = require('expo-notifications');
+  if(Platform.OS !== 'web') Notifications = require('expo-notifications');
   if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
       }),
@@ -57,6 +59,7 @@ export const sendInstantNotification = async (title, body) => {
 };
 
 export const scheduleAllReminders = async () => {
+  if(Platform.OS==='web'||!Notifications){Alert.alert('Lịch nhắc nhở','Trình duyệt hoặc môi trường hiện tại chưa hỗ trợ lịch nhắc trên thiết bị.');return false;}
   const granted = await requestNotificationPermissions();
   if (!granted && Notifications) {
     Alert.alert('Chưa cấp quyền', 'Vui lòng cho phép nhận thông báo trong cài đặt máy để kích hoạt lời nhắc!');
@@ -75,9 +78,9 @@ export const scheduleAllReminders = async () => {
           sound: true,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: 7,
           minute: 30,
-          repeats: true,
         },
       });
 
@@ -89,6 +92,7 @@ export const scheduleAllReminders = async () => {
           sound: true,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: 14,
           minute: 0,
           repeats: true,
@@ -103,6 +107,7 @@ export const scheduleAllReminders = async () => {
           sound: true,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: 18,
           minute: 30,
           repeats: true,
@@ -117,6 +122,7 @@ export const scheduleAllReminders = async () => {
           sound: true,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: 22,
           minute: 30,
           repeats: true,
@@ -125,8 +131,9 @@ export const scheduleAllReminders = async () => {
     } else {
       Alert.alert(
         '🔔 Lời nhắc FitLife',
-        'Đã thiết lập 4 khung giờ vàng nhắc nhở trong ngày (07:30 sáng, 14:00 chiều, 18:30 chiều, 22:30 tối)!'
+        'Môi trường hiện tại chưa hỗ trợ lịch nhắc trên thiết bị.'
       );
+      return false;
     }
 
     return true;

@@ -8,7 +8,11 @@
     "start:be": "cd backend && npm start",
     "web": "npm --prefix web run dev",
     "web:mobile": "npm --prefix frontend run web",
-    "build:web": "npm --prefix web run build"
+    "build:web": "npm --prefix web run build",
+    "qa:api": "npm --prefix backend run start:qa",
+    "test:api": "npm --prefix backend test",
+    "test:mobile": "npm --prefix frontend test",
+    "check:mobile": "npm --prefix frontend run check"
   },
   "keywords": [
     "fitness",

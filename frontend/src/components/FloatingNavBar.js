@@ -18,6 +18,8 @@ export default function FloatingNavBar({ activeTab, onSelectTab }) {
           const isActive = activeTab === tab.key;
           return (
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={tab.label}
               key={tab.key}
               style={[
                 styles.tabItem,

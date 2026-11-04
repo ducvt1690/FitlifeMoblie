@@ -6,21 +6,24 @@ export function useLoad(loader, deps = []) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const latest = useRef(loader);
+  const sequence = useRef(0);
   latest.current = loader;
 
   const reload = useCallback(async () => {
+    const request = ++sequence.current;
+    setLoading(true);
     try {
-      setData(await latest.current());
-      setError('');
+      const result = await latest.current();
+      if (request === sequence.current) { setData(result); setError(''); }
     } catch (err) {
-      setError(err.message);
+      if (request === sequence.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (request === sequence.current) setLoading(false);
     }
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setLoading(true); reload(); }, deps);
+  useEffect(() => { reload(); return () => { sequence.current++; }; }, deps);
 
   return { data, error, loading, reload };
 }

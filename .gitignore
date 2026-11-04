@@ -53,3 +53,6 @@ expo-env.d.ts
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local QA runtime evidence and browser state
+qa-artifacts/

@@ -1,3 +1,5 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
+import { Alert } from '../utils/alerts';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOW } from '../constants/theme';
@@ -17,12 +18,15 @@ import {
   getMealLogsToday,
   addMealLog,
   deleteMealLog,
+  updateMealLog,
 } from '../utils/storage';
 
 export default function CalorieScreen() {
+  const feedback = useFeedback();
   const [profile, setProfile] = useState(null);
   const [meals, setMeals] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editing,setEditing] = useState(null);
   const [selectedMealType, setSelectedMealType] = useState('Trưa');
 
   // Custom meal input form
@@ -41,7 +45,7 @@ export default function CalorieScreen() {
   };
 
   useEffect(() => {
-    loadData();
+    feedback.run(loadData);
   }, []);
 
   const targetCalories = profile?.targetCalories || 2000;
@@ -53,6 +57,7 @@ export default function CalorieScreen() {
   const calPercent = Math.min(100, Math.round((totalCalories / targetCalories) * 100));
 
   const handleOpenAddModal = (mealType) => {
+    setEditing(null);
     setSelectedMealType(mealType);
     setFoodName('');
     setFoodCal('');
@@ -63,7 +68,7 @@ export default function CalorieScreen() {
     setModalVisible(true);
   };
 
-  const handleSelectPresetFood = async (food) => {
+  const handleSelectPresetFood = feedback.wrap(async (food) => {
     await addMealLog({
       name: food.name,
       calories: food.calories,
@@ -74,20 +79,20 @@ export default function CalorieScreen() {
     });
     setModalVisible(false);
     await loadData();
-  };
+  });
 
-  const handleAddCustomFood = async () => {
+  const handleAddCustomFood = feedback.wrap(async () => {
     if (!foodName.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tên món ăn!');
       return;
     }
-    const cal = parseInt(foodCal, 10);
+    const cal = Number(foodCal);
     if (!cal || cal <= 0) {
       Alert.alert('Lỗi', 'Vui lòng nhập số calo hợp lệ!');
       return;
     }
 
-    await addMealLog({
+    await (editing ? meal=>updateMealLog(editing,meal) : addMealLog)({
       name: foodName.trim(),
       calories: cal,
       protein: parseFloat(foodProtein) || 0,
@@ -98,9 +103,9 @@ export default function CalorieScreen() {
 
     setModalVisible(false);
     await loadData();
-  };
+  });
 
-  const handleDeleteItem = async (id, name) => {
+  const handleDeleteItem = feedback.wrap(async (id, name) => {
     Alert.alert('Xác nhận', `Bạn muốn xóa món "${name}"?`, [
       { text: 'Hủy', style: 'cancel' },
       {
@@ -112,7 +117,7 @@ export default function CalorieScreen() {
         },
       },
     ]);
-  };
+  });
 
   const MEAL_TYPES = [
     { key: 'Sáng', title: 'Bữa sáng', icon: 'sunny-outline', color: '#F59E0B' },
@@ -127,6 +132,7 @@ export default function CalorieScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{await loadData();})}/>
       {/* Overview Card */}
       <View style={styles.overviewCard}>
         <View style={styles.overviewHeader}>
@@ -209,6 +215,11 @@ export default function CalorieScreen() {
                       </Text>
                     </View>
                     <TouchableOpacity
+                      accessibilityLabel={'Sửa '+item.name}
+                      onPress={()=>{setEditing(item.id);setSelectedMealType(item.mealType);setFoodName(item.name);setFoodCal(String(item.calories));setFoodProtein(String(item.protein));setFoodCarbs(String(item.carbs));setFoodFat(String(item.fat));setModalVisible(true);}}
+                    ><Text>Sửa</Text></TouchableOpacity>
+                    <TouchableOpacity
+                      accessibilityLabel={'Xóa '+item.name}
                       onPress={() => handleDeleteItem(item.id, item.name)}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
@@ -223,10 +234,10 @@ export default function CalorieScreen() {
       })}
 
       {/* Modal: Add Food */}
-      <Modal visible={modalVisible} animationType="slide">
+      <Modal visible={modalVisible} animationType="slide" onRequestClose={()=>setModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Thêm vào {selectedMealType}</Text>
+            <Text style={styles.modalTitle}>{editing?'Sửa món ăn':`Thêm vào ${selectedMealType}`}</Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Ionicons name="close" size={26} color={COLORS.text} />
             </TouchableOpacity>

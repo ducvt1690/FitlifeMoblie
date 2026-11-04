@@ -1,3 +1,5 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
+import { Alert } from '../utils/alerts';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -6,18 +8,25 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  Alert,
+  TextInput,
   Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOW } from '../constants/theme';
-import { EXERCISES, WORKOUT_CATEGORIES } from '../constants/data';
+import { useRemote } from '../components/RemoteState';
+import { getExercises, newId } from '../utils/storage';
+const WORKOUT_CATEGORIES = [['all','Tất cả'],['back','Lưng'],['chest','Ngực'],['waist','Bụng'],['cardio','Cardio']].map(([id,name])=>({id,name,icon:'barbell-outline'}));
 import { addWorkoutLog } from '../utils/storage';
 import { soundManager } from '../utils/audio';
 
 export default function WorkoutScreen() {
+  const feedback = useFeedback();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeExercise, setActiveExercise] = useState(null);
+  const [query,setQuery]=useState('');
+  const catalog=useRemote(()=>getExercises({q:query,body_part:selectedCategory==='all'?undefined:selectedCategory}));
+  const workoutId=useRef(null);
+  const exercises=(catalog.data?.data||[]).map(ex=>({id:ex.exercise_id,title:ex.display_name,category:ex.body_parts[0],description:ex.display_instructions.join(' '),durationSec:45,calories:0,reps:'3 hiệp × 45 giây (đề xuất)',level:'Tùy sức'}));
 
   // Timer states
   const [timerModalVisible, setTimerModalVisible] = useState(false);
@@ -29,26 +38,13 @@ export default function WorkoutScreen() {
   const totalSets = 3;
   const intervalRef = useRef(null);
 
-  const filteredExercises =
-    selectedCategory === 'all'
-      ? EXERCISES
-      : EXERCISES.filter((ex) => ex.category === selectedCategory);
+  const filteredExercises = exercises;
 
+  useEffect(()=>{catalog.reload();},[selectedCategory]);
   // Timer management
   useEffect(() => {
     if (isTimerRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 4 && prev > 1) {
-            soundManager.playCountdownBeep();
-          }
-          if (prev <= 1) {
-            handlePhaseComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      intervalRef.current = setInterval(() => setTimeLeft(prev=>Math.max(0,prev-1)),1000);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
@@ -57,6 +53,8 @@ export default function WorkoutScreen() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isTimerRunning, timerPhase, currentSet]);
+
+  useEffect(()=>{if(isTimerRunning&&timeLeft===0)handlePhaseComplete();},[timeLeft,isTimerRunning]);
 
   const handlePhaseComplete = () => {
     soundManager.playWhistleSound();
@@ -78,6 +76,7 @@ export default function WorkoutScreen() {
   };
 
   const startExercise = (exercise) => {
+    workoutId.current=newId();
     setActiveExercise(exercise);
     setInitialTime(exercise.durationSec || 45);
     setTimeLeft(exercise.durationSec || 45);
@@ -87,20 +86,21 @@ export default function WorkoutScreen() {
     setTimerModalVisible(true);
   };
 
-  const finishWorkout = async () => {
+  const finishWorkout = feedback.wrap(async () => {
     if (!activeExercise) return;
     const burned = activeExercise.calories * (currentSet || 1);
     await addWorkoutLog({
       title: activeExercise.title,
       durationSec: (initialTime * currentSet),
       calories: burned,
-    });
+      category: activeExercise.category,
+    }, workoutId.current);
     Alert.alert(
       '🎉 Chúc mừng!',
       `Bạn đã hoàn thành bài tập ${activeExercise.title} và đốt cháy khoảng ${burned} kcal!`,
       [{ text: 'Tuyệt vời', onPress: () => setTimerModalVisible(false) }]
     );
-  };
+  });
 
   const toggleTimer = () => {
     setIsTimerRunning(!isTimerRunning);
@@ -126,6 +126,12 @@ export default function WorkoutScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <RemoteState busy={catalog.busy} error={catalog.error} onRetry={catalog.reload}/>
+      <TextInput accessibilityLabel="Tìm bài tập" placeholder="Tên bài tập hoặc nhóm cơ" value={query} onChangeText={setQuery} style={{padding:12,margin:12,backgroundColor:'#fff',borderRadius:12}}/>
+      <TouchableOpacity onPress={catalog.reload}><Text>Tìm kiếm bài tập</Text></TouchableOpacity>
+      {!catalog.busy&&catalog.data?.data.length===0&&<Text>Chưa có bài tập phù hợp.</Text>}
+      <Text>Thời gian tập là gợi ý. Calo chưa có dữ liệu đo.</Text>
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{await catalog.reload();})}/>
       {/* Category Horizontal Filter */}
       <ScrollView
         horizontal
@@ -142,7 +148,7 @@ export default function WorkoutScreen() {
                 styles.categoryChip,
                 isSelected && { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
               ]}
-              onPress={() => setSelectedCategory(cat.id)}
+              onPress={() => {setSelectedCategory(cat.id);}}
             >
               <Ionicons
                 name={cat.icon}
@@ -232,8 +238,9 @@ export default function WorkoutScreen() {
         ))}
       </View>
 
+      {catalog.data?.meta.hasNextPage&&<TouchableOpacity onPress={()=>catalog.run(async()=>{const next=await getExercises({q:query,body_part:selectedCategory==='all'?undefined:selectedCategory,after:catalog.data.meta.nextAfter});catalog.setData({data:[...catalog.data.data,...next.data],meta:next.meta});})}><Text>Tải thêm bài tập</Text></TouchableOpacity>}
       {/* Fullscreen Timer Modal */}
-      <Modal visible={timerModalVisible} animationType="slide">
+      <Modal visible={timerModalVisible} animationType="slide" onRequestClose={closeTimer}>
         <View style={styles.timerScreen}>
           <TouchableOpacity style={styles.closeTimerBtn} onPress={closeTimer}>
             <Ionicons name="close" size={28} color={COLORS.text} />

@@ -1,3 +1,5 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
+import { Alert } from '../utils/alerts';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOW } from '../constants/theme';
@@ -16,10 +17,11 @@ import {
   saveUserProfile,
   getWaterLogsToday,
   addWaterLog,
-  resetWaterToday,
+
 } from '../utils/storage';
 
 export default function WaterTrackerScreen() {
+  const feedback = useFeedback();
   const [target, setTarget] = useState(2200);
   const [logs, setLogs] = useState([]);
   const [customAmount, setCustomAmount] = useState('');
@@ -37,20 +39,20 @@ export default function WaterTrackerScreen() {
   };
 
   useEffect(() => {
-    loadData();
+    feedback.run(loadData);
   }, []);
 
   const totalWater = logs.reduce((sum, item) => sum + item.amount, 0);
   const progressPercent = Math.min(100, Math.round((totalWater / target) * 100));
 
-  const handleAddWater = async (amount) => {
+  const handleAddWater = feedback.wrap(async (amount) => {
     if (amount <= 0) return;
     await addWaterLog(amount);
     await loadData();
-  };
+  });
 
-  const handleCustomAdd = async () => {
-    const num = parseInt(customAmount, 10);
+  const handleCustomAdd = feedback.wrap(async () => {
+    const num = Number(customAmount);
     if (!num || num <= 0) {
       Alert.alert('Lỗi', 'Vui lòng nhập lượng nước hợp lệ (ml)!');
       return;
@@ -58,40 +60,15 @@ export default function WaterTrackerScreen() {
     await addWaterLog(num);
     setCustomAmount('');
     await loadData();
-  };
+  });
 
-  const handleSaveTarget = async () => {
-    const num = parseInt(tempTarget, 10);
-    if (!num || num < 500) {
-      Alert.alert('Lỗi', 'Mục tiêu nước mỗi ngày tối thiểu 500 ml!');
-      return;
-    }
-    const prof = await getUserProfile();
-    await saveUserProfile({ ...prof, targetWater: num });
-    setTarget(num);
-    setTargetModalVisible(false);
-  };
+  const handleSaveTarget = feedback.wrap(async () => { Alert.alert('Mục tiêu nước', 'Mục tiêu được máy chủ tính từ hồ sơ và hoạt động tập luyện. Hãy cập nhật hồ sơ của bạn.'); setTargetModalVisible(false); });
 
-  const handleReset = () => {
-    Alert.alert(
-      'Đặt lại lượng nước',
-      'Bạn có chắc chắn muốn xóa toàn bộ lịch sử uống nước hôm nay không?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa hết',
-          style: 'destructive',
-          onPress: async () => {
-            await resetWaterToday();
-            await loadData();
-          },
-        },
-      ]
-    );
-  };
+  const handleReset = () => Alert.alert('Nhật ký nước', 'Nhật ký đã lưu không hỗ trợ xóa.');
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{await loadData();})}/>
       {/* Top Card: Progress Display */}
       <View style={styles.progressCard}>
         <View style={styles.cardHeaderRow}>
@@ -101,7 +78,7 @@ export default function WaterTrackerScreen() {
             onPress={() => setTargetModalVisible(true)}
           >
             <Ionicons name="settings-outline" size={18} color={COLORS.secondary} />
-            <Text style={styles.editTargetText}>Đổi mục tiêu</Text>
+            <Text style={styles.editTargetText}>Cách tính mục tiêu</Text>
           </TouchableOpacity>
         </View>
 
@@ -182,9 +159,7 @@ export default function WaterTrackerScreen() {
       <View style={styles.logHeaderRow}>
         <Text style={styles.sectionTitle}>Lịch sử uống hôm nay</Text>
         {logs.length > 0 && (
-          <TouchableOpacity onPress={handleReset}>
-            <Text style={styles.resetText}>Đặt lại</Text>
-          </TouchableOpacity>
+          <Text>Nhật ký nước đã đồng bộ theo tài khoản.</Text>
         )}
       </View>
 
@@ -208,7 +183,7 @@ export default function WaterTrackerScreen() {
       )}
 
       {/* Modal: Change Daily Target */}
-      <Modal visible={targetModalVisible} transparent animationType="fade">
+      <Modal visible={targetModalVisible} transparent animationType="fade" onRequestClose={()=>setTargetModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Cài đặt mục tiêu nước</Text>
@@ -217,7 +192,7 @@ export default function WaterTrackerScreen() {
               style={styles.modalInput}
               keyboardType="numeric"
               value={tempTarget}
-              onChangeText={setTempTarget}
+              editable={false}
               placeholder="Ví dụ: 2500"
             />
             <View style={styles.modalBtnRow}>

@@ -1,3 +1,4 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,29 +14,30 @@ import { getWeeklyStats } from '../utils/storage';
 const EMPTY_WEEK = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
 export default function AnalyticsScreen({ onBack }) {
+  const feedback = useFeedback();
   const [timeRange, setTimeRange] = useState('7d'); // '7d' | '30d'
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    (async () => {
+    feedback.run(async () => {
       const s = await getWeeklyStats();
       setStats(s);
-    })();
+    });
   }, []);
 
   // Real data from storage (falls back to empty bars before first load)
   const hydrationData = stats?.water || EMPTY_WEEK.map((day) => ({ day, amount: 0 }));
-  const weightData = stats?.weight || EMPTY_WEEK.map((day) => ({ day, weight: 65 }));
+  const weightData = stats?.weight || [];
   const stepData = stats?.steps || EMPTY_WEEK.map((day) => ({ day, steps: 0 }));
   const sleepData = stats?.sleep || EMPTY_WEEK.map((day) => ({ day, hours: 0 }));
   const waterTarget = stats?.waterTarget || 2200;
 
   // Weight chart range (padded so the line never collapses when weight is flat)
-  const weights = weightData.map((w) => w.weight);
-  const minWeight = Math.min(...weights) - 0.5;
-  const maxWeight = Math.max(...weights) + 0.5;
-  const latestWeight = weights[weights.length - 1];
-  const weightDelta = +(latestWeight - weights[0]).toFixed(1);
+  const weights = weightData.map((w) => w.weight).filter(w=>w!==null);
+  const minWeight = weights.length?Math.min(...weights)-0.5:0;
+  const maxWeight = weights.length?Math.max(...weights)+0.5:1;
+  const latestWeight = weights[weights.length - 1] ?? '—';
+  const weightDelta = weights.length?+(latestWeight - weights[0]).toFixed(1):0;
 
   // Summary values
   const totalSteps = stepData.reduce((acc, c) => acc + c.steps, 0);
@@ -55,6 +57,7 @@ export default function AnalyticsScreen({ onBack }) {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{setStats(await getWeeklyStats());})}/>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -77,7 +80,7 @@ export default function AnalyticsScreen({ onBack }) {
               <Text style={styles.cardTitle}>Tiến trình Cân nặng</Text>
               <Text style={styles.cardSubtitle}>
                 {weightDelta === 0
-                  ? 'Cân nặng ổn định trong tuần'
+                  ? weights.length ? 'Cân nặng ổn định trong các lần ghi' : 'Chưa có lịch sử cân nặng'
                   : `${weightDelta > 0 ? 'Tăng +' : 'Giảm '}${weightDelta} kg so với đầu tuần`}
               </Text>
             </View>
@@ -155,10 +158,10 @@ export default function AnalyticsScreen({ onBack }) {
             </View>
             <View>
               <Text style={styles.cardTitle}>Bước Chân Vận Động</Text>
-              <Text style={styles.cardSubtitle}>Tổng tuần: {totalSteps.toLocaleString()} bước</Text>
+              <Text style={styles.cardSubtitle}>Chưa kết nối thiết bị đo bước chân</Text>
             </View>
           </View>
-          <Text style={styles.avgStatText}>{avgSteps.toLocaleString()} / ngày</Text>
+          <Text style={styles.avgStatText}>—</Text>
         </View>
 
         {/* Visual Step Bars */}

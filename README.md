@@ -1,7 +1,7 @@
 # 📱 FitLife - Trợ Lý Sức Khỏe & Thể Lực (MMA Fitness App)
 
 Hệ thống ứng dụng sức khỏe và thể lực toàn diện theo mô hình **Monorepo**:
-- **`frontend/`**: Ứng dụng di động (React Native & Expo) với giao diện Minimalist Neo-Fitness UI, Dark Mode, Gamification (Quests, Shop, Coins), Bấm giờ Tabata/HIIT, AI Coach, Offline-first (AsyncStorage).
+- **`frontend/`**: Ứng dụng di động (React Native & Expo) với giao diện Minimalist Neo-Fitness UI, Dark Mode, Gamification (Quests, Shop, Coins), Bấm giờ Tabata/HIIT, AI Coach, dữ liệu sức khỏe và xác thực đồng bộ qua API MongoDB.
 - **`backend/`**: RESTful API Server (Node.js & Express) dùng MongoDB Atlas, quản lý auth/session, hồ sơ, nhật ký sức khỏe, bài tập ExerciseDB và quest.
 - **`web/`**: Website React/Vite đã gọi backend, gồm khu thành viên, huấn luyện viên và quản trị.
 
@@ -92,6 +92,8 @@ Database `fitlife` gồm **19 collection nghiệp vụ**:
 - Chat: `ai_chat_sessions`, `ai_chat_messages`.
 
 `auth_sessions` là collection kỹ thuật lưu hash token và hạn phiên. Website có ba khu theo role: thành viên (`/app`), huấn luyện viên (`/trainer`) và quản trị (`/admin`); app mobile chỉ dành cho thành viên. Tạo admin đầu tiên bằng `npm run role -- <email> admin` trong `backend/`.
+
+Báo cáo kiểm tra đầy đủ và cách chạy bộ local QA: [docs/qa/ACCEPTANCE_2026-11-04.md](docs/qa/ACCEPTANCE_2026-11-04.md). Ma trận 60 API: [docs/qa/API_MATRIX.md](docs/qa/API_MATRIX.md).
 
 Chạy và cấu hình backend: [backend/README.md](backend/README.md). Hướng dẫn Postman: [backend/api/HUONG_DAN_POSTMAN.md](backend/api/HUONG_DAN_POSTMAN.md).
 

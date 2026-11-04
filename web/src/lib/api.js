@@ -70,6 +70,7 @@ export function createApi(call) {
     addWater: (amount) => post('/api/water-logs', { log_id: newId(), amount }),
     meals: () => call('/api/meal-logs'),
     addMeal: (meal) => post('/api/meal-logs', { meal_id: newId(), ...meal }),
+    updateMeal: (id, meal) => patch(`/api/meal-logs/${id}`, meal),
     deleteMeal: (mealId) => call(`/api/meal-logs/${mealId}`, { method: 'DELETE' }),
     workouts: () => call('/api/workout-logs'),
     addWorkout: (workout) => post('/api/workout-logs', { workout_id: newId(), ...workout }),

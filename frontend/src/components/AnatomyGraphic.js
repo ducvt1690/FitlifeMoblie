@@ -64,7 +64,7 @@ export default function AnatomyGraphic() {
       {/* Live Biometric Tag */}
       <View style={styles.bioBadge}>
         <View style={styles.pulseDot} />
-        <Text style={styles.bioBadgeText}>READY • 98%</Text>
+        <Text style={styles.bioBadgeText}>FITLIFE</Text>
       </View>
     </View>
   );

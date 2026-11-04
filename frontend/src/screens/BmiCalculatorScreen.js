@@ -1,3 +1,5 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
+import { Alert } from '../utils/alerts';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -6,7 +8,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOW } from '../constants/theme';
@@ -18,6 +19,7 @@ import {
 } from '../utils/storage';
 
 export default function BmiCalculatorScreen() {
+  const feedback = useFeedback();
   const [height, setHeight] = useState('170'); // cm
   const [weight, setWeight] = useState('65');  // kg
   const [age, setAge] = useState('24');
@@ -41,13 +43,13 @@ export default function BmiCalculatorScreen() {
   };
 
   useEffect(() => {
-    loadData();
+    feedback.run(loadData);
   }, []);
 
-  const calculateBMI = async () => {
+  const calculateBMI = feedback.wrap(async () => {
     const h = parseFloat(height);
     const w = parseFloat(weight);
-    const a = parseInt(age, 10) || 25;
+    const a = Number(age) || 25;
 
     if (!h || h < 80 || h > 250) {
       Alert.alert('Lỗi', 'Vui lòng nhập chiều cao hợp lệ (80 - 250 cm)!');
@@ -118,7 +120,6 @@ export default function BmiCalculatorScreen() {
       targetSurplus: tdeeVal + 400, // tăng cân
     };
 
-    setBmiResult(result);
 
     // Save to profile & history
     const prof = await getUserProfile();
@@ -132,20 +133,20 @@ export default function BmiCalculatorScreen() {
       targetCalories: tdeeVal,
     });
 
-    const newRecord = await addBmiRecord({
+    await addBmiRecord({
       weight: w,
       height: h,
       bmi: bmiVal,
       category,
       color,
     });
-    if (newRecord) {
-      setHistory((prev) => [newRecord, ...prev.slice(0, 20)]);
-    }
-  };
+    setBmiResult(result);
+    setHistory(await getBmiHistory());
+  });
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{await loadData();})}/>
       {/* Input Form */}
       <View style={styles.formCard}>
         <Text style={styles.cardTitle}>Thông tin thể trạng</Text>

@@ -1,3 +1,5 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
+import { Alert } from '../utils/alerts';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,7 +9,6 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Alert,
   Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,8 +23,8 @@ import {
   getDailyQuests,
   addWaterLog,
   completeQuest,
-  getStepsToday,
-  addStepsToday,
+
+
   getCoins,
   getMoodToday,
   saveMoodToday,
@@ -38,13 +39,14 @@ const MOODS = [
 ];
 
 export default function HomeScreen({ onNavigate }) {
+  const feedback = useFeedback();
   const [profile, setProfile] = useState(null);
-  const [coins, setCoins] = useState(150);
+  const [coins, setCoins] = useState(0);
   const [currentMood, setCurrentMood] = useState('⚡ Sẵn sàng');
   const [waterTotal, setWaterTotal] = useState(0);
   const [caloriesBurned, setCaloriesBurned] = useState(0);
-  const [walkSteps, setWalkSteps] = useState(0);
-  const [heartRate, setHeartRate] = useState(105);
+  const [walkSteps, setWalkSteps] = useState(null);
+  const [heartRate, setHeartRate] = useState(null);
   const [overallProgress, setOverallProgress] = useState(0);
 
   // Quick water modal
@@ -61,7 +63,7 @@ export default function HomeScreen({ onNavigate }) {
       getMoodToday(),
       getWaterLogsToday(),
       getWorkoutLogsToday(),
-      getStepsToday(),
+      Promise.resolve(null),
       getDailyQuests(),
     ]);
 
@@ -88,36 +90,36 @@ export default function HomeScreen({ onNavigate }) {
     const questWeight = (completedQuests / totalQuests) * 50;
     const waterTarget = prof?.targetWater || 2200;
     const waterWeight = Math.min(25, (currentWater / waterTarget) * 25);
-    const stepWeight = Math.min(25, (steps / 10000) * 25);
+    const stepWeight = 0;
 
-    setOverallProgress(Math.min(100, Math.round(questWeight + waterWeight + stepWeight)));
+    setOverallProgress(Math.min(100, Math.round((questWeight + waterWeight) / 75 * 100)));
   };
 
   useEffect(() => {
-    loadData();
+    feedback.run(loadData);
   }, []);
 
-  const handleSelectMood = async (moodLabel) => {
+  const handleSelectMood = feedback.wrap(async (moodLabel) => {
     soundManager.playCoinSound();
-    setCurrentMood(moodLabel);
     await saveMoodToday(moodLabel, 'Tâm trạng ghi nhận từ trang chủ');
+    setCurrentMood(moodLabel);
     await loadData();
     Alert.alert(
       '✨ Đã lưu tâm trạng',
-      `Bạn đang cảm thấy "${moodLabel}" hôm nay! Đã hoàn thành nhiệm vụ Tâm trạng (+10 Coins).`
+      `Bạn đang cảm thấy "${moodLabel}" hôm nay! Đã đồng bộ tâm trạng với tài khoản.`
     );
-  };
+  });
 
-  const handleQuickAddWater250 = async () => {
+  const handleQuickAddWater250 = feedback.wrap(async () => {
     soundManager.playCoinSound();
     await addWaterLog(250);
     await completeQuest('q_water', '+250 ml');
     Vibration.vibrate(50);
     await loadData();
-  };
+  });
 
-  const handleAddWaterModal = async () => {
-    const amt = parseInt(inputWater, 10);
+  const handleAddWaterModal = feedback.wrap(async () => {
+    const amt = Number(inputWater);
     if (!amt || amt <= 0) return;
     soundManager.playCoinSound();
     await addWaterLog(amt);
@@ -125,21 +127,11 @@ export default function HomeScreen({ onNavigate }) {
     setWaterModalVisible(false);
     Vibration.vibrate(80);
     await loadData();
-  };
+  });
 
-  const handleAddSteps = async () => {
-    soundManager.playCoinSound();
-    Vibration.vibrate(50);
-    const next = await addStepsToday(500);
-    await loadData();
-    Alert.alert('🏃 Vận động', `Đã ghi nhận thêm +500 bước chân! Tổng: ${next.toLocaleString()} bước.`);
-  };
+  const handleAddSteps = () => Alert.alert('Bước chân', 'Chưa kết nối thiết bị đo bước chân.');
 
-  const handleToggleHeartRate = () => {
-    Vibration.vibrate(100);
-    setHeartRate((prev) => (prev === 105 ? 112 : 105));
-    Alert.alert('❤️ Nhịp tim', `Nhịp tim đo được: ${heartRate === 105 ? 112 : 105} Bpm (Mức chuẩn nghỉ ngơi).`);
-  };
+  const handleToggleHeartRate = () => Alert.alert('Nhịp tim', 'Chưa kết nối thiết bị đo nhịp tim.');
 
   return (
     <ScrollView
@@ -147,6 +139,7 @@ export default function HomeScreen({ onNavigate }) {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{await loadData();})}/>
       {/* Top Header Row */}
       <View style={styles.headerRow}>
         <TouchableOpacity
@@ -166,10 +159,10 @@ export default function HomeScreen({ onNavigate }) {
                 {profile?.name || 'FitLife Member'}
               </Text>
               <View style={styles.streakBadge}>
-                <Text style={styles.streakText}>🔥 5d</Text>
+                <Text style={styles.streakText}>🔥 {profile?.streak ?? 0} ngày</Text>
               </View>
             </View>
-            <Text style={styles.greeting}>Good morning</Text>
+            <Text style={styles.greeting}>Chào bạn</Text>
           </View>
         </TouchableOpacity>
 
@@ -246,7 +239,7 @@ export default function HomeScreen({ onNavigate }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={styles.aiQuickTitle}>FitLife AI Coach</Text>
             <View style={styles.aiTurboBadge}>
-              <Text style={styles.aiTurboText}>Turbo 0.3s</Text>
+              <Text style={styles.aiTurboText}>Theo nhật ký</Text>
             </View>
           </View>
           <Text style={styles.aiQuickSub}>
@@ -264,10 +257,10 @@ export default function HomeScreen({ onNavigate }) {
             iconColor="#DC2626"
             iconBg="#FEE2E2"
             label="Heart rate"
-            value={heartRate}
+            value="—"
             unit="Bpm"
-            subtext="Nhịp tim nghỉ ngơi"
-            actionLabel="Đo"
+            subtext="Chưa có thiết bị đo"
+            actionLabel="Thông tin"
             onAction={handleToggleHeartRate}
           />
           <MetricCard
@@ -289,10 +282,10 @@ export default function HomeScreen({ onNavigate }) {
             iconColor="#16A34A"
             iconBg="#DCFCE7"
             label="Walk"
-            value={walkSteps.toLocaleString()}
+            value="—"
             unit="Steps"
-            subtext="Mục tiêu: 10,000"
-            actionLabel="+500"
+            subtext="Chưa có thiết bị đo"
+            actionLabel="Thông tin"
             onAction={handleAddSteps}
           />
           <MetricCard
@@ -311,7 +304,7 @@ export default function HomeScreen({ onNavigate }) {
       </View>
 
       {/* Modal Quick Add Water */}
-      <Modal visible={waterModalVisible} transparent animationType="fade">
+      <Modal visible={waterModalVisible} transparent animationType="fade" onRequestClose={()=>setWaterModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Quick Add Water 💧</Text>
@@ -354,7 +347,7 @@ export default function HomeScreen({ onNavigate }) {
       </Modal>
 
       {/* Modal Overall Progress Breakdown */}
-      <Modal visible={breakdownVisible} transparent animationType="fade">
+      <Modal visible={breakdownVisible} transparent animationType="fade" onRequestClose={()=>setBreakdownVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>🎯 Điểm Tiến Độ Hôm Nay: {overallProgress}%</Text>
@@ -372,7 +365,7 @@ export default function HomeScreen({ onNavigate }) {
               </View>
               <View style={styles.breakdownRow}>
                 <Ionicons name="walk-outline" size={18} color="#16A34A" />
-                <Text style={styles.breakdownLabel}>Vận động ({walkSteps} bước)</Text>
+                <Text style={styles.breakdownLabel}>Vận động (chưa có thiết bị đo)</Text>
                 <Text style={styles.breakdownVal}>Đóng góp ~25%</Text>
               </View>
             </View>

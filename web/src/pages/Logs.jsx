@@ -38,6 +38,7 @@ export default function Logs() {
             <MoodCard log={data.mood} onSave={(log) => save(() => api.saveMood(log), 'Đã lưu tâm trạng.')} />
             <MealCard meals={data.meals}
               onAdd={(meal) => save(() => api.addMeal(meal), `Đã thêm ${meal.meal_name}.`)}
+              onUpdate={(id, meal) => save(() => api.updateMeal(id, meal), 'Đã cập nhật bữa ăn.')}
               onDelete={(id) => save(() => api.deleteMeal(id), 'Đã xóa bữa ăn.')} />
             <WorkoutCard workouts={data.workouts}
               onAdd={(w) => save(() => api.addWorkout(w), `Đã ghi buổi tập ${w.title}.`)} />
@@ -135,8 +136,9 @@ function MoodCard({ log, onSave }) {
 
 const EMPTY_MEAL = { meal_name: '', meal_type: 'lunch', calories: '', protein: '', carbs: '', fat: '' };
 
-function MealCard({ meals, onAdd, onDelete }) {
+function MealCard({ meals, onAdd, onUpdate, onDelete }) {
   const [form, setForm] = useState(EMPTY_MEAL);
+  const [editing, setEditing] = useState(null);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const valid = form.meal_name.trim() && Number.isInteger(num(form.calories)) && num(form.calories) >= 1;
 
@@ -146,7 +148,7 @@ function MealCard({ meals, onAdd, onDelete }) {
       meal_name: form.meal_name.trim(), meal_type: form.meal_type, calories: num(form.calories),
       protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0,
     };
-    if (await onAdd(meal)) setForm(EMPTY_MEAL);
+    if (await (editing ? onUpdate(editing, meal) : onAdd(meal))) { setForm(EMPTY_MEAL); setEditing(null); }
   }
 
   return (
@@ -165,7 +167,8 @@ function MealCard({ meals, onAdd, onDelete }) {
           <Field label="Tinh bột" type="number" min="0" suffix="g" value={form.carbs} onChange={set('carbs')} />
           <Field label="Béo" type="number" min="0" suffix="g" value={form.fat} onChange={set('fat')} />
         </div>
-        <button className="btn btn-primary" disabled={!valid}>Thêm bữa ăn</button>
+        <button className="btn btn-primary" disabled={!valid}>{editing ? 'Lưu bữa ăn' : 'Thêm bữa ăn'}</button>
+        {editing && <button type="button" className="btn btn-ghost" onClick={() => { setEditing(null); setForm(EMPTY_MEAL); }}>Hủy sửa</button>}
       </form>
       {meals.logs.length ? (
         <ul className="meal-list">
@@ -176,6 +179,9 @@ function MealCard({ meals, onAdd, onDelete }) {
                 <span className="muted small">{labelOf(MEAL_TYPES, m.meal_type)} · Đ {m.protein}g · TB {m.carbs}g · B {m.fat}g</span>
               </div>
               <span className="kcal">{fmt(m.calories)} kcal</span>
+              <button className="btn btn-ghost" aria-label={`Sửa ${m.meal_name}`} onClick={() => {
+                setEditing(m.meal_id); setForm(Object.fromEntries(Object.keys(EMPTY_MEAL).map(key => [key, String(m[key])])));
+              }}>Sửa</button>
               <button className="icon-btn sm" onClick={() => onDelete(m.meal_id)} aria-label={`Xóa ${m.meal_name}`}><IoTrashOutline /></button>
             </li>
           ))}

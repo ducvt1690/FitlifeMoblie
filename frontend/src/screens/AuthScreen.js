@@ -1,3 +1,4 @@
+import { Alert } from '../utils/alerts';
 import React, { useState } from 'react';
 import {
   View,
@@ -8,12 +9,11 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Alert,
   Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { loginAccount, registerAccount, loginAsGuest } from '../utils/storage';
+import { loginAccount, registerAccount } from '../utils/storage';
 import { soundManager } from '../utils/audio';
 
 export default function AuthScreen({ onLoginSuccess }) {
@@ -24,20 +24,15 @@ export default function AuthScreen({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [onboarding, setOnboarding] = useState({ gender: 'male', age: '', height: '', weight: '', activity_level: 'moderate', goal: 'maintain' });
+  const [feedback, setFeedback] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Điền nhanh tài khoản mẫu để demo cho giảng viên
-  const handleFillDemo = () => {
-    setIsRegister(false);
-    setEmail('demo@fitlife.app');
-    setPassword('123');
-    Vibration.vibrate(40);
-  };
-
   const handleSubmit = async () => {
+    setFeedback('');
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPass = password.trim();
+    const cleanPass = password;
 
     if (!cleanEmail || !cleanPass) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Email và Mật khẩu!');
@@ -55,17 +50,17 @@ export default function AuthScreen({ onLoginSuccess }) {
         Alert.alert('Thiếu họ tên', 'Vui lòng nhập tên của bạn!');
         return;
       }
-      if (cleanPass.length < 3) {
-        Alert.alert('Mật khẩu quá ngắn', 'Mật khẩu cần tối thiểu từ 3 ký tự trở lên!');
+      if ([...cleanPass].length < 8) {
+        Alert.alert('Mật khẩu quá ngắn', 'Mật khẩu cần tối thiểu từ 8 ký tự trở lên!');
         return;
       }
-      if (cleanPass !== confirmPassword.trim()) {
+      if (cleanPass !== confirmPassword) {
         Alert.alert('Mật khẩu không khớp', 'Mật khẩu xác nhận không trùng khớp!');
         return;
       }
 
       setIsLoading(true);
-      const res = await registerAccount(cleanName, cleanEmail, cleanPass);
+      const res = await registerAccount(cleanName, cleanEmail, cleanPass, { ...onboarding, age: Number(onboarding.age), height: Number(onboarding.height), weight: Number(onboarding.weight) });
       setIsLoading(false);
 
       if (res.success) {
@@ -73,7 +68,7 @@ export default function AuthScreen({ onLoginSuccess }) {
         Alert.alert('🎉 Đăng ký thành công', `Chào mừng ${cleanName} gia nhập FitLife!`);
         if (onLoginSuccess) onLoginSuccess(res.user);
       } else {
-        Alert.alert('Đăng ký thất bại', res.message);
+        setFeedback(res.message);
       }
     } else {
       setIsLoading(true);
@@ -84,16 +79,8 @@ export default function AuthScreen({ onLoginSuccess }) {
         soundManager.playCoinSound();
         if (onLoginSuccess) onLoginSuccess(res.user);
       } else {
-        Alert.alert('Đăng nhập thất bại', res.message);
+        setFeedback(res.message);
       }
-    }
-  };
-
-  const handleGuestEntry = async () => {
-    soundManager.playCoinSound();
-    const res = await loginAsGuest();
-    if (res.success && onLoginSuccess) {
-      onLoginSuccess(res.user);
     }
   };
 
@@ -148,7 +135,7 @@ export default function AuthScreen({ onLoginSuccess }) {
                   <Ionicons name="person-outline" size={18} color={COLORS.textSecondary} />
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Nguyễn Thành Nam"
+                    placeholder="Họ và tên" accessibilityLabel="Họ và tên"
                     placeholderTextColor={COLORS.textMuted}
                     value={name}
                     onChangeText={setName}
@@ -163,7 +150,7 @@ export default function AuthScreen({ onLoginSuccess }) {
                 <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="demo@fitlife.app"
+                  placeholder="ban@email.com" accessibilityLabel="Email"
                   placeholderTextColor={COLORS.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -181,7 +168,7 @@ export default function AuthScreen({ onLoginSuccess }) {
                   style={styles.textInput}
                   placeholder="••••••••"
                   placeholderTextColor={COLORS.textMuted}
-                  secureTextEntry={!showPassword}
+                  accessibilityLabel="Mật khẩu" secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
                 />
@@ -208,27 +195,18 @@ export default function AuthScreen({ onLoginSuccess }) {
                     placeholder="••••••••"
                     placeholderTextColor={COLORS.textMuted}
                     secureTextEntry={!showPassword}
-                    value={confirmPassword}
+                    accessibilityLabel="Xác nhận mật khẩu" value={confirmPassword}
                     onChangeText={setConfirmPassword}
                   />
                 </View>
               </View>
             )}
 
-            {/* Quick Demo Fill Button (Dành riêng cho chấm thi / demo) */}
-            {!isRegister && (
-              <TouchableOpacity
-                style={styles.demoFillBtn}
-                onPress={handleFillDemo}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="sparkles" size={13} color="#B45309" />
-                <Text style={styles.demoFillText}>
-                  Điền nhanh tài khoản mẫu: demo@fitlife.app / 123
-                </Text>
-              </TouchableOpacity>
-            )}
-
+            {isRegister && <View style={{gap:10}}>
+              {['age','height','weight'].map((key)=><View key={key}><Text style={styles.inputLabel}>{{age:'Tuổi',height:'Chiều cao (cm)',weight:'Cân nặng (kg)'}[key]}</Text><TextInput style={styles.inputBox} accessibilityLabel={{age:'Tuổi',height:'Chiều cao',weight:'Cân nặng'}[key]} keyboardType="numeric" value={onboarding[key]} onChangeText={value=>setOnboarding(p=>({...p,[key]:value}))}/></View>)}
+              {[["gender",[['male','Nam'],['female','Nữ']]],["activity_level",[['sedentary','Ít vận động'],['light','Nhẹ'],['moderate','Vừa'],['active','Nhiều']]],["goal",[['lose','Giảm cân'],['maintain','Giữ cân'],['gain','Tăng cân']]]].map(([key,choices])=><View key={key} style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{choices.map(([value,label])=><TouchableOpacity key={value} accessibilityRole="radio" accessibilityState={{selected:onboarding[key]===value}} onPress={()=>setOnboarding(p=>({...p,[key]:value}))} style={[styles.tabBtn,onboarding[key]===value&&styles.tabBtnActive]}><Text>{label}</Text></TouchableOpacity>)}</View>)}
+            </View>}
+            {!!feedback&&<Text accessibilityRole="alert" style={{color:'#B91C1C'}}>{feedback}</Text>}
             {/* Submit Action Button */}
             <TouchableOpacity
               style={styles.submitBtn}
@@ -241,22 +219,6 @@ export default function AuthScreen({ onLoginSuccess }) {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Guest Mode Instant Entry (Bấm 1 chạm vào ngay không cần tài khoản) */}
-        <View style={styles.guestSection}>
-          <Text style={styles.orText}>— HOẶC —</Text>
-          <TouchableOpacity
-            style={styles.guestBtn}
-            onPress={handleGuestEntry}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="person-circle-outline" size={20} color={COLORS.black} />
-            <Text style={styles.guestBtnText}>Trải nghiệm nhanh (Khách)</Text>
-          </TouchableOpacity>
-          <Text style={styles.guestNote}>
-            Dành cho chấm bài / kiểm thử không cần đăng ký
-          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

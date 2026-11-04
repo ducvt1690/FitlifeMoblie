@@ -1,3 +1,5 @@
+import { useFeedback, RemoteState } from '../components/RemoteState';
+import { Alert } from '../utils/alerts';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -6,7 +8,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -29,6 +30,7 @@ const ACTIVITY = [
 ];
 
 export default function ProfileScreen({ onSaved, onLogout }) {
+  const feedback = useFeedback();
   const [name, setName] = useState('');
   const [gender, setGender] = useState('male');
   const [age, setAge] = useState('23');
@@ -41,7 +43,7 @@ export default function ProfileScreen({ onSaved, onLogout }) {
   const [coins, setCoins] = useState(0);
 
   useEffect(() => {
-    (async () => {
+    feedback.run(async () => {
       const p = await getUserProfile();
       if (p) {
         setName(p.name && p.name !== 'Người dùng FitLife' ? p.name : '');
@@ -55,7 +57,7 @@ export default function ProfileScreen({ onSaved, onLogout }) {
         setTargetCalories(String(p.targetCalories ?? 2000));
       }
       setCoins(await getCoins());
-    })();
+    });
   }, []);
 
   // Mifflin-St Jeor BMR -> TDEE -> adjusted by goal
@@ -69,7 +71,7 @@ export default function ProfileScreen({ onSaved, onLogout }) {
   const handleAutoSuggest = () => {
     const w = parseFloat(weight);
     const h = parseFloat(height);
-    const a = parseInt(age, 10);
+    const a = Number(age);
     if (!w || !h || !a) {
       Alert.alert('Thiếu thông tin', 'Hãy nhập đủ cân nặng, chiều cao và tuổi để tính gợi ý.');
       return;
@@ -78,12 +80,12 @@ export default function ProfileScreen({ onSaved, onLogout }) {
     setTargetCalories(String(computeCalories(w, h, a, gender, activity, goal)));
   };
 
-  const handleSave = async () => {
+  const handleSave = feedback.wrap(async () => {
     const w = parseFloat(weight);
     const h = parseFloat(height);
-    const a = parseInt(age, 10);
-    const tw = parseInt(targetWater, 10);
-    const tc = parseInt(targetCalories, 10);
+    const a = Number(age);
+    const tw = Number(targetWater);
+    const tc = Number(targetCalories);
 
     if (!w || w < 25 || w > 300) return Alert.alert('Lỗi', 'Cân nặng hợp lệ: 25 - 300 kg');
     if (!h || h < 80 || h > 250) return Alert.alert('Lỗi', 'Chiều cao hợp lệ: 80 - 250 cm');
@@ -101,17 +103,18 @@ export default function ProfileScreen({ onSaved, onLogout }) {
       weight: w,
       activityLevel: activity,
       goal,
-      targetWater: tw,
-      targetCalories: tc,
+
+
     });
     if (ok) {
+      setTargetWater(String(ok.targetWater));setTargetCalories(String(ok.targetCalories));
       soundManager.playCoinSound();
       if (onSaved) onSaved();
       Alert.alert('✅ Đã lưu hồ sơ', 'Mục tiêu nước, calo và lời khuyên AI sẽ được cập nhật theo hồ sơ mới.');
     } else {
       Alert.alert('Lỗi', 'Không lưu được hồ sơ, vui lòng thử lại.');
     }
-  };
+  });
 
   const handleLogout = () => {
     Alert.alert(
@@ -148,6 +151,7 @@ export default function ProfileScreen({ onSaved, onLogout }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+      <RemoteState busy={feedback.busy} error={feedback.error} onRetry={()=>feedback.run(async()=>{const p=await getUserProfile();setName(p.name);setGender(p.gender);setAge(String(p.age));setHeight(String(p.height));setWeight(String(p.weight));setActivity(p.activityLevel);setGoal(p.goal);setTargetWater(String(p.targetWater));setTargetCalories(String(p.targetCalories));setCoins(await getCoins());})}/>
         {/* Header card */}
         <View style={styles.heroCard}>
           <View style={styles.avatar}>
@@ -239,11 +243,11 @@ export default function ProfileScreen({ onSaved, onLogout }) {
         <View style={styles.row}>
           <View style={styles.col}>
             <Text style={styles.label}>Nước (ml)</Text>
-            <TextInput style={styles.input} keyboardType="numeric" value={targetWater} onChangeText={setTargetWater} />
+            <TextInput style={styles.input} keyboardType="numeric" editable={false} value={targetWater} onChangeText={setTargetWater} />
           </View>
           <View style={styles.col}>
             <Text style={styles.label}>Calo (kcal)</Text>
-            <TextInput style={styles.input} keyboardType="numeric" value={targetCalories} onChangeText={setTargetCalories} />
+            <TextInput style={styles.input} keyboardType="numeric" editable={false} value={targetCalories} onChangeText={setTargetCalories} />
           </View>
         </View>
         <Text style={styles.hint}>
