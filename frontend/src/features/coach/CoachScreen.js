@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import Text from '../../ui/Text';
 import { colors, fonts, radius } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useAuth } from '../../context/AuthContext';
 import { newId } from '../../api/client';
+import { useKeyboardVisible } from '../../ui/useKeyboard';
 
-const STARTERS = ['Hôm nay mình nên ăn gì thêm?', 'Tối nay ngủ sao cho sâu?', 'Gợi ý bài tập 15 phút ở nhà'];
+const STARTERS = ['Hôm nay mình nên ăn gì thêm?', 'Lên lịch tập ngực 45 phút cho mình', 'Tối nay ngủ sao cho sâu?'];
+// Replies that built a workout plan (server ai_engine) get a button to the Tập luyện tab.
+const PLAN_ENGINE = 'workout-plan';
 
 // One running conversation per visit; the server keeps the history and the free-tier limit.
 export default function CoachScreen() {
   const { api } = useAuth();
+  const router = useRouter();
+  const typing = useKeyboardVisible();
   const { insets, gutter, contentWidth } = useLayout();
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -58,13 +64,19 @@ export default function CoachScreen() {
           {messages.map(m => (
             <View key={m.message_id} style={[styles.bubble, m.sender === 'user' ? styles.mine : styles.theirs]}>
               <Text color={m.sender === 'user' ? colors.ink : colors.text}>{m.content}</Text>
+              {m.ai_engine === PLAN_ENGINE ? (
+                <Pressable onPress={() => router.navigate('/home/workout')} style={styles.planBtn} accessibilityRole="button">
+                  <Ionicons name="barbell" size={16} color={colors.ink} />
+                  <Text variant="label" color={colors.ink}>Mở lịch tập</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
           {sending ? <Text variant="caption" tone="faint">Coach đang trả lời…</Text> : null}
           {error ? <Text variant="label" tone="danger">{error}</Text> : null}
         </View>
       </ScrollView>
-      <View style={[styles.inputBar, { marginHorizontal: gutter, marginBottom: 96 + insets.bottom, maxWidth: contentWidth }]}>
+      <View style={[styles.inputBar, { marginHorizontal: gutter, marginBottom: typing ? 8 : 96 + insets.bottom, maxWidth: contentWidth }]}>
         <TextInput value={text} onChangeText={setText} placeholder="Nhắn cho Coach…" placeholderTextColor={colors.textFaint}
           style={styles.input} multiline selectionColor={colors.accent} />
         <Pressable onPress={() => send(text)} disabled={!text.trim() || sending} accessibilityLabel="Gửi"
@@ -88,4 +100,6 @@ const styles = StyleSheet.create({
     borderColor: colors.stroke, outlineStyle: 'none' },
   send: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   sendOff: { opacity: 0.4 },
+  planBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 14,
+    paddingVertical: 8, borderRadius: 999, backgroundColor: colors.accent },
 });

@@ -5,11 +5,14 @@ import Text from './Text';
 import { PressScale } from './Button';
 import { colors, fonts, radius } from '../theme/tokens';
 import { useLayout } from '../theme/useLayout';
+import { useKeyboardVisible } from './useKeyboard';
 
 // Floating glass tab bar for expo-router <Tabs tabBar={...}>. Each screen sets options.icon to an Ionicons name
 // and options.title to its label. Every tab shows its label; the active one is white with a filled icon.
 export default function GlassTabBar({ state, descriptors, emitter, navigateToTab }) {
   const { insets, contentWidth } = useLayout();
+  // Hidden while typing so it never floats above the keyboard or leaves a gap under the input.
+  if (useKeyboardVisible()) return null;
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) }]}>
       <Glass blur intensity={60} radius={radius.lg} style={[styles.bar, { maxWidth: Math.min(contentWidth - 24, 440) }]}>
