@@ -34,7 +34,8 @@ function createExerciseService({ db }) {
       const bodyPart = cleanFilter(query.body_part, 'body_part');
       const equipment = cleanFilter(query.equipment, 'equipment');
       const targetMuscle = cleanFilter(query.target_muscle, 'target_muscle');
-      const filter = { source: 'exercisedb_v1', is_active: true };
+      // ExerciseDB rows plus exercises added by admins (their source_exercise_id is their exercise_id).
+      const filter = { source: { $in: ['exercisedb_v1', 'admin'] }, is_active: true };
       if (after) filter.source_exercise_id = { $gt: after };
       if (bodyPart) filter.body_parts = bodyPart;
       if (equipment) filter.equipments = equipment;
