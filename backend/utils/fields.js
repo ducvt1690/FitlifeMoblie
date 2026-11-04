@@ -2,7 +2,7 @@
 const { HttpError } = require('./http-error');
 const { isUuid, isText } = require('./validate');
 
-// Field rules shared by trainer/admin catalogs. Each rule returns the cleaned value or undefined when invalid.
+// Field rules shared by the admin catalogs. Each rule returns the cleaned value or undefined when invalid.
 const rules = {
   uuid: () => value => (isUuid(value) ? value : undefined),
   text: (max, min = 1) => value => (isText(value, max, min) ? value.trim() : undefined),

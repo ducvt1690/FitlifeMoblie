@@ -6,6 +6,7 @@ const { HttpError } = require('../utils/http-error');
 const { isUuid, isText, isPlainBody } = require('../utils/validate');
 const { createQuestService, lockMember } = require('./quest.service');
 const { membershipOf } = require('./payment.service');
+const { complete } = require('./ai.client');
 const fail = (status, message) => new HttpError(status, message);
 const RULE_ENGINE = 'fitlife-rules';
 // Free members get this many questions per rolling 24 hours; Premium is unlimited.
@@ -56,22 +57,13 @@ function ruleReply(user, ctx, text) {
     + `${ctx.sleepHours === null ? '' : `, ngủ ${ctx.sleepHours} tiếng`}. Bạn có thể hỏi mình về nước uống, dinh dưỡng, giấc ngủ, tập luyện hoặc BMI.`;
 }
 
-async function aiReply({ apiKey, model }, user, ctx, history) {
+async function aiReply(ai, user, ctx, history) {
   const system = `Bạn là FitLife Coach, trợ lý sức khỏe nói tiếng Việt, trả lời ngắn gọn, thực tế, không chẩn đoán bệnh.
 Người dùng: ${user.full_name}, ${user.gender === 'male' ? 'nam' : 'nữ'}, ${user.age} tuổi, ${user.height} cm, ${user.weight} kg, mục tiêu ${user.goal}.
 Mục tiêu ngày: ${user.target_water} ml nước, ${user.target_calories} kcal.
 Hôm nay đã ghi: ${ctx.water} ml nước, ${ctx.calories} kcal, ${ctx.workoutMinutes} phút tập, giấc ngủ ${ctx.sleepHours ?? 'chưa ghi'} giờ.`;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST', signal: AbortSignal.timeout(30000),
-    headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: 800, system,
-      messages: history.map(m => ({ role: m.sender === 'ai' ? 'assistant' : 'user', content: m.content })) }),
-  });
-  if (!response.ok) throw new Error(`AI HTTP ${response.status}`);
-  const data = await response.json();
-  const text = data.content?.filter(part => part.type === 'text').map(part => part.text).join('\n').trim();
-  if (!text) throw new Error('AI empty reply');
-  return text.slice(0, 32000);
+  return complete(ai, { system, smart: true, maxTokens: 800,
+    messages: history.map(m => ({ role: m.sender === 'ai' ? 'assistant' : 'user', content: m.content })) });
 }
 
 function createChatService({ db, ai = {} }) {

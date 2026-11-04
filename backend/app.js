@@ -15,8 +15,7 @@ const { createChallengeRouter } = require('./routes/challenge.routes');
 const { createRewardRouter } = require('./routes/reward.routes');
 const { createStatsRouter } = require('./routes/stats.routes');
 const { createChatRouter } = require('./routes/chat.routes');
-const { createCoachingRouter } = require('./routes/coaching.routes');
-const { createTrainerRouter } = require('./routes/trainer.routes');
+const { createNutritionRouter, createWorkoutPlanRouter } = require('./routes/nutrition.routes');
 const { createAdminRouter } = require('./routes/admin.routes');
 const { createPaymentRouter } = require('./routes/payment.routes');
 const { createStepsRouter } = require('./routes/steps.routes');
@@ -72,11 +71,10 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
         stats: ['GET /api/stats'],
         chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'POST /api/chat/messages'],
-        coaching: ['GET /api/coaching', 'POST /api/coaching/links', 'DELETE /api/coaching/links/:linkId',
-          'POST /api/coaching/assignments/:id/complete', 'POST /api/coaching/assignments/:id/decline'],
-        trainer: ['GET /api/trainer/overview', 'GET|POST /api/trainer/links', 'DELETE /api/trainer/links/:linkId',
-          'GET|POST /api/trainer/templates', 'PATCH /api/trainer/templates/:templateId', 'GET|POST /api/trainer/assignments',
-          'POST /api/trainer/assignments/:id/cancel', 'GET /api/trainer/students/:userId'],
+        nutrition: ['GET /api/nutrition/today', 'POST /api/nutrition/parse', 'POST /api/nutrition/suggestions',
+          'POST /api/nutrition/suggestions/:suggestionId/eat', 'PUT /api/nutrition/day'],
+        workout_plans: ['GET /api/workout-plans/options', 'GET /api/workout-plans/today', 'POST /api/workout-plans',
+          'POST /api/workout-plans/:planId/complete'],
         admin: ['GET /api/admin/overview', 'GET /api/admin/accounts', 'PATCH /api/admin/accounts/:userId',
           'GET|POST /api/admin/challenges', 'PATCH /api/admin/challenges/:challengeId', 'GET|POST /api/admin/rewards',
           'PATCH /api/admin/rewards/:itemId', 'GET /api/admin/transactions', 'GET /api/admin/payments', 'GET /api/admin/logs'],
@@ -105,8 +103,8 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
   app.use('/api/rewards', createRewardRouter({ db }));
   app.use('/api/stats', createStatsRouter({ db }));
   app.use('/api/chat', createChatRouter({ db, ai }));
-  app.use('/api/coaching', createCoachingRouter({ db }));
-  app.use('/api/trainer', createTrainerRouter({ db }));
+  app.use('/api/nutrition', createNutritionRouter({ db, ai }));
+  app.use('/api/workout-plans', createWorkoutPlanRouter({ db, ai }));
   app.use('/api/admin', createAdminRouter({ db }));
   app.use('/api/payments', createPaymentRouter({ db, payments }));
   app.use('/api/steps-logs', createStepsRouter({ db }));

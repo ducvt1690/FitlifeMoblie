@@ -75,7 +75,7 @@ test('profile changes remain authenticated, private and protected against owner/
     { target_calories: 2000 }, { timezone: 'UTC' }, { password_hash: 'plaintext' }]) {
     assert.equal((await patch({ email: 'updated@fitlife.example', ...injected })).status, 400);
   }
-  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'trainer' } });
+  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'admin' } });
   assert.equal((await patch({ date_of_birth: birthOnJanuaryFirst(29) })).status, 403);
   await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'user', is_active: false } });
   assert.equal((await patch({ email: 'updated@fitlife.example' })).status, 403);

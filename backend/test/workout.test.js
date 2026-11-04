@@ -51,10 +51,10 @@ const workout = (extra = {}) => ({ workout_id: randomUUID(), title: 'Hít đất
 const create = (body, member = first) => request('/api/workout-logs', member.token, 'POST', body);
 const storedUser = () => db.collection('users').findOne({ user_id: first.user.user_id });
 
-test('workout routes reject missing/expired sessions, trainer/admin roles and locked accounts', async () => {
+test('workout routes reject missing/expired sessions, admin role and locked accounts', async () => {
   assert.equal((await request('/api/workout-logs')).status, 401);
   assert.equal((await request('/api/workout-logs', null, 'POST', workout())).status, 401);
-  for (const role of ['trainer', 'admin']) {
+  for (const role of ['admin']) {
     await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role } });
     assert.equal((await request('/api/workout-logs', first.token)).status, 403);
     assert.equal((await create(workout())).status, 403);

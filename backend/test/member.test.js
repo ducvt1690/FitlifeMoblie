@@ -48,7 +48,7 @@ test('member routers require a valid session and user role', async () => {
   for (const path of ['/api/profile', '/api/water-logs', '/api/quests']) {
     assert.equal((await request(path)).status, 401);
   }
-  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'trainer' } });
+  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'admin' } });
   assert.equal((await request('/api/profile', first.token)).status, 403);
   assert.equal((await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount: 250 })).status, 403);
 });

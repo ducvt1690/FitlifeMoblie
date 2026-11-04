@@ -1,16 +1,16 @@
 'use strict';
 
 // Controlled role bootstrap for operators with database access:
-//   node scripts/set-role.js <email> <user|trainer|admin>
-// The public API never grants roles; admins grant trainer from the web after the first admin exists.
+//   node scripts/set-role.js <email> <user|admin>
+// The public API never grants roles.
 const { randomUUID } = require('node:crypto');
 const { loadConfig } = require('../config');
 const { connectDatabase } = require('../database/connection');
 
 async function main() {
   const [email, role] = process.argv.slice(2);
-  if (!email || !['user', 'trainer', 'admin'].includes(role)) {
-    console.error('Cách dùng: node scripts/set-role.js <email> <user|trainer|admin>');
+  if (!email || !['user', 'admin'].includes(role)) {
+    console.error('Cách dùng: node scripts/set-role.js <email> <user|admin>');
     process.exitCode = 1;
     return;
   }

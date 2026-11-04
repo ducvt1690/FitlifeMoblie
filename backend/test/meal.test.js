@@ -44,7 +44,7 @@ const create = (body, member = first) => request('/api/meal-logs', member.token,
 
 test('meal routes require an active user session and keep records private', async () => {
   assert.equal((await request('/api/meal-logs')).status, 401);
-  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'trainer' } });
+  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'admin' } });
   assert.equal((await request('/api/meal-logs', first.token)).status, 403);
   await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'user' } });
   assert.equal((await create(meal(), second)).status, 201);

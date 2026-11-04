@@ -4,7 +4,6 @@ const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
 const { isUuid } = require('../utils/validate');
 const { rules, readFields, escapeRegex, readPage } = require('../utils/fields');
-const { cancelOpenAssignments } = require('./trainer.service');
 const fail = (status, message) => new HttpError(status, message);
 
 const PAGE_SIZE = 20;
@@ -86,7 +85,7 @@ function createAdminService({ db }) {
   const service = {
     async overview() {
       const weekAgo = new Date(Date.now() - 7 * 86400000);
-      const [roles, locked, newUsers, purchases, activeChallenges, availableRewards, activeLinks, recentLogs, paid, premium] = await Promise.all([
+      const [roles, locked, newUsers, purchases, activeChallenges, availableRewards, recentLogs, paid, premium] = await Promise.all([
         users().aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]).toArray(),
         users().countDocuments({ is_active: false }),
         users().countDocuments({ created_at: { $gte: weekAgo } }),
@@ -94,7 +93,6 @@ function createAdminService({ db }) {
           { $group: { _id: null, count: { $sum: 1 }, coins: { $sum: '$spent_coins' } } }]).toArray(),
         db.collection('challenges').countDocuments({ is_active: true }),
         db.collection('reward_items').countDocuments({ is_available: true }),
-        db.collection('trainer_links').countDocuments({ status: 'active' }),
         service.logs(1).then(result => result.logs.slice(0, 8)),
         db.collection('payment_orders').aggregate([{ $match: { status: 'paid' } },
           { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$amount_vnd' } } }]).toArray(),
@@ -102,9 +100,9 @@ function createAdminService({ db }) {
       ]);
       const byRole = Object.fromEntries(roles.map(row => [row._id, row.count]));
       return { success: true, counts: {
-        users: byRole.user ?? 0, trainers: byRole.trainer ?? 0, admins: byRole.admin ?? 0, locked,
+        users: byRole.user ?? 0, admins: byRole.admin ?? 0, locked,
         new_users_7d: newUsers, purchases_7d: purchases[0]?.count ?? 0, coins_spent_7d: purchases[0]?.coins ?? 0,
-        active_challenges: activeChallenges, available_rewards: availableRewards, active_trainer_links: activeLinks,
+        active_challenges: activeChallenges, available_rewards: availableRewards,
         paid_orders: paid[0]?.count ?? 0, revenue_vnd: paid[0]?.revenue ?? 0, premium_members: premium,
       }, recent_logs: recentLogs };
     },
@@ -117,7 +115,7 @@ function createAdminService({ db }) {
           { full_name: { $regex: escapeRegex(q.trim()), $options: 'i' } }];
       }
       if (role !== undefined) {
-        if (!['user', 'trainer', 'admin'].includes(role)) throw fail(400, 'role không hợp lệ.');
+        if (!['user', 'admin'].includes(role)) throw fail(400, 'role không hợp lệ.');
         filter.role = role;
       }
       if (status !== undefined) {
@@ -133,11 +131,10 @@ function createAdminService({ db }) {
       return { success: true, accounts: rows, page: current, page_size: PAGE_SIZE, total };
     },
 
-    // Lock/unlock and grant/revoke the trainer role. Admin accounts are managed outside the UI.
+    // Lock and unlock member accounts. Admin accounts are managed outside the UI.
     async updateAccount(admin, userId, body) {
       const { note, ...changes } = readFields(body, {
         is_active: [rules.bool(), 'is_active phải là true/false.'],
-        role: [rules.oneOf('user', 'trainer'), 'Chỉ đổi được giữa user và trainer.'],
         note: noteRule,
       }, { partial: true });
       if (!Object.keys(changes).length) throw fail(400, 'Không có thay đổi nào.');
@@ -148,26 +145,13 @@ function createAdminService({ db }) {
         const target = await users().findOne({ user_id: userId }, { session, projection: ACCOUNT_FIELDS });
         if (!target) throw fail(404, 'Không tìm thấy tài khoản.');
         if (target.role === 'admin') throw fail(409, 'Không thể thay đổi tài khoản quản trị viên.');
-        const roleChanged = changes.role !== undefined && changes.role !== target.role;
-        // Leaving the trainer role ends that trainer's links, open work and templates; becoming one ends links as a member.
-        if (roleChanged) {
-          const side = target.role === 'trainer' ? 'trainer_id' : 'user_id';
-          await db.collection('trainer_links').updateMany({ [side]: userId, status: { $in: ['pending', 'active'] } },
-            { $set: { status: 'ended', ended_at: now, updated_at: now } }, { session });
-          await cancelOpenAssignments(db, { [side]: userId }, now, session);
-          if (target.role === 'trainer') {
-            await db.collection('workout_templates').updateMany({ trainer_id: userId, is_active: true },
-              { $set: { is_active: false, updated_at: now } }, { session });
-          }
-        }
         const account = await users().findOneAndUpdate({ user_id: userId }, { $set: { ...changes, updated_at: now } },
           { session, returnDocument: 'after', projection: ACCOUNT_FIELDS });
-        // Old tokens are rejected anyway once is_active is false; deleting them also ends role-scoped sessions.
-        if (changes.is_active === false || roleChanged) await db.collection('auth_sessions').deleteMany({ user_id: userId }, { session });
+        // Old tokens are rejected anyway once is_active is false; deleting them ends the sessions right away.
+        if (changes.is_active === false) await db.collection('auth_sessions').deleteMany({ user_id: userId }, { session });
         if (changes.is_active !== undefined && changes.is_active !== target.is_active) {
           await writeLog(db, admin, changes.is_active ? 'unlock_account' : 'lock_account', 'user', userId, note, now, session);
         }
-        if (roleChanged) await writeLog(db, admin, `set_role_${changes.role}`, 'user', userId, note, now, session);
         return { success: true, message: 'Đã cập nhật tài khoản.', account };
       });
     },
