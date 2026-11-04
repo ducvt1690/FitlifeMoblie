@@ -148,8 +148,11 @@ Dạng: {"title":"tên buổi ngắn","tip":"một câu lưu ý","items":[{"i":0
       if (!isUuid(planId)) throw fail(400, 'planId không hợp lệ.');
       const plan = await db.collection('workout_plans').findOne({ plan_id: planId, user_id: member.user_id });
       if (!plan) throw fail(404, 'Không tìm thấy lịch tập.');
+      // Only the exercises ticked off count, so finishing early logs the time and calories actually spent.
+      const doneItems = plan.items.filter(i => (plan.done_items ?? []).includes(i.exercise_id));
+      if (!doneItems.length) throw fail(409, 'Hãy đánh dấu ít nhất một bài đã tập trước khi hoàn thành buổi tập.');
       const user = await db.collection('users').findOne({ user_id: member.user_id });
-      const minutes = plan.estimated_minutes;
+      const minutes = Math.max(1, Math.round(secondsOf(doneItems, plan.minutes) / 60));
       const result = await workouts.create(member, { workout_id: plan.plan_id, title: [...plan.title].slice(0, 150).join(''),
         category: 'strength', duration_seconds: minutes * 60, calories_burned: Math.round(5 * user.weight * minutes / 60) });
       const now = new Date();
@@ -157,18 +160,18 @@ Dạng: {"title":"tên buổi ngắn","tip":"một câu lưu ý","items":[{"i":0
         { $group: { _id: null, kcal: { $sum: '$calories' } } }]).toArray();
       const after = plan.after ?? afterWorkout({ now, timezone: user.timezone, eaten: meals?.kcal ?? 0, target: user.target_calories, minutes });
       await db.collection('workout_plans').updateOne({ plan_id: planId }, { $set: { status: 'done', after, updated_at: now } });
-      const coach = plan.after ? null : await coachNote(user, plan, after, now).catch(() => null);
+      const coach = plan.after ? null : await coachNote(user, plan, minutes, after, now).catch(() => null);
       return { success: true, ...result, after, coach };
     },
   };
   return service;
 
   // The coach posts the recovery tips (and a meal the member can add with one tap) into their latest chat.
-  async function coachNote(user, plan, after, now) {
+  async function coachNote(user, plan, minutes, after, now) {
     const { suggestion } = await nutrition.suggest(user, { offer: true }).catch(() => ({}));
     const tips = after.tips.map(t => `• ${t.title}: ${t.text}`).join('\n');
     const meal = suggestion ? `\n\nGợi ý bữa sau tập: ${suggestion.meal_name} (~${suggestion.calories} kcal, ${Math.round(suggestion.protein)} g đạm). Bấm "Thêm vào thực đơn" nếu bạn muốn ăn món này.` : '';
-    const content = `Chúc mừng bạn đã hoàn thành "${plan.title}" (${plan.estimated_minutes} phút)! Vài lưu ý cho lúc này:
+    const content = `Chúc mừng bạn đã hoàn thành "${plan.title}" (${minutes} phút)! Vài lưu ý cho lúc này:
 ${tips}${meal}`;
     let chat = await db.collection('ai_chat_sessions').find({ user_id: user.user_id }).sort({ updated_at: -1 }).limit(1).next();
     if (!chat) {

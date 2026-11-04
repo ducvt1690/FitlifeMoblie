@@ -168,6 +168,8 @@ test('AI workout plans are Premium, use only catalog exercises and fit the chose
   assert.equal(new Set(plan.items.map(i => i.exercise_id)).size, plan.items.length);
   assert.equal((await call('/api/workout-plans/today')).body.plan.plan_id, plan.plan_id);
 
+  // Nothing ticked off yet: there is no workout to log.
+  assert.equal((await call(`/api/workout-plans/${plan.plan_id}/complete`, 'POST')).status, 409);
   const first = plan.items[0].exercise_id;
   assert.deepEqual((await call(`/api/workout-plans/${plan.plan_id}/items`, 'PUT', { done: [first, 'not-in-plan'] })).body.done_items, [first]);
   assert.equal((await call(`/api/workout-plans/${plan.plan_id}/items`, 'PUT', { done: 'x' })).status, 400);
@@ -191,6 +193,8 @@ test('AI workout plans are Premium, use only catalog exercises and fit the chose
   assert.equal((await call(`/api/workout-plans/${plan.plan_id}/complete`, 'POST')).body.coach, null);
   const logs = await call('/api/workout-logs');
   assert.equal(logs.body.logs[0].workout_id, plan.plan_id);
+  // One exercise done: the log holds its share of the session, not the whole plan.
+  if (plan.items.length > 1) assert.ok(logs.body.logs[0].duration_seconds < plan.estimated_minutes * 60);
 });
 
 test('fitting a plan trims long sessions and fills short ones', () => {
