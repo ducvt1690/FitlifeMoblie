@@ -3,6 +3,7 @@
 Hệ thống ứng dụng sức khỏe và thể lực toàn diện theo mô hình **Monorepo**:
 - **`frontend/`**: Ứng dụng di động (React Native & Expo) với giao diện Minimalist Neo-Fitness UI, Dark Mode, Gamification (Quests, Shop, Coins), Bấm giờ Tabata/HIIT, AI Coach, Offline-first (AsyncStorage).
 - **`backend/`**: RESTful API Server (Node.js & Express) dùng MongoDB Atlas, quản lý auth/session, hồ sơ, nhật ký sức khỏe, bài tập ExerciseDB và quest.
+- **`web/`**: Website React/Vite đã gọi backend, gồm khu thành viên, huấn luyện viên và quản trị.
 
 ---
 
@@ -23,6 +24,10 @@ projectMMA/
 │   ├── package.json              # Thư viện Frontend (Expo 51, Lucide icons, Audio, etc.)
 │   └── .gitignore
 │
+├── web/                          # WEBSITE REACT/VITE: THÀNH VIÊN, TRAINER, ADMIN
+│   ├── src/                      # Trang, điều hướng, Bearer auth và API client
+│   └── vite.config.js            # Cổng 5173, proxy /api đến backend
+│
 ├── backend/                      # MÁY CHỦ API & MONGODB ATLAS (EXPRESS)
 │   ├── database/mongodb/         # Schema, validator, seed, migration và test MongoDB
 │   ├── routes/                   # Auth, profile, water, workout, meals, exercises, quests
@@ -40,6 +45,15 @@ projectMMA/
 ---
 
 ## 🚀 Hướng Dẫn Chạy Dự Án
+
+### Website React/Vite
+
+```powershell
+npm --prefix web ci
+npm run web
+```
+
+Website chạy tại `http://localhost:5173`, proxy `/api` đến backend cổng 5000. Chạy backend ở terminal khác theo hướng dẫn bên dưới; cấu hình MongoDB theo [backend/README.md](backend/README.md) trước khi khởi động. `npm run build:web` tạo bản production. `npm run web:mobile` mở bản Expo trên trình duyệt.
 
 ### 1. Khởi động Backend (REST API Server)
 ```bash

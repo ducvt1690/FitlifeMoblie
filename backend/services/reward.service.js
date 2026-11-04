@@ -10,11 +10,12 @@ const ONE_TIME = ['badge', 'theme'];
 function createRewardService({ db }) {
   return {
     async list(user) {
-      const [items, purchases] = await Promise.all([
+      const [items, purchases, ownedIds] = await Promise.all([
         db.collection('reward_items').find({ is_available: true }, { projection: { _id: 0 } }).sort({ cost_coins: 1, title: 1 }).toArray(),
         db.collection('purchases').find({ user_id: user.user_id }, { projection: { _id: 0 } }).sort({ purchased_at: -1 }).limit(100).toArray(),
+        db.collection('purchases').distinct('item_id', { user_id: user.user_id, item_category: { $in: ONE_TIME } }),
       ]);
-      const owned = new Set(purchases.filter(p => ONE_TIME.includes(p.item_category)).map(p => p.item_id));
+      const owned = new Set(ownedIds);
       return { success: true, fit_coins: user.fit_coins,
         items: items.map(item => ({ ...item, owned: owned.has(item.item_id) })), purchases };
     },

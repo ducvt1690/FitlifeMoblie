@@ -1,6 +1,8 @@
-# Kiểm thử toàn bộ FitLife API trong Postman
+# Kiểm thử FitLife API trong Postman
 
-Để kiểm tra tất cả API đã triển khai, import [ALL API](all-api.postman_collection.json), chọn **No Environment**, Run đủ 37 request theo thứ tự. Collection tự lấy token mới mỗi lượt. Kết quả mong đợi: **62 Passed, 0 Failed, 0 Errors**.
+Bộ smoke [ALL API](all-api.postman_collection.json) có 37 request, kiểm tra các luồng auth/profile/nước/tập/bữa ăn/bài tập. Chọn **No Environment**, Run theo thứ tự; collection tự lấy token mới mỗi lượt. Kết quả mong đợi: **62 Passed, 0 Failed, 0 Errors**.
+
+Bộ [review API](review-api.postman_collection.json) có 121 request, phủ 60 endpoint nghiệp vụ cùng `GET /` và `GET /health`, gồm cả trainer/admin. Chạy `npm run test:postman:review` trong `backend/`; runner tự tạo MongoDB replica set và tài khoản thử, không dùng `.env` hay Atlas. Kết quả mong đợi: **165 assertion đạt**. Collection này cần fixture của runner, không chạy trực tiếp trên database thật.
 
 Xem [hướng dẫn thao tác Postman Desktop và từng API](HUONG_DAN_POSTMAN.md). Bộ Auth/Meal/Workout cũ bên dưới chỉ kiểm tra từng phần; chúng có biến và điều kiện chuẩn bị riêng.
 

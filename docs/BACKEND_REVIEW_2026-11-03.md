@@ -1,5 +1,7 @@
 # Review FitLife và kiểm thử Postman — 03/11/2026
 
+**Cập nhật 04/11/2026:** Nhánh `thông` đã nhận `web-fe`; ba lỗi API và ba kiểm thử database nêu trong review này đã được xử lý. Xem [kết quả kiểm tra sau khi gộp](MERGE_WEB_FE_THONG_2026-11-04.md). Phần dưới giữ lại kết quả lịch sử trước khi sửa; các thiếu hụt mobile và tính năng mở rộng vẫn còn.
+
 Backend đã có phần lớn API cho website ba vai trò, nhưng dự án chưa hoàn chỉnh: mobile chưa nối backend, Postman mở rộng tái hiện được 3 vấn đề và bộ test database còn 3 test thất bại. Đây là kết quả review; logic nghiệp vụ chưa được sửa trong lượt này.
 
 ## Phạm vi và bằng chứng

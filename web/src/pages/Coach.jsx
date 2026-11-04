@@ -16,6 +16,7 @@ export default function Coach() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const bottom = useRef(null);
+  const retry = useRef(null);
 
   // Mặc định mở cuộc trò chuyện gần nhất.
   useEffect(() => {
@@ -45,8 +46,12 @@ export default function Coach() {
     setText('');
     setSending(true);
     setError('');
+    const previous = retry.current;
+    const messageId = previous?.sessionId === sessionId && previous.content === body ? previous.messageId : newId();
+    retry.current = { sessionId, content: body, messageId };
     try {
-      const res = await api.sendChat(sessionId, body);
+      const res = await api.sendChat(sessionId, body, messageId);
+      retry.current = null;
       setMessages((m) => [...m.slice(0, -1), res.message, res.reply].filter(Boolean));
       sessions.reload();
     } catch (err) {
@@ -59,6 +64,7 @@ export default function Coach() {
   }
 
   function startNew() {
+    retry.current = null;
     setActive(newId());
     setMessages([]);
   }
@@ -68,7 +74,7 @@ export default function Coach() {
       <PageHeader title="AI Coach" subtitle={sessions.data?.ai_enabled
         ? 'Trợ lý dùng mô hình AI kèm số liệu hôm nay của bạn.'
         : 'Trợ lý trả lời theo số liệu hôm nay của bạn (nước, calo, giấc ngủ, tập luyện, BMI).'}>
-        <button className="btn btn-ghost" onClick={startNew}><IoAdd /> Cuộc trò chuyện mới</button>
+        <button className="btn btn-ghost" disabled={sending} onClick={startNew}><IoAdd /> Cuộc trò chuyện mới</button>
       </PageHeader>
 
       <Loadable loading={sessions.loading} error={sessions.error} onRetry={sessions.reload}>
@@ -76,7 +82,7 @@ export default function Coach() {
           <aside className="card chat-sessions">
             <h3 className="sub-title">Lịch sử</h3>
             {sessions.data?.sessions.length ? sessions.data.sessions.map((s) => (
-              <button key={s.session_id} className={`nav-item ${s.session_id === active ? 'active' : ''}`} onClick={() => setActive(s.session_id)}>
+              <button key={s.session_id} disabled={sending} className={`nav-item ${s.session_id === active ? 'active' : ''}`} onClick={() => setActive(s.session_id)}>
                 <span className="ellipsis">{s.title}</span>
               </button>
             )) : <p className="muted small">Chưa có cuộc trò chuyện nào.</p>}

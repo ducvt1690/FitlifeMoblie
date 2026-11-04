@@ -27,7 +27,7 @@ function createChallengeService({ db }) {
         const mine = runs.filter(r => r.challenge_id === c.challenge_id);
         const current = mine.find(r => !r.is_completed) || null;
         return { ...c, joined: !!current, current_progress: current?.current_progress ?? 0,
-          checked_in_today: current?.last_checkin_date === today, completed_count: mine.filter(r => r.is_completed).length };
+          checked_in_today: mine.some(r => r.last_checkin_date === today), completed_count: mine.filter(r => r.is_completed).length };
       }) };
     },
 
@@ -54,9 +54,13 @@ function createChallengeService({ db }) {
         const user = await lockMember(db, member.user_id, session, now);
         const challenge = await activeChallenge(challengeId, session);
         const day = localDay(now, user.timezone);
+        // The member lock serializes check-ins across all runs of this challenge.
+        if (await db.collection('user_challenges').findOne({ user_id: user.user_id,
+          challenge_id: challenge.challenge_id, last_checkin_date: day }, { session })) {
+          throw fail(409, 'Hôm nay bạn đã check-in thử thách này.');
+        }
         const run = await db.collection('user_challenges').findOne({ user_id: user.user_id, challenge_id: challenge.challenge_id, is_completed: false }, { session });
         if (!run) throw fail(404, 'Bạn chưa tham gia thử thách này.');
-        if (run.last_checkin_date === day) throw fail(409, 'Hôm nay bạn đã check-in thử thách này.');
         const progress = run.current_progress + 1;
         const completed = progress >= challenge.target_days;
         await db.collection('user_challenges').updateOne({ id: run.id }, { $set: { current_progress: progress, is_completed: completed,

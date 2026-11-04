@@ -38,15 +38,19 @@ after(async () => {
   if (replica) await replica.stop();
 });
 
-test('all 17 collections, validators, role fixtures and demo references pass the audit', async () => {
+test('all business collections, validators, role fixtures and demo references pass the audit', async () => {
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  assert.equal(Object.keys(report.counts).length, 19);
+  assert.deepEqual(Object.keys(report.counts).sort(), collections.map(c => c.name).sort());
   assert.equal(report.counts.users, 3);
   assert.equal(report.counts.reward_items, 6);
   assert.equal(report.counts.challenges, 3);
   assert.equal(report.counts.daily_quest_logs, 7);
-  assert.ok(Object.entries(report.counts).filter(([name]) => name !== 'exercises').every(([, count]) => count > 0));
+  // Demo seed does not invent exercise imports, member consent or admin actions.
+  for (const [name, count] of Object.entries(report.counts)) {
+    if (['exercises', 'trainer_links', 'admin_logs'].includes(name)) assert.equal(count, 0, name);
+    else assert.ok(count > 0, name);
+  }
 });
 
 test('schema and catalog reruns preserve catalog edits and existing user data', async () => {

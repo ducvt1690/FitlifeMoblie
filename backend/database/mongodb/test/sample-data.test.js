@@ -114,7 +114,7 @@ async function assertCohortConsistency(db, userIds) {
   }
 }
 
-test('sample plan is read-only and application tops up every business collection coherently', async () => {
+test('sample plan tops up seeded collections while preserving imports, consent and audit history', async () => {
   const db = await sampleDatabase();
   const old = await snapshot(db);
   const plan = await planSampleData(db, password, now);
@@ -128,7 +128,11 @@ test('sample plan is read-only and application tops up every business collection
   await applySampleData(db, client, plan);
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  for (const { name } of collections.filter(entry => entry.name !== 'exercises')) {
+  for (const { name } of collections) {
+    if (['exercises', 'trainer_links', 'admin_logs'].includes(name)) {
+      assert.equal(report.counts[name], old[name].length, `${name} must not be fabricated by sample seed`);
+      continue;
+    }
     assert.ok(report.counts[name] >= 6, `${name} must have at least six documents`);
     assert.equal(report.counts[name], plan.afterCounts[name]);
   }

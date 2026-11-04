@@ -10,6 +10,8 @@ const { createApp } = require('../app');
 const { initializeDatabase } = require('../database/mongodb/database');
 const { initializeAuthSessions } = require('../database/connection');
 const { seedCatalogs } = require('../database/mongodb/seed');
+const { localDay } = require('../auth/registration');
+const { addDays } = require('../utils/validate');
 
 // Sleep, mood, BMI, check-in/streak, challenges, rewards, stats and chat against disposable MongoDB only.
 let replica, client, db, server, baseUrl, member;
@@ -162,4 +164,91 @@ test('stats summarise the requested days and chat stores both turns with a once-
   const other = await register();
   assert.equal((await request(`/api/chat/sessions/${sessionId}/messages`, other.token)).status, 404);
   assert.equal((await request('/api/chat/messages', other.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Hi' })).status, 404);
+});
+
+test('challenge daily limits span completed runs and concurrent check-ins', async () => {
+  const challengeId = randomUUID(), now = new Date();
+  const path = `/api/challenges/${challengeId}`;
+  await db.collection('challenges').insertOne({ challenge_id: challengeId, title: 'One day', description: 'Regression',
+    target_days: 1, reward_coins: 30, badge_icon: 'flag-outline', is_active: true, created_at: now, updated_at: now });
+  await request(path + '/join', member.token, 'POST');
+  assert.equal((await request(path + '/checkin', member.token, 'POST')).body.reward_coins, 30);
+  assert.equal((await request(path + '/join', member.token, 'POST')).status, 201);
+  const retries = await Promise.all([1, 2].map(() => request(path + '/checkin', member.token, 'POST')));
+  assert.deepEqual(retries.map(r => r.status), [409, 409]);
+  const listed = (await request('/api/challenges', member.token)).body.challenges.find(c => c.challenge_id === challengeId);
+  assert.equal(listed.checked_in_today, true);
+  assert.equal(listed.current_progress, 0);
+  assert.equal(await coins(member.token), 30);
+
+  // A previous run checked in yesterday must not block today's new run.
+  await db.collection('user_challenges').updateOne({ user_id: member.user.user_id, challenge_id: challengeId, is_completed: true },
+    { $set: { last_checkin_date: addDays(localDay(now, 'Asia/Ho_Chi_Minh'), -1) } });
+  assert.equal((await request(path + '/checkin', member.token, 'POST')).body.reward_coins, 30);
+  assert.equal(await coins(member.token), 60);
+});
+
+test('ownership outlives the last 100 purchases and stays private to the member', async () => {
+  const items = (await request('/api/rewards', member.token)).body.items;
+  const badge = items.find(i => i.cost_coins === 0);
+  const voucher = await db.collection('reward_items').findOne({ category: 'voucher' });
+  await request(`/api/rewards/${badge.item_id}/purchase`, member.token, 'POST', { purchase_id: randomUUID() });
+  const now = new Date();
+  await db.collection('purchases').insertMany(Array.from({ length: 101 }, (_, i) => ({
+    purchase_id: randomUUID(), user_id: member.user.user_id, item_id: voucher.item_id, item_category: 'voucher',
+    spent_coins: 0, purchased_at: new Date(now.getTime() + i + 1), created_at: now, updated_at: now,
+  })));
+  const shop = (await request('/api/rewards', member.token)).body;
+  assert.equal(shop.purchases.length, 100);
+  assert.equal(shop.items.find(i => i.item_id === badge.item_id).owned, true);
+  const other = await register();
+  const otherShop = (await request('/api/rewards', other.token)).body;
+  assert.equal(otherShop.items.find(i => i.item_id === badge.item_id).owned, false);
+});
+
+test('concurrent chat retries recover the same reply without duplicate messages or rewards', async () => {
+  const body = { session_id: randomUUID(), message_id: randomUUID(), content: 'Hôm nay uống nước bao nhiêu?' };
+  const first = await request('/api/chat/messages', member.token, 'POST', body);
+  assert.equal(first.status, 201);
+  const retries = await Promise.all([1, 2, 3].map(() => request('/api/chat/messages', member.token, 'POST', body)));
+  for (const retry of retries) {
+    assert.equal(retry.status, 200);
+    assert.equal(retry.body.replayed, true);
+    assert.equal(retry.body.reward_coins, 0);
+    assert.deepEqual(retry.body.reply, first.body.reply);
+  }
+  assert.equal(await db.collection('ai_chat_messages').countDocuments({ session_id: body.session_id }), 2);
+  assert.equal(await coins(member.token), 10);
+  const forged = { ...body, message_id: first.body.reply.message_id, content: first.body.reply.content };
+  assert.equal((await request('/api/chat/messages', member.token, 'POST', forged)).status, 409);
+});
+
+test('chat retry resumes after reply persistence fails without paying the quest again', async () => {
+  const body = { session_id: randomUUID(), message_id: randomUUID(), content: 'Gợi ý tập luyện' };
+  const originalCollection = db.collection;
+  let failReply = true;
+  db.collection = function (...args) {
+    const collection = originalCollection.apply(this, args);
+    if (args[0] === 'ai_chat_messages') {
+      const insert = collection.insertOne.bind(collection);
+      collection.insertOne = async (document, ...options) => {
+        if (document.sender === 'ai' && failReply) { failReply = false; throw new Error('Injected reply write failure'); }
+        return insert(document, ...options);
+      };
+    }
+    return collection;
+  };
+  try {
+    assert.equal((await request('/api/chat/messages', member.token, 'POST', body)).status, 500);
+  } finally { db.collection = originalCollection; }
+  assert.equal(await coins(member.token), 10);
+  const retried = await Promise.all([1, 2].map(() => request('/api/chat/messages', member.token, 'POST', body)));
+  for (const result of retried) {
+    assert.equal(result.status, 200);
+    assert.equal(result.body.reward_coins, 0);
+    assert.equal(result.body.reply.sender, 'ai');
+  }
+  assert.equal(retried[0].body.reply.message_id, retried[1].body.reply.message_id);
+  assert.equal(await coins(member.token), 10);
+  assert.equal(await db.collection('ai_chat_messages').countDocuments({ session_id: body.session_id }), 2);
 });

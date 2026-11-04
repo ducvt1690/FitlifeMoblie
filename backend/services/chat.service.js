@@ -1,5 +1,5 @@
 'use strict';
-const { randomUUID } = require('node:crypto');
+const { createHash } = require('node:crypto');
 const { localDay } = require('../auth/registration');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
@@ -8,6 +8,16 @@ const { createQuestService, lockMember } = require('./quest.service');
 const fail = (status, message) => new HttpError(status, message);
 const RULE_ENGINE = 'fitlife-rules';
 const fmt = n => Math.round(n).toLocaleString('vi-VN');
+
+// A deterministic UUID v8 links each reply to its request without changing the stored schema.
+// The unique message_id index also prevents duplicate replies across concurrent workers.
+function replyIdFor(messageId) {
+  const bytes = createHash('sha256').update('fitlife-chat-reply:' + messageId).digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x80;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 // Today's numbers give both the AI model and the rule-based coach something concrete to say.
 async function todayContext(db, user) {
@@ -103,7 +113,7 @@ function createChatService({ db, ai = {} }) {
         const user = await lockMember(db, member.user_id, session, now);
         const existing = await db.collection('ai_chat_messages').findOne({ message_id: body.message_id }, { session, projection: { _id: 0 } });
         if (existing) {
-          if (existing.user_id !== user.user_id || existing.session_id !== body.session_id || existing.content !== content) {
+          if (existing.sender !== 'user' || existing.user_id !== user.user_id || existing.session_id !== body.session_id || existing.content !== content) {
             throw fail(409, 'message_id đã được sử dụng cho yêu cầu khác.');
           }
           return { user, message: existing, replayed: true, reward: 0 };
@@ -120,7 +130,11 @@ function createChatService({ db, ai = {} }) {
         const reward = await quests.rewardChat(user, localDay(now, user.timezone), now, session);
         return { user, message, replayed: false, reward };
       });
-      if (saved.replayed) return { success: true, replayed: true, message: saved.message, reply: null, reward_coins: 0, fit_coins: saved.user.fit_coins };
+      const replyId = replyIdFor(body.message_id);
+      const replyFilter = { message_id: replyId, user_id: saved.user.user_id, session_id: body.session_id, sender: 'ai' };
+      const previousReply = await db.collection('ai_chat_messages').findOne(replyFilter, { projection: { _id: 0 } });
+      if (previousReply) return { success: true, replayed: saved.replayed, message: saved.message, reply: previousReply,
+        reward_coins: saved.reward, fit_coins: saved.user.fit_coins + saved.reward };
 
       const ctx = await todayContext(db, saved.user);
       let text, engine = RULE_ENGINE;
@@ -135,12 +149,25 @@ function createChatService({ db, ai = {} }) {
       }
       if (!text) text = ruleReply(saved.user, ctx, content);
       const now = new Date();
-      const reply = { message_id: randomUUID(), user_id: saved.user.user_id, session_id: body.session_id, sender: 'ai',
+      const reply = { message_id: replyId, user_id: saved.user.user_id, session_id: body.session_id, sender: 'ai',
         content: text, ai_engine: engine, timestamp: now, created_at: now, updated_at: now };
-      await db.collection('ai_chat_messages').insertOne(reply);
-      delete reply._id;
-      return { success: true, replayed: false, message: saved.message, reply,
-        reward_coins: saved.reward, fit_coins: saved.user.fit_coins + saved.reward };
+      // A retry can resume after the user message committed but the reply write failed.
+      // Recheck under the member lock: another request may have saved the reply while AI was running.
+      const completed = await transaction(db, async session => {
+        const user = await lockMember(db, saved.user.user_id, session, new Date());
+        const existing = await db.collection('ai_chat_messages').findOne({ message_id: replyId }, { session, projection: { _id: 0 } });
+        if (existing) {
+          if (existing.user_id !== user.user_id || existing.session_id !== body.session_id || existing.sender !== 'ai') {
+            throw fail(409, 'Mã phản hồi đã được sử dụng cho yêu cầu khác.');
+          }
+          return { reply: existing, coins: user.fit_coins };
+        }
+        await db.collection('ai_chat_messages').insertOne(reply, { session });
+        delete reply._id;
+        return { reply, coins: user.fit_coins };
+      });
+      return { success: true, replayed: saved.replayed, message: saved.message, reply: completed.reply,
+        reward_coins: saved.reward, fit_coins: completed.coins };
     },
   };
 }

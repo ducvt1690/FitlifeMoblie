@@ -46,7 +46,8 @@ test('simplification preserves all core documents and auth sessions, exports bac
  await db.collection('users').updateOne({user_id:DEMO_USER_ID},{$set:{date_of_birth:'2003-10-20'}});
  const before=await db.collection('users').findOne({user_id:DEMO_USER_ID});
  const result=await simplifyDatabase(db,client,{apply:true,backupDirectory:directory,deleteDemo:true});
- assert.equal(result.applied,true);assert.equal(result.audit.ok,true);assert.equal(result.visibleCollections.length,18);
+ assert.equal(result.applied,true);assert.equal(result.audit.ok,true);
+ assert.deepEqual(result.visibleCollections.slice().sort(), [...collections.map(c=>c.name),'auth_sessions'].sort());
  const after=await db.collection('users').findOne({user_id:DEMO_USER_ID});delete before.revision;assert.deepEqual(after,before);
  assert.equal(await db.collection('purchases').countDocuments(),1);assert.equal(result.deletedDemoDatabase,true);
  const names=(await client.db('admin').admin().listDatabases({nameOnly:true})).databases.map(row=>row.name);

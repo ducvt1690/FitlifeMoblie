@@ -28,10 +28,14 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 - `POST /api/challenges/:challengeId/join` → `201`; đang tham gia rồi → `409`.
 - `POST /api/challenges/:challengeId/checkin` → `current_progress + 1`, tối đa 1 lần/ngày (`409` nếu lặp). Đủ `target_days` thì hoàn thành và cộng `reward_coins` một lần; có thể tham gia lượt mới sau đó.
 
+Giới hạn check-in tính xuyên các lượt của cùng thử thách. Tham gia lại sau khi hoàn thành không cho check-in thêm trong cùng ngày; `checked_in_today` vẫn là `true`.
+
 ## Đổi thưởng
 
 - `GET /api/rewards` → `{ fit_coins, items[] (có owned), purchases[] }`.
 - `POST /api/rewards/:itemId/purchase` body `{ purchase_id: UUID }`. Gửi lại cùng `purchase_id` trả `200 replayed` và không trừ xu lần nữa. Badge/theme chỉ mua một lần (`409`); voucher mua lặp được; thiếu xu → `409`.
+
+`purchases` trả tối đa 100 giao dịch gần nhất; `owned` của badge/theme được tính trên toàn bộ lịch sử của tài khoản.
 
 ## Thống kê
 
@@ -41,6 +45,8 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 
 - `POST /api/chat/messages` body `{ session_id: UUID, message_id: UUID, content: 1–4000 ký tự }` → `201 { message, reply, reward_coins }`. Session tự tạo ở tin nhắn đầu tiên. Tin nhắn đầu tiên trong ngày hoàn thành `q_chat`.
 - `GET /api/chat/sessions`, `GET /api/chat/sessions/:sessionId/messages` — chỉ chủ session đọc được (`404` với người khác).
+- Gửi lại đúng `session_id/message_id/content` trả `200 replayed: true`, khôi phục cùng phản hồi đã lưu và không thưởng lại. Nếu lần ghi phản hồi thất bại, retry tiếp tục hoàn thành phản hồi. Web giữ nguyên `message_id` khi gửi lại câu hỏi sau lỗi mạng.
+- Phản hồi mới dùng UUID xác định từ `message_id`, giữ nguyên schema MongoDB hiện có. Lịch sử chat cũ vẫn đọc được; các phản hồi UUID ngẫu nhiên tạo trước bản sửa không có liên kết request nên retry cũ có thể tạo thêm một phản hồi.
 - Có `ANTHROPIC_API_KEY` trong `backend/.env` thì trả lời bằng Claude (`AI_MODEL`, mặc định `claude-sonnet-5`). Không có key hoặc gọi lỗi thì dùng coach theo quy tắc dựa trên số liệu hôm nay (`ai_engine: "fitlife-rules"`).
 
 Kiểm thử: `node --test test/features.test.js`.

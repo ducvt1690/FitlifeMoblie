@@ -92,7 +92,7 @@ export function createApi(call) {
 
     chatSessions: () => call('/api/chat/sessions'),
     chatMessages: (sessionId) => call(`/api/chat/sessions/${sessionId}/messages`),
-    sendChat: (sessionId, content) => post('/api/chat/messages', { session_id: sessionId, message_id: newId(), content }),
+    sendChat: (sessionId, content, messageId = newId()) => post('/api/chat/messages', { session_id: sessionId, message_id: messageId, content }),
 
     // Thành viên: kết nối huấn luyện viên và bài được giao.
     coaching: () => call('/api/coaching'),
