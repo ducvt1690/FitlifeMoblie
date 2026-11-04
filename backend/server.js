@@ -3,12 +3,13 @@
 const { loadConfig } = require('./config');
 const { connectDatabase } = require('./database/connection');
 const { createApp } = require('./app');
+const { createMailer } = require('./utils/mailer');
 
 async function startServer() {
   const config = loadConfig();
   const { client, db } = await connectDatabase(config);
   const app = createApp({ db, sessionTtlSeconds: config.sessionTtlSeconds, corsOrigins: config.corsOrigins, ai: config.ai,
-    payments: config.payments, trustProxy: config.trustProxy });
+    payments: config.payments, trustProxy: config.trustProxy, mailer: createMailer(config.mail) });
   let server;
   try {
     server = await new Promise((resolve, reject) => {

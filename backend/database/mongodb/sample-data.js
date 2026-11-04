@@ -9,7 +9,7 @@ const MINIMUM = 6;
 // The ExerciseDB catalog is imported by its own sync script; sample fixtures
 // must not invent or overwrite third-party exercise records. Trainer consent and
 // admin history, steps and payments are only written through the API.
-const sampleCollections = collections.filter(entry => !['exercises', 'trainer_links', 'admin_logs', 'steps_logs', 'payment_orders', 'memberships'].includes(entry.name));
+const sampleCollections = collections.filter(entry => !['exercises', 'trainer_links', 'admin_logs', 'steps_logs', 'payment_orders', 'memberships', 'password_resets'].includes(entry.name));
 const id = (key) => demoId(`${VERSION}:${key}`);
 const members = [
   { key: 'minh', full_name: 'Trần Quang Minh (Mẫu)', gender: 'male', age: 28,

@@ -19,7 +19,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "mongodb": "^7.7.0"
+    "mongodb": "^7.7.0",
+    "nodemailer": "^10.3.1"
   },
   "keywords": [
     "fitness",

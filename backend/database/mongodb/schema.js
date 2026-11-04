@@ -314,6 +314,18 @@ const collections = [
   ], ['user_id', 'product', 'amount_vnd', 'status', 'txn_ref', 'return_url', 'expires_at', 'response_code',
     'vnp_transaction_no', 'bank_code', 'paid_at']),
 
+  // Password reset codes. Only a SHA-256 digest is stored; MongoDB TTL removes expired rows.
+  collection('password_resets', 'reset_id', {
+    user_id: identity,
+    code_hash: { bsonType: 'string', pattern: '^[0-9a-f]{64}$' },
+    attempts: { ...integer(), maximum: 5 },
+    expires_at: timestamp,
+    used_at: { bsonType: ['date', 'null'] },
+  }, [
+    index({ user_id: 1, created_at: -1 }, 'by_user_reset_time'),
+    index({ expires_at: 1 }, 'ttl_password_reset_expiry', { expireAfterSeconds: 0 }),
+  ]),
+
   // One row per member who has ever bought Premium.
   collection('memberships', 'user_id', {
     premium_until: timestamp,

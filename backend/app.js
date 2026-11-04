@@ -9,6 +9,7 @@ const { createExerciseRouter } = require('./routes/exercise.routes');
 const { createMealRouter } = require('./routes/meal.routes');
 const { createQuestRouter } = require('./routes/quest.routes');
 const { createAuthRouter } = require('./routes/auth.routes');
+const { createPasswordResetRouter } = require('./routes/password-reset.routes');
 const { createDailyLogRouter } = require('./routes/daily-log.routes');
 const { createBmiRouter } = require('./routes/bmi.routes');
 const { createChallengeRouter } = require('./routes/challenge.routes');
@@ -24,7 +25,7 @@ const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
 const { corsOptions } = require('./utils/cors-options');
 
-function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, payments = {}, trustProxy = false, logger = console }) {
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, payments = {}, trustProxy = false, mailer, logger = console }) {
   if (!db) throw new Error('A connected MongoDB database is required.');
   const app = express();
   app.disable('x-powered-by');
@@ -57,7 +58,8 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
     res.json({
       status: 'online', project: 'FitLife Health & MMA API', version: '2.0.0',
       endpoints: {
-        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me'],
+        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me',
+          'POST /api/auth/forgot-password', 'POST /api/auth/reset-password'],
         profile: ['GET /api/profile', 'PATCH /api/profile'],
         water: ['GET /api/water-logs', 'POST /api/water-logs'],
         workouts: ['GET /api/workout-logs', 'POST /api/workout-logs'],
@@ -92,6 +94,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
     } catch (error) { next(error); }
   });
   app.use('/api/auth', createAuthRouter({ db, sessionTtlSeconds }));
+  app.use('/api/auth', createPasswordResetRouter({ db, mailer }));
   app.use('/api/profile', createProfileRouter({ db }));
   app.use('/api/water-logs', createWaterRouter({ db }));
   app.use('/api/workout-logs', createWorkoutRouter({ db }));
