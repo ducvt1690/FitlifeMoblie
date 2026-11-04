@@ -4,10 +4,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  useFonts, BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_600SemiBold,
-  BeVietnamPro_700Bold, BeVietnamPro_800ExtraBold,
-} from '@expo-google-fonts/be-vietnam-pro';
+import { useFonts, Barlow_400Regular, Barlow_500Medium, Barlow_600SemiBold, Barlow_700Bold } from '@expo-google-fonts/barlow';
+import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { colors } from '../src/theme/tokens';
 
@@ -17,7 +15,7 @@ function Root() {
   const { ready, user } = useAuth();
   const role = user?.role;
   const [fontsLoaded] = useFonts({
-    BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_600SemiBold, BeVietnamPro_700Bold, BeVietnamPro_800ExtraBold,
+    Barlow_400Regular, Barlow_500Medium, Barlow_600SemiBold, Barlow_700Bold, BarlowCondensed_600SemiBold, BarlowCondensed_700Bold,
   });
   const loaded = ready && fontsLoaded;
   useEffect(() => { if (loaded) SplashScreen.hideAsync().catch(() => {}); }, [loaded]);

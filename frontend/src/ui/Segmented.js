@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Glass from './Glass';
+import Surface from './Surface';
 import Text from './Text';
 import { PressScale } from './Button';
 import { colors, radius } from '../theme/tokens';
@@ -14,15 +14,14 @@ export default function Segmented({ options, value, onChange, stacked = false })
         return (
           <PressScale key={o.value} onPress={() => onChange(o.value)} containerStyle={stacked ? null : styles.cell}
             accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={o.label}>
-            <Glass radius={radius.sm} tint={on ? colors.accentSoft : undefined}
-              style={[stacked ? styles.wide : styles.chip, on && styles.on]}>
-              {o.icon && <Ionicons name={o.icon} size={20} color={on ? colors.accent : colors.textDim} />}
+            <Surface radius={radius.sm} raised={on} style={[stacked ? styles.wide : styles.chip, on && styles.on]}>
+              {o.icon && <Ionicons name={o.icon} size={20} color={on ? colors.text : colors.textDim} />}
               <View style={stacked ? { flex: 1 } : null}>
-                <Text variant="label" color={on ? colors.accent : colors.text} align={stacked ? 'left' : 'center'}>{o.label}</Text>
+                <Text variant="label" tone={on ? 'default' : 'dim'} align={stacked ? 'left' : 'center'}>{o.label}</Text>
                 {o.hint && <Text variant="caption" tone="faint">{o.hint}</Text>}
               </View>
-              {stacked && on && <Ionicons name="checkmark-circle" size={22} color={colors.accent} />}
-            </Glass>
+              {stacked && <View style={[styles.radio, on && styles.radioOn]} />}
+            </Surface>
           </PressScale>
         );
       })}
@@ -36,5 +35,7 @@ const styles = StyleSheet.create({
   stack: { gap: 10 },
   chip: { minHeight: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 10 },
   wide: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 12 },
-  on: { borderColor: colors.accent, borderWidth: 1 },
+  on: { borderColor: colors.text, borderWidth: 1 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.textFaint },
+  radioOn: { borderWidth: 6, borderColor: colors.accent },
 });

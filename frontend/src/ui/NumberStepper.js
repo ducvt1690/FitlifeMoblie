@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Glass from './Glass';
+import Surface from './Surface';
 import Text from './Text';
 import { PressScale } from './Button';
 import { colors, fonts, radius } from '../theme/tokens';
@@ -21,7 +21,7 @@ export default function NumberStepper({ label, value, onChange, min, max, step =
   };
   const nudge = (d) => onChange(clamp(value + d));
   return (
-    <Glass radius={radius.md} style={styles.box}>
+    <Surface radius={radius.md} style={styles.box}>
       <Text variant="label" tone="dim" style={styles.label}>{label}</Text>
       <View style={styles.row}>
         <PressScale onPress={() => nudge(-step)} disabled={value <= min} accessibilityLabel={`Giảm ${label}`} hitSlop={6}>
@@ -37,7 +37,7 @@ export default function NumberStepper({ label, value, onChange, min, max, step =
           <View style={styles.btn}><Ionicons name="add" size={20} color={colors.text} /></View>
         </PressScale>
       </View>
-    </Glass>
+    </Surface>
   );
 }
 
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   box: { paddingHorizontal: 12, paddingVertical: 12 },
   label: { marginBottom: 4, marginLeft: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  btn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.glassStrong, alignItems: 'center', justifyContent: 'center' },
+  btn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   valueWrap: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 },
-  value: { color: colors.text, fontFamily: fonts.heavy, fontSize: 30, minWidth: 48, maxWidth: 72, textAlign: 'center', padding: 0, outlineStyle: 'none' },
+  value: { color: colors.text, fontFamily: fonts.display, fontSize: 34, minWidth: 48, maxWidth: 72, textAlign: 'center', padding: 0, outlineStyle: 'none' },
 });

@@ -1,10 +1,9 @@
 import { useCallback, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import Screen from '../../ui/Screen';
-import Glass from '../../ui/Glass';
+import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
 import ProgressRing from '../../ui/ProgressRing';
@@ -22,6 +21,12 @@ function greeting() {
   if (h < 14) return 'Chào buổi trưa';
   if (h < 18) return 'Chào buổi chiều';
   return 'Chào buổi tối';
+}
+const MONTHS = ['tháng 1', 'tháng 2', 'tháng 3', 'tháng 4', 'tháng 5', 'tháng 6', 'tháng 7', 'tháng 8', 'tháng 9', 'tháng 10', 'tháng 11', 'tháng 12'];
+const DAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+function dateLabel() {
+  const d = new Date();
+  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 const fmt = (n) => Math.round(n ?? 0).toLocaleString('vi-VN');
 
@@ -75,18 +80,18 @@ export default function HomeScreen() {
   };
 
   const rings = [
-    { key: 'cal', label: 'Ăn uống', color: colors.calories, value: today?.calories ?? 0, target: targetCalories, unit: 'kcal', icon: 'flame' },
-    { key: 'water', label: 'Nước', color: colors.water, value: today?.water_ml ?? 0, target: targetWater, unit: 'ml', icon: 'water' },
-    { key: 'move', label: 'Tập luyện', color: colors.accent, value: workoutMin, target: WORKOUT_GOAL_MIN, unit: 'phút', icon: 'barbell' },
+    { key: 'cal', label: 'Ăn uống', color: colors.calories, value: today?.calories ?? 0, target: targetCalories, unit: 'kcal' },
+    { key: 'water', label: 'Nước', color: colors.water, value: today?.water_ml ?? 0, target: targetWater, unit: 'ml' },
+    { key: 'move', label: 'Tập luyện', color: colors.accent, value: workoutMin, target: WORKOUT_GOAL_MIN, unit: 'phút' },
   ];
-  const ringSize = Math.min(compact ? 168 : 196, width * 0.48);
+  const ringSize = Math.min(compact ? 168 : 188, width * 0.46);
   const ringStroke = Math.round(ringSize * 0.09);
   const first = user?.name?.trim().split(' ').pop();
   const tiles = [
-    { icon: 'footsteps', color: colors.steps, label: 'Bước chân', value: fmt(steps), unit: 'bước' },
-    { icon: 'flash', color: colors.move, label: 'Đã đốt', value: fmt(today?.calories_burned), unit: 'kcal' },
-    { icon: 'flame', color: colors.calories, label: 'Chuỗi ngày', value: fmt(stats?.streak_days), unit: 'ngày' },
-    { icon: 'diamond', color: colors.sleep, label: 'FitCoin', value: fmt(stats?.fit_coins ?? user?.profile?.coins), unit: 'xu' },
+    { label: 'Bước chân', value: fmt(steps), unit: 'bước' },
+    { label: 'Đã đốt', value: fmt(today?.calories_burned), unit: 'kcal' },
+    { label: 'Chuỗi ngày', value: fmt(stats?.streak_days), unit: 'ngày' },
+    { label: 'FitCoin', value: fmt(stats?.fit_coins ?? user?.profile?.coins), unit: 'xu' },
   ];
   const maxWater = Math.max(targetWater, ...(stats?.days ?? []).map(d => d.water_ml));
 
@@ -94,23 +99,21 @@ export default function HomeScreen() {
     <Screen tabBar refreshing={refreshing} onRefresh={refresh}>
       <View style={styles.header}>
         <View style={styles.flex}>
-          <Text variant="label" tone="dim">{greeting()},</Text>
-          <Text variant="title" numberOfLines={1}>{first || 'bạn'}</Text>
+          <Text variant="label" tone="dim">{dateLabel()}</Text>
+          <Text variant="title" numberOfLines={1}>{greeting()}, {first || 'bạn'}</Text>
         </View>
-        <Glass radius={radius.pill} style={styles.avatar}>
-          <Text variant="heading" tone="accent">{(first?.[0] ?? 'F').toUpperCase()}</Text>
-        </Glass>
+        <View style={styles.avatar}>
+          <Text variant="heading">{(first?.[0] ?? 'F').toUpperCase()}</Text>
+        </View>
       </View>
 
       {error ? (
-        <Glass radius={radius.sm} tint={colors.dangerSoft} style={styles.alert}>
-          <Ionicons name="cloud-offline-outline" size={18} color={colors.danger} />
-          <Text variant="label" tone="danger" style={styles.flex}>{error}</Text>
-        </Glass>
+        <Surface radius={radius.sm} style={styles.alert}>
+          <Text variant="label" tone="danger">{error}</Text>
+        </Surface>
       ) : null}
 
-      <Glass radius={radius.lg} style={styles.hero}>
-        <Text variant="caption" tone="faint" style={styles.eyebrow}>HÔM NAY</Text>
+      <Surface radius={radius.lg} style={styles.hero}>
         <View style={[styles.heroRow, compact && styles.heroColumn]}>
           <ProgressRing size={ringSize} stroke={ringStroke} color={rings[0].color} track={`${rings[0].color}22`} progress={rings[0].value / rings[0].target}>
             <ProgressRing size={ringSize - ringStroke * 2 - 6} stroke={ringStroke} color={rings[1].color} track={`${rings[1].color}22`} progress={rings[1].value / rings[1].target}>
@@ -120,29 +123,25 @@ export default function HomeScreen() {
           <View style={[styles.legend, compact && styles.legendWide]}>
             {rings.map(r => (
               <View key={r.key} accessible accessibilityLabel={`${r.label}: ${fmt(r.value)} trên ${fmt(r.target)} ${r.unit}`}>
-                <View style={styles.legendHead}>
-                  <View style={[styles.dot, { backgroundColor: r.color }]} />
-                  <Text variant="caption" tone="dim">{r.label}</Text>
-                </View>
-                <Text variant="heading" color={r.color}>
-                  {fmt(r.value)}<Text variant="caption" tone="faint">/{fmt(r.target)} {r.unit}</Text>
+                <Text variant="caption" tone="dim">{r.label}</Text>
+                <Text variant="metric" color={r.color} style={styles.legendValue}>
+                  {fmt(r.value)}<Text variant="caption" tone="faint"> / {fmt(r.target)} {r.unit}</Text>
                 </Text>
               </View>
             ))}
           </View>
         </View>
-      </Glass>
+      </Surface>
 
-      <Glass radius={radius.lg} style={styles.water}>
+      <Surface radius={radius.lg} style={styles.water}>
         <View style={styles.waterTop}>
-          <View style={[styles.iconBadge, { backgroundColor: `${colors.water}22` }]}><Ionicons name="water" size={20} color={colors.water} /></View>
           <View style={styles.flex}>
-            <Text variant="label">Uống nước</Text>
-            <Text variant="caption" tone="faint">
-              {today ? `Còn ${fmt(Math.max(targetWater - today.water_ml, 0))} ml để đạt mục tiêu` : 'Đang tải…'}
+            <Text variant="heading">Nước</Text>
+            <Text variant="caption" tone="dim">
+              {today ? `Còn ${fmt(Math.max(targetWater - today.water_ml, 0))} ml nữa là đủ hôm nay` : 'Đang tải…'}
             </Text>
           </View>
-          <Button title={`+${GLASS_ML} ml`} icon="add" onPress={addWater} loading={adding} style={styles.waterBtn} />
+          <Button title={`+${GLASS_ML} ml`} onPress={addWater} loading={adding} style={styles.waterBtn} />
         </View>
         <View style={styles.bars}>
           {(stats?.days ?? []).map((d, i, all) => {
@@ -157,18 +156,16 @@ export default function HomeScreen() {
             );
           })}
         </View>
-      </Glass>
+      </Surface>
 
       <View style={styles.grid}>
         {tiles.map(t => (
-          <Glass key={t.label} radius={radius.md} style={styles.tile}>
-            <View style={styles.tileHead}>
-              <Ionicons name={t.icon} size={16} color={t.color} />
-              <Text variant="caption" tone="dim">{t.label}</Text>
-            </View>
-            <Text variant="metric" numberOfLines={1} adjustsFontSizeToFit>{t.value}</Text>
-            <Text variant="caption" tone="faint">{t.unit}</Text>
-          </Glass>
+          <Surface key={t.label} radius={radius.md} style={styles.tile}>
+            <Text variant="caption" tone="dim">{t.label}</Text>
+            <Text variant="metric" numberOfLines={1} adjustsFontSizeToFit>
+              {t.value}<Text variant="label" tone="faint"> {t.unit}</Text>
+            </Text>
+          </Surface>
         ))}
       </View>
     </Screen>
@@ -177,26 +174,22 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
-  avatar: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  alert: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, marginBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  alert: { padding: 12, marginBottom: 12, backgroundColor: colors.dangerSoft },
   hero: { padding: 18, marginBottom: 12 },
-  eyebrow: { letterSpacing: 1.6, marginBottom: 12, fontFamily: 'BeVietnamPro_700Bold' },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   heroColumn: { flexDirection: 'column' },
-  legend: { flex: 1, gap: 14 },
+  legend: { flex: 1, gap: 12 },
   legendWide: { alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-between' },
-  legendHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  legendValue: { fontSize: 28, lineHeight: 32 },
   water: { padding: 16, marginBottom: 12 },
   waterTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  waterBtn: { minWidth: 108 },
-  iconBadge: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  waterBtn: { minWidth: 104 },
   bars: { flexDirection: 'row', gap: 8, marginTop: 16, height: 88 },
   barCol: { flex: 1, alignItems: 'center', gap: 6 },
-  barTrack: { flex: 1, width: '100%', maxWidth: 28, borderRadius: 8, backgroundColor: colors.strokeSoft, justifyContent: 'flex-end', overflow: 'hidden' },
-  bar: { width: '100%', borderRadius: 8 },
+  barTrack: { flex: 1, width: '100%', maxWidth: 28, borderRadius: 6, backgroundColor: colors.strokeSoft, justifyContent: 'flex-end', overflow: 'hidden' },
+  bar: { width: '100%', borderRadius: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  tile: { flexBasis: '47%', flexGrow: 1, padding: 16, gap: 2 },
-  tileHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  tile: { flexBasis: '47%', flexGrow: 1, padding: 16, gap: 4 },
 });

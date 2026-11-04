@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Glass from './Glass';
 import Text from './Text';
-import { colors, radius } from '../theme/tokens';
+import { colors, fonts, radius } from '../theme/tokens';
 
 // Pressable that shrinks slightly and ticks the haptic engine, like system buttons.
 // `style` sizes the visible content; `containerStyle` positions the pressable itself (e.g. flex: 1 in a row).
@@ -22,11 +22,11 @@ export function PressScale({ children, onPress, disabled, haptic = true, style, 
   );
 }
 
-// variant: primary (lime), glass (frosted), ghost (text only).
+// variant: primary (solid white), glass (frosted), ghost (text only).
 // Forward arrows read better after the label, so they trail automatically.
 export default function Button({ title, onPress, variant = 'primary', icon, loading, disabled, blur, style }) {
   const busy = loading || disabled;
-  const ink = variant === 'primary' ? colors.accentInk : colors.text;
+  const ink = variant === 'primary' ? colors.ink : colors.text;
   const trailing = icon?.startsWith('arrow-forward') || icon?.startsWith('chevron-forward');
   const content = (
     <View style={styles.row}>
@@ -50,7 +50,7 @@ export default function Button({ title, onPress, variant = 'primary', icon, load
 
 const styles = StyleSheet.create({
   base: { minHeight: 54, borderRadius: radius.pill, justifyContent: 'center', paddingHorizontal: 22 },
-  primary: { backgroundColor: colors.accent },
+  primary: { backgroundColor: colors.text },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  title: { fontFamily: 'BeVietnamPro_600SemiBold', fontSize: 16 },
+  title: { fontFamily: fonts.semibold, fontSize: 17 },
 });

@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AuthShell from './AuthShell';
 import Glass from '../../ui/Glass';
+import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
 import TextField from '../../ui/TextField';
@@ -20,9 +20,9 @@ const STEPS = [
   { title: 'Mục tiêu của bạn', sub: 'Bạn có thể đổi lại bất cứ lúc nào.' },
 ];
 const GOALS = [
-  { value: 'lose', label: 'Giảm cân', hint: 'Đốt mỡ, thâm hụt calo nhẹ', icon: 'trending-down' },
-  { value: 'maintain', label: 'Giữ dáng', hint: 'Duy trì cân nặng, khỏe hơn', icon: 'pulse' },
-  { value: 'gain', label: 'Tăng cơ', hint: 'Tăng cân nạc, dư calo nhẹ', icon: 'barbell' },
+  { value: 'lose', label: 'Giảm cân', hint: 'Ăn ít hơn mức tiêu hao một chút' },
+  { value: 'maintain', label: 'Giữ dáng', hint: 'Giữ cân nặng hiện tại' },
+  { value: 'gain', label: 'Tăng cơ', hint: 'Ăn dư một chút, tập kháng lực' },
 ];
 const ACTIVITY = [
   { value: 'sedentary', label: 'Ít vận động', hint: 'Ngồi nhiều, hầu như không tập' },
@@ -107,7 +107,6 @@ export default function RegisterScreen() {
     <AuthShell onBack={back} header={progress}>
       <Animated.View style={[styles.body, { opacity: fade }]}>
         <View style={styles.head}>
-          <Text variant="caption" tone="accent" style={styles.eyebrow}>BƯỚC {step + 1}/3</Text>
           <Text variant="title">{STEPS[step].title}</Text>
           <Text tone="dim">{STEPS[step].sub}</Text>
         </View>
@@ -129,7 +128,7 @@ export default function RegisterScreen() {
         {step === 1 && (
           <View style={styles.stack}>
             <Segmented value={form.gender} onChange={set('gender')}
-              options={[{ value: 'male', label: 'Nam', icon: 'male' }, { value: 'female', label: 'Nữ', icon: 'female' }]} />
+              options={[{ value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }]} />
             <NumberStepper label="Tuổi" value={form.age} onChange={set('age')} min={5} max={100} />
             {/* Side by side only when each stepper still has room for a 3-digit number. */}
             <View style={width >= 420 ? styles.pair : styles.stack}>
@@ -149,7 +148,7 @@ export default function RegisterScreen() {
 
         {errors.form ? <View style={styles.alert}><Text variant="label" tone="danger">{errors.form}</Text></View> : null}
         <View style={styles.spacer} />
-        <Button title={step < 2 ? 'Tiếp tục' : 'Tạo kế hoạch'} icon={step < 2 ? 'arrow-forward' : 'sparkles'} onPress={next} loading={busy} />
+        <Button title={step < 2 ? 'Tiếp tục' : 'Tạo kế hoạch'} onPress={next} loading={busy} />
         {step === 0 && (
           <View style={styles.footer}>
             <Text tone="dim">Đã có tài khoản?</Text>
@@ -166,32 +165,27 @@ function PlanStep({ result, onDone }) {
   const p = result.user.profile ?? {};
   const bmi = p.height && p.weight ? p.weight / ((p.height / 100) ** 2) : null;
   const items = [
-    { icon: 'flame', color: colors.calories, value: p.target_calories?.toLocaleString('vi-VN'), unit: 'kcal / ngày', label: 'Năng lượng' },
-    { icon: 'water', color: colors.water, value: p.target_water ? (p.target_water / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) : null, unit: 'lít / ngày', label: 'Nước' },
-    { icon: 'body', color: colors.sleep, value: bmi?.toLocaleString('vi-VN', { maximumFractionDigits: 1 }), unit: 'BMI', label: 'Chỉ số cơ thể' },
+    { color: colors.calories, value: p.target_calories?.toLocaleString('vi-VN'), unit: 'kcal / ngày', label: 'Năng lượng' },
+    { color: colors.water, value: p.target_water ? (p.target_water / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) : null, unit: 'lít / ngày', label: 'Nước' },
+    { color: colors.text, value: bmi?.toLocaleString('vi-VN', { maximumFractionDigits: 1 }), unit: 'BMI', label: 'Chỉ số cơ thể' },
   ];
   return (
     <AuthShell>
       <View style={styles.body}>
         <View style={[styles.head, styles.planHead]}>
-          <View style={styles.doneBadge}><Ionicons name="checkmark" size={30} color={colors.accentInk} /></View>
-          <Text variant="caption" tone="accent" style={styles.eyebrow}>SẴN SÀNG</Text>
           <Text variant="title">Kế hoạch của {result.user.name?.trim().split(' ').pop() || 'bạn'}</Text>
-          <Text tone="dim">FitLife đã tính mục tiêu mỗi ngày dựa trên cơ thể và mục tiêu của bạn.</Text>
+          <Text tone="dim">Mục tiêu mỗi ngày, tính từ chiều cao, cân nặng và mức vận động bạn vừa nhập.</Text>
         </View>
         <View style={styles.stack}>
           {items.map(it => (
-            <Glass key={it.label} blur intensity={40} radius={radius.md} style={styles.planRow}>
-              <View style={[styles.planIcon, { backgroundColor: `${it.color}26` }]}><Ionicons name={it.icon} size={22} color={it.color} /></View>
-              <View style={styles.half}>
-                <Text variant="label" tone="dim">{it.label}</Text>
-                <Text variant="metric">{it.value ?? '—'} <Text variant="label" tone="faint">{it.unit}</Text></Text>
-              </View>
-            </Glass>
+            <Surface key={it.label} radius={radius.md} style={styles.planRow}>
+              <Text variant="label" tone="dim">{it.label}</Text>
+              <Text variant="metric" color={it.color}>{it.value ?? '—'}<Text variant="label" tone="faint"> {it.unit}</Text></Text>
+            </Surface>
           ))}
         </View>
         <View style={styles.spacer} />
-        <Button title="Vào FitLife" icon="arrow-forward" onPress={onDone} />
+        <Button title="Vào FitLife" onPress={onDone} />
       </View>
     </AuthShell>
   );
@@ -200,11 +194,10 @@ function PlanStep({ result, onDone }) {
 const styles = StyleSheet.create({
   progress: { flexDirection: 'row', gap: 6 },
   dash: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.glassStrong },
-  dashOn: { backgroundColor: colors.accent },
+  dashOn: { backgroundColor: colors.text },
   body: { flexGrow: 1, paddingTop: 12 },
   head: { gap: 6, marginBottom: 22 },
   planHead: { marginTop: 32 },
-  eyebrow: { letterSpacing: 1.6, fontFamily: 'BeVietnamPro_700Bold' },
   card: { padding: 18, gap: 14 },
   stack: { gap: 12 },
   pair: { flexDirection: 'row', gap: 12 },
@@ -213,7 +206,5 @@ const styles = StyleSheet.create({
   alert: { backgroundColor: colors.dangerSoft, borderRadius: radius.sm, padding: 12, marginTop: 14 },
   spacer: { flexGrow: 1, minHeight: 24 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  doneBadge: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  planRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
-  planIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  planRow: { padding: 16, gap: 2 },
 });

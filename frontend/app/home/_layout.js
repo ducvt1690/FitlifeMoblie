@@ -5,7 +5,7 @@ export default function HomeLayout() {
     <GlassTabs tabs={[
       { name: 'index', title: 'Hôm nay', icon: 'today' },
       { name: 'workout', title: 'Tập luyện', icon: 'barbell' },
-      { name: 'coach', title: 'AI Coach', icon: 'sparkles' },
+      { name: 'coach', title: 'AI Coach', icon: 'chatbubble-ellipses' },
       { name: 'quests', title: 'Nhiệm vụ', icon: 'trophy' },
       { name: 'me', title: 'Hồ sơ', icon: 'person' },
     ]} />

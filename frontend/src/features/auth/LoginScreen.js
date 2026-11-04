@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import AuthShell from './AuthShell';
-import { LogoMark } from '../../ui/Logo';
 import Glass from '../../ui/Glass';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
@@ -34,9 +33,8 @@ export default function LoginScreen() {
   return (
     <AuthShell onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
       <View style={styles.hero}>
-        <LogoMark size={56} />
-        <Text variant="title" style={styles.title}>Chào mừng trở lại</Text>
-        <Text tone="dim">Đăng nhập để tiếp tục hành trình của bạn.</Text>
+        <Text variant="title">Đăng nhập</Text>
+        <Text tone="dim">Dùng email bạn đã đăng ký với FitLife.</Text>
       </View>
 
       <Glass blur intensity={45} radius={radius.lg} style={styles.card}>
@@ -60,8 +58,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: 24, marginBottom: 24, gap: 6 },
-  title: { marginTop: 18 },
+  hero: { marginTop: 20, marginBottom: 22, gap: 6 },
   card: { padding: 18, gap: 14 },
   alert: { backgroundColor: colors.dangerSoft, borderRadius: radius.sm, padding: 12 },
   cta: { marginTop: 4 },
