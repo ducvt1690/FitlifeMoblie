@@ -22,6 +22,10 @@ Mỗi lần chạy tạo một tài khoản thử trong database `fitlife` và l
 
 [Hợp đồng API nhật ký tập luyện](workouts.md) mô tả `GET`, `POST` và `DELETE /api/workout-logs`, body/response, Bearer token, gửi lại bằng cùng UUID, thưởng nhiệm vụ một lần/ngày và mục tiêu nước trong ngày tập. Chạy BE bằng `npm run dev`; dùng token của tài khoản role `user` để gọi hai endpoint này.
 
+## API quản trị
+
+[Hợp đồng API quản trị](admin.md) mô tả tổng quan, thống kê theo ngày, chi tiết và buộc đăng xuất tài khoản, người tham gia thử thách, danh mục, giao dịch và nhật ký quản trị.
+
 ## API mật khẩu
 
 [Hợp đồng API mật khẩu](password.md) mô tả đổi mật khẩu khi đang đăng nhập, quên mật khẩu bằng mã 6 số gửi qua email, đặt lại mật khẩu và cách cấu hình SMTP.
