@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Text from '../../ui/Text';
@@ -7,7 +7,7 @@ import { colors, fonts, radius } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useAuth } from '../../context/AuthContext';
 import { newId } from '../../api/client';
-import { useKeyboardVisible } from '../../ui/useKeyboard';
+import { useKeyboardHeight } from '../../ui/useKeyboard';
 
 // Buttons under a reply, from the actions the server ran (ai_engine "agent:plan,meal" or the older "workout-plan").
 const LINKS = [
@@ -20,7 +20,14 @@ const LINKS = [
 export default function CoachChat({ context = 'general', starters = [], header = null, bottom = 0, onAction, onLink }) {
   const { api } = useAuth();
   const router = useRouter();
-  const typing = useKeyboardVisible();
+  const keyboard = useKeyboardHeight();
+  const { height: windowHeight } = useWindowDimensions();
+  // Space between this view's bottom and the screen bottom (a tab navigator may reserve some), so the input sits right on the keyboard.
+  const [below, setBelow] = useState(0);
+  const box = useRef(null);
+  const measure = () => box.current?.measureInWindow((x, y, w, h) => setBelow(Math.max(windowHeight - (y + h), 0)));
+  const lift = (keyboard ? (Platform.OS === 'ios' ? Math.max(keyboard - below, 0) : 0) : Math.max(bottom - below, 0)) + 8;
+  useEffect(() => { if (keyboard) setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50); }, [keyboard]);
   const { gutter, contentWidth } = useLayout();
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -59,7 +66,7 @@ export default function CoachChat({ context = 'general', starters = [], header =
 
   const recent = messages.slice(-40);
   return (
-    <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View ref={box} onLayout={measure} style={styles.fill}>
       <ScrollView ref={scroll} style={styles.fill} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: 12 }} keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
@@ -94,7 +101,7 @@ export default function CoachChat({ context = 'general', starters = [], header =
           {error ? <Text variant="label" tone="danger">{error}</Text> : null}
         </View>
       </ScrollView>
-      <View style={[styles.inputBar, { paddingHorizontal: gutter, paddingBottom: typing ? 8 : bottom + 8, maxWidth: contentWidth + gutter * 2 }]}>
+      <View style={[styles.inputBar, { paddingHorizontal: gutter, paddingBottom: lift, maxWidth: contentWidth + gutter * 2 }]}>
         <TextInput value={text} onChangeText={setText} placeholder="Nhắn cho Coach…" placeholderTextColor={colors.textFaint}
           style={styles.input} multiline selectionColor={colors.accent} />
         <Pressable onPress={() => send(text)} disabled={!text.trim() || sending} accessibilityLabel="Gửi"
@@ -102,7 +109,7 @@ export default function CoachChat({ context = 'general', starters = [], header =
           <Ionicons name="arrow-up" size={20} color={colors.ink} />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
