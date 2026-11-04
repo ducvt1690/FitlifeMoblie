@@ -14,6 +14,7 @@ function createWorkoutRouter({ db }) {
     const result = await service.create(req.auth.user, req.body);
     res.status(result.replayed ? 200 : 201).json({ success: true, ...result });
   }));
+  router.delete('/:workoutId', asyncHandler(async (req, res) => res.json({ success: true, ...await service.remove(req.auth.user, req.params.workoutId) })));
   return router;
 }
 
