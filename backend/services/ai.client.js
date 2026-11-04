@@ -1,20 +1,24 @@
 'use strict';
 // One small client for whichever AI key the team has. The provider is read from the key prefix unless AI_PROVIDER is set:
-//   sk-ant-…  Anthropic (Claude)      AIza…  Google Gemini
+//   sk-ant-…  Anthropic (Claude)      AIza… / AQ.…  Google Gemini
 //   sk-or-…   OpenRouter              gsk_…  Groq             xai-…  xAI
 //   other sk-… OpenAI or any OpenAI-compatible API (set AI_BASE_URL)
 const PROVIDERS = {
   anthropic: { fast: 'claude-haiku-4-5-20251001', smart: 'claude-sonnet-5' },
-  gemini: { fast: 'gemini-2.5-flash', smart: 'gemini-2.5-flash' },
+  gemini: { fast: 'gemini-3.5-flash-lite', smart: 'gemini-3.5-flash-lite' },
   openrouter: { base: 'https://openrouter.ai/api/v1', fast: 'openai/gpt-4o-mini', smart: 'openai/gpt-4o-mini' },
   groq: { base: 'https://api.groq.com/openai/v1', fast: 'llama-3.3-70b-versatile', smart: 'llama-3.3-70b-versatile' },
   xai: { base: 'https://api.x.ai/v1', fast: 'grok-3-mini', smart: 'grok-3-mini' },
   openai: { base: 'https://api.openai.com/v1', fast: 'gpt-4o-mini', smart: 'gpt-4o-mini' },
 };
 
+// Lowest thinking each Gemini family accepts (3.x Flash rejects 'minimal', only Lite allows it).
+const geminiThinking = model => (/^gemini-2.5/.test(model) ? { thinkingBudget: 0 }
+  : /^gemini-3/.test(model) ? { thinkingLevel: /lite/.test(model) ? 'minimal' : 'low' } : null);
+
 function detectProvider(key) {
   if (key.startsWith('sk-ant-')) return 'anthropic';
-  if (key.startsWith('AIza')) return 'gemini';
+  if (key.startsWith('AIza') || key.startsWith('AQ.')) return 'gemini';
   if (key.startsWith('sk-or-')) return 'openrouter';
   if (key.startsWith('gsk_')) return 'groq';
   if (key.startsWith('xai-')) return 'xai';
@@ -31,9 +35,14 @@ function aiConfig(values) {
     fast: values.AI_MODEL_FAST || values.AI_MODEL || preset.fast, smart, model: smart };
 }
 
-async function post(url, headers, body) {
-  const response = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(30000),
+// One retry after a short pause when the provider is briefly overloaded (503) or busy (429).
+async function post(url, headers, body, retry = true) {
+  const response = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(20000),
     headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  if (retry && (response.status === 503 || response.status === 429)) {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return post(url, headers, body, false);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`AI HTTP ${response.status}: ${String(data.error?.message ?? data.error ?? '').slice(0, 200)}`);
   return data;
@@ -54,7 +63,8 @@ async function complete(ai, { system, messages, json = false, smart = false, max
       { 'x-goog-api-key': ai.apiKey }, {
         systemInstruction: { parts: [{ text: sys }] },
         contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        generationConfig: { maxOutputTokens: maxTokens, ...(json ? { responseMimeType: 'application/json' } : {}) },
+        // Gemini thinks by default and spends the output budget on it; these short tasks do not need it.
+        generationConfig: { maxOutputTokens: maxTokens, ...(geminiThinking(model) ? { thinkingConfig: geminiThinking(model) } : {}), ...(json ? { responseMimeType: 'application/json' } : {}) },
       });
     text = data.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('');
   } else {
