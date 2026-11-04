@@ -157,3 +157,39 @@ test('transactions, payments and logs accept filters and reject malformed ones',
   assert.equal((await request('/api/admin/transactions?page=1', admin.token)).status, 200);
   assert.equal((await request('/api/admin/overview', admin.token)).status, 200);
 });
+
+test('joined members keep the challenge rules: admin cannot change days/reward mid-run, and closing only stops new members', async () => {
+  const [admin, one, two, late] = await Promise.all([account('admin'), account(), account(), account()]);
+  const challenge = { challenge_id: randomUUID(), title: 'Chạy 7 ngày', description: 'Kiểm thử luật', target_days: 7,
+    reward_coins: 100, badge_icon: 'walk-outline', is_active: true };
+  assert.equal((await request('/api/admin/challenges', admin.token, 'POST', challenge)).status, 201);
+  const path = `/api/challenges/${challenge.challenge_id}`;
+  const edit = changes => request(`/api/admin/challenges/${challenge.challenge_id}`, admin.token, 'PATCH', changes);
+  assert.equal((await request(`${path}/join`, one.token, 'POST')).status, 201);
+  assert.equal((await request(`${path}/join`, two.token, 'POST')).status, 201);
+  assert.equal((await request(`${path}/checkin`, one.token, 'POST')).status, 200);
+
+  // Đang có người tham gia: không đổi được số ngày hay phần thưởng
+  const days = await edit({ target_days: 30 });
+  assert.equal(days.status, 409);
+  assert.match(days.body.message, /2 người tham gia/);
+  assert.equal((await edit({ reward_coins: 10 })).status, 409);
+  // Gửi lại đúng giá trị cũ, hoặc sửa tên/mô tả: vẫn được
+  assert.equal((await edit({ target_days: 7, title: 'Chạy bộ 7 ngày' })).status, 200);
+
+  // Tắt thử thách: người mới không tham gia được, người đang chơi vẫn thấy và check-in tiếp
+  assert.equal((await edit({ is_active: false })).status, 200);
+  assert.equal((await request(`${path}/join`, late.token, 'POST')).status, 404);
+  assert.ok(!(await request('/api/challenges', late.token)).body.challenges.some(c => c.challenge_id === challenge.challenge_id));
+  const mine = (await request('/api/challenges', two.token)).body.challenges.find(c => c.challenge_id === challenge.challenge_id);
+  assert.equal(mine.accepting_new, false);
+  assert.equal(mine.joined, true);
+  const checkin = await request(`${path}/checkin`, two.token, 'POST');
+  assert.equal(checkin.status, 200, JSON.stringify(checkin.body));
+  assert.equal(checkin.body.target_days, 7);
+
+  // Khi không còn ai đang chơi thì admin đổi luật được
+  assert.equal((await request(`${path}/leave`, one.token, 'POST')).status, 200);
+  assert.equal((await request(`${path}/leave`, two.token, 'POST')).status, 200);
+  assert.equal((await edit({ target_days: 30, reward_coins: 300 })).status, 200);
+});
