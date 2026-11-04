@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Screen from '../../ui/Screen';
 import Surface from '../../ui/Surface';
@@ -9,7 +9,7 @@ import TextField from '../../ui/TextField';
 import Segmented from '../../ui/Segmented';
 import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
-import { ACTIONS, ErrorBox, Field, ListRow, Pager, Pill, SectionTitle, dmyhm, fmt, usePaged } from './kit';
+import { ACTIONS, ErrorBox, Field, ListRow, Pager, Pill, SectionTitle, count, dmyhm, fmt, usePaged } from './kit';
 
 const TABS = [
   { value: 'ai', label: 'Hạn mức AI', icon: 'sparkles' },
@@ -48,6 +48,7 @@ export default function SystemScreen() {
 
 const KIND_NAMES = { chat: 'Tin chat AI / 24 giờ', workout_plan: 'Tạo lịch tập / ngày', meal_ai: 'Gợi ý bữa ăn / ngày' };
 const Notice = ({ text }) => (text ? <Surface radius={radius.sm} style={styles.notice}><Text variant="label" color={colors.accentText}>{text}</Text></Surface> : null);
+const TARGET_NAMES = { user: 'Tài khoản', challenge: 'Thử thách', reward_item: 'Vật phẩm', payment: 'Đơn thanh toán', exercise: 'Bài tập', setting: 'Cài đặt' };
 const intOr = (v) => (/^\d+$/.test(String(v).trim()) ? Number(v) : NaN);
 
 function AiLimits() {
@@ -88,7 +89,7 @@ function AiLimits() {
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 
-  if (!form) return <ErrorBox message={error} />;
+  if (!form) return error ? <ErrorBox message={error} /> : <ActivityIndicator color={colors.text} style={styles.spinner} />;
   return (
     <>
       <Notice text={notice} />
@@ -143,6 +144,7 @@ function Catalog({ load, toggle, flag, rowOf, createForm, empty }) {
                 onPress={() => flip(item)} style={styles.toggle} />} />
           );
         })}
+        {!items && !error ? <ActivityIndicator color={colors.text} style={styles.spinner} /> : null}
         {items && !items.length ? <Text tone="dim" align="center">{empty}</Text> : null}
       </View>
     </>
@@ -252,7 +254,7 @@ function Exercises() {
       <Segmented options={[{ value: '', label: 'Tất cả' }, { value: 'active', label: 'Đang hiện' }, { value: 'hidden', label: 'Đã ẩn' }]}
         value={status} onChange={setStatus} />
       <ErrorBox message={error || list.error} />
-      <Text variant="caption" tone="dim">{fmt(list.total)} bài · bài bị ẩn không còn trong thư viện và lịch AI.</Text>
+      <Text variant="caption" tone="dim">{count(list.total)} bài · bài bị ẩn không còn trong thư viện và lịch AI.</Text>
       <View style={styles.list}>
         {list.rows.map(x => (
           <ListRow key={x.exercise_id} title={x.name_vi || x.name}
@@ -281,7 +283,7 @@ function Logs() {
           <Surface key={l.log_id} radius={radius.md} style={styles.card}>
             <Text variant="label">{ACTIONS[l.action] ?? l.action}</Text>
             <Field label="Admin" value={l.admin_name || l.admin_email} />
-            <Field label="Đối tượng" value={`${l.target_type} · ${String(l.target_id).slice(0, 8)}`} />
+            <Field label={TARGET_NAMES[l.target_type] ?? l.target_type} value={l.target_label || String(l.target_id).slice(0, 8)} />
             {l.note ? <Text variant="caption" tone="dim">{l.note}</Text> : null}
             <Text variant="caption" tone="faint">{dmyhm(l.created_at)}</Text>
           </Surface>
@@ -294,6 +296,7 @@ function Logs() {
 }
 
 const styles = themed(() => StyleSheet.create({
+  spinner: { marginTop: 32 },
   page: { gap: 12 },
   title: { marginBottom: 6 },
   tabs: { gap: 8, paddingVertical: 2 },

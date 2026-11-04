@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
@@ -10,9 +10,10 @@ import { colors, radius, themed } from '../../theme/tokens';
 // Small pieces shared by the admin screens.
 
 // Paged admin list: fetch(page) returns { [key]: rows, total }. reload() starts again at page 1.
+// total is null until the first page of the current filter arrives.
 export function usePaged(fetch, key, deps) {
   const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,10 +30,12 @@ export function usePaged(fetch, key, deps) {
     } catch (e) { if (mine === seq.current) setError(e.message); } finally { if (mine === seq.current) setLoading(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
-  useEffect(() => { load(1); }, [load]);
+  // A new filter clears the old rows so they are not shown under the new one.
+  useEffect(() => { setRows([]); setTotal(null); load(1); }, [load]);
   return { rows, total, loading, error, reload: () => load(1), more: () => load(page + 1), setRows };
 }
 export const fmt = (n) => (n ?? 0).toLocaleString('vi-VN');
+export const count = (n) => (n == null ? '…' : fmt(n));
 export const vnd = (n) => `${fmt(n)} ₫`;
 export const dmy = (d) => (d ? new Date(d).toLocaleDateString('vi-VN') : '—');
 export const dmyhm = (d) => (d ? new Date(d).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
@@ -50,7 +53,7 @@ export const ACTIONS = {
   revoke_premium: 'Thu hồi Premium', adjust_coins: 'Điều chỉnh xu', force_logout: 'Buộc đăng xuất', delete_ai_data: 'Xóa dữ liệu AI',
   refund_payment: 'Hoàn tiền', update_ai_limits: 'Đổi hạn mức AI', create_challenge: 'Tạo thử thách', update_challenge: 'Sửa thử thách',
   create_reward_item: 'Tạo vật phẩm', update_reward_item: 'Sửa vật phẩm', create_exercise: 'Tạo bài tập', update_exercise: 'Sửa bài tập',
-  hide_exercise: 'Ẩn bài tập', show_exercise: 'Hiện bài tập',
+  hide_exercise: 'Ẩn bài tập', show_exercise: 'Hiện bài tập', set_role_admin: 'Cấp quyền admin (script)', change_account_role: 'Đổi quyền (script)',
 };
 
 export function ErrorBox({ message }) {
@@ -100,6 +103,7 @@ export function ListRow({ title, subtitle, right, rightColor, onPress, icon }) {
 
 // "Load more" under a paged list.
 export function Pager({ shown, total, loading, onMore }) {
+  if (loading && !shown) return <ActivityIndicator color={colors.text} style={styles.spinner} />;
   if (!total) return null;
   return (
     <View style={styles.pager}>
@@ -168,6 +172,7 @@ const styles = themed(() => StyleSheet.create({
   pill: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   pager: { alignItems: 'center', gap: 4, paddingVertical: 4 },
+  spinner: { marginTop: 24 },
   form: { padding: 16, gap: 12, borderWidth: 1, borderColor: colors.stroke },
   formDanger: { borderColor: colors.danger },
   formButtons: { flexDirection: 'row', gap: 10 },

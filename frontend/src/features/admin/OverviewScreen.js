@@ -17,7 +17,6 @@ const TILES = [
   { key: 'locked', label: 'Bị khóa' },
   { key: 'active_challenges', label: 'Thử thách mở' },
   { key: 'available_rewards', label: 'Phần thưởng' },
-  { key: 'purchases_7d', label: 'Lượt đổi 7 ngày' },
 ];
 
 export default function OverviewScreen() {
@@ -51,8 +50,8 @@ export default function OverviewScreen() {
 
       <Surface radius={radius.lg} style={styles.revenue}>
         <Text variant="label" tone="dim">Tổng doanh thu</Text>
-        <Text variant="display" numberOfLines={1} adjustsFontSizeToFit>{vnd(c.revenue_vnd)}</Text>
-        <Text variant="label" tone="dim">{fmt(c.paid_orders)} đơn đã thanh toán · {fmt(c.coins_spent_7d)} xu đã dùng trong 7 ngày</Text>
+        <Text variant="display" numberOfLines={1} adjustsFontSizeToFit>{data ? vnd(c.revenue_vnd) : '—'}</Text>
+        <Text variant="label" tone="dim">{fmt(c.paid_orders)} đơn đã thanh toán · 7 ngày qua: {fmt(c.purchases_7d)} lượt đổi quà, {fmt(c.coins_spent_7d)} xu</Text>
       </Surface>
 
       <View style={styles.grid}>
@@ -81,7 +80,7 @@ export default function OverviewScreen() {
           </Surface>
           <View style={styles.grid}>
             {[['Đăng ký mới', stats.totals.signups], ['Buổi tập', stats.totals.workouts], ['Bữa ăn đã log', stats.totals.meals], ['Tin nhắn AI', stats.totals.ai_messages]].map(([label, n]) => (
-              <Surface key={label} radius={radius.md} style={styles.tile}>
+              <Surface key={label} radius={radius.md} style={[styles.tile, styles.half]}>
                 <Text variant="caption" tone="dim" numberOfLines={2} style={styles.tileLabel}>{label}</Text>
                 <Text variant="metric" numberOfLines={1}>{fmt(n)}</Text>
               </Surface>
@@ -114,6 +113,7 @@ const styles = themed(() => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { flexBasis: '30%', flexGrow: 1, minWidth: 100, padding: 14, gap: 6, justifyContent: 'space-between' },
   tileLabel: { minHeight: 34 },
+  half: { flexBasis: '45%' },
   chart: { padding: 16, marginTop: 12, gap: 6 },
   log: { padding: 12, marginTop: 8, gap: 2 },
 }));

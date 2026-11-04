@@ -8,7 +8,7 @@ import Segmented from '../../ui/Segmented';
 import Sheet from '../../ui/Sheet';
 import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
-import { ActionForm, ErrorBox, Field, ListRow, Pager, PRODUCT_NAMES, STATUS, SectionTitle, dmyhm, fmt, usePaged, vnd } from './kit';
+import { ActionForm, ErrorBox, Field, ListRow, Pager, PRODUCT_NAMES, STATUS, SectionTitle, count, dmyhm, fmt, usePaged, vnd } from './kit';
 
 const FILTERS = [
   { value: '', label: 'Tất cả' },
@@ -29,7 +29,7 @@ export default function PaymentsScreen() {
       <Text variant="title" style={styles.title}>Thanh toán</Text>
       <Segmented options={FILTERS} value={status} onChange={setStatus} />
       <ErrorBox message={list.error} />
-      <Text variant="caption" tone="dim">{fmt(list.total)} đơn VNPay · xuất CSV đối soát dùng trên web admin.</Text>
+      <Text variant="caption" tone="dim">{count(list.total)} đơn VNPay · xuất CSV đối soát dùng trên web admin.</Text>
       <View style={styles.list}>
         {list.rows.map(o => (
           <ListRow key={o.order_id} icon="card" onPress={() => setOpenId(o.order_id)}
@@ -56,7 +56,8 @@ function PaymentSheet({ id, onClose, onChanged }) {
     if (!id) return;
     try { setData(await api.admin.payment(id)); setError(''); } catch (e) { setError(e.message); }
   }, [api, id]);
-  useEffect(() => { setData(null); setRefunding(false); setNotice(''); load(); }, [load]);
+  // Keep the last order on screen while the sheet slides closed.
+  useEffect(() => { if (!id) return; setData(null); setError(''); setRefunding(false); setNotice(''); load(); }, [id, load]);
 
   const o = data?.order;
   const refund = async ({ note }) => {

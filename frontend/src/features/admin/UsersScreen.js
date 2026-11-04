@@ -9,7 +9,7 @@ import Segmented from '../../ui/Segmented';
 import Sheet from '../../ui/Sheet';
 import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
-import { ActionForm, ErrorBox, Field, ListRow, Pager, Pill, PRODUCT_NAMES, STATUS, SectionTitle, dmy, dmyhm, fmt, usePaged, vnd } from './kit';
+import { ActionForm, ErrorBox, Field, ListRow, Pager, Pill, PRODUCT_NAMES, STATUS, SectionTitle, count, dmy, dmyhm, fmt, usePaged, vnd } from './kit';
 
 const FILTERS = [
   { value: 'all', label: 'Tất cả' },
@@ -40,7 +40,7 @@ export default function UsersScreen() {
         onSubmitEditing={() => setQ(text.trim())} placeholder="vd: an@gmail.com" />
       <Segmented options={FILTERS} value={filter} onChange={setFilter} />
       <ErrorBox message={list.error} />
-      <Text variant="caption" tone="dim">{fmt(list.total)} tài khoản</Text>
+      <Text variant="caption" tone="dim">{count(list.total)} tài khoản</Text>
 
       <View style={styles.list}>
         {list.rows.map(a => (
@@ -50,7 +50,7 @@ export default function UsersScreen() {
             right={<View style={styles.tags}>
               {a.premium ? <Pill label="PREMIUM" color={colors.accentText} /> : null}
               {!a.is_active ? <Pill label="KHÓA" color={colors.danger} /> : null}
-              {a.role === 'admin' ? <Pill label="ADMIN" color={colors.water} /> : null}
+              {a.role !== 'user' ? <Pill label={a.role.toUpperCase()} color={colors.water} /> : null}
             </View>} />
         ))}
         {!list.loading && !list.rows.length && !list.error ? <Text tone="dim" align="center">Không có tài khoản nào khớp.</Text> : null}
@@ -73,7 +73,8 @@ function AccountSheet({ id, onClose, onChanged }) {
     if (!id) return;
     try { setData(await api.admin.account(id)); setError(''); } catch (e) { setError(e.message); }
   }, [api, id]);
-  useEffect(() => { setData(null); setAction(null); setNotice(''); load(); }, [load]);
+  // Keep the last account on screen while the sheet slides closed.
+  useEffect(() => { if (!id) return; setData(null); setError(''); setAction(null); setNotice(''); load(); }, [id, load]);
 
   const a = data?.account;
   const m = data?.membership;
