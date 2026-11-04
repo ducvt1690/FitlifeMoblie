@@ -37,7 +37,7 @@ function aiConfig(values) {
 
 // One retry after a short pause when the provider is briefly overloaded (503) or busy (429).
 async function post(url, headers, body, retry = true) {
-  const response = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(20000),
+  const response = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(40000),
     headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
   if (retry && (response.status === 503 || response.status === 429)) {
     await new Promise(resolve => setTimeout(resolve, 1500));

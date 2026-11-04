@@ -16,15 +16,17 @@ const fmt = n => Math.round(n).toLocaleString('vi-VN');
 const PLAN_ENGINE = 'workout-plan';
 
 // "Lên lịch tập 45 phút cho ngực" → the same request the Tập luyện tab sends; null when the message is not asking for a plan.
-function planRequest(text) {
+// `previous` is today's last plan: a follow-up like "chỉnh lại tập ở phòng gym" keeps its muscle group and length.
+function planRequest(text, previous) {
   const q = text.toLowerCase();
-  if (!/(lịch|giáo án|kế hoạch|chương trình|plan|buổi)\s*(tập|workout|gym)|lên lịch|xếp lịch/.test(q)) return null;
+  if (!/(lịch|giáo án|kế hoạch|chương trình|plan|buổi)\s*(tập|workout|gym)|lên lịch|xếp lịch|sắp lịch|đổi lịch|chỉnh (lại )?lịch|chỉnh lại.*tập|đổi bài/.test(q)) return null;
   const hours = q.match(/(\d+(?:[.,]\d+)?)\s*(tiếng|giờ|h\b)/);
   const mins = q.match(/(\d{1,3})\s*(phút|p\b|min)/);
-  const minutes = Math.min(Math.max(Math.round(hours ? Number(hours[1].replace(',', '.')) * 60 : mins ? Number(mins[1]) : 45), 15), 120);
+  const minutes = Math.min(Math.max(Math.round(hours ? Number(hours[1].replace(',', '.')) * 60 : mins ? Number(mins[1]) : previous?.minutes ?? 45), 15), 120);
   const [split, focus] = /thân trên|upper/.test(q) ? ['upper_lower', 'upper'] : /thân dưới|lower/.test(q) ? ['upper_lower', 'lower']
     : /push|ngực|vai|tay sau/.test(q) ? ['ppl', 'push'] : /pull|lưng|xô|tay trước|bắp tay/.test(q) ? ['ppl', 'pull']
-      : /\blegs?\b|chân|mông|đùi/.test(q) ? ['ppl', 'legs'] : ['full_body', 'full'];
+      : /\blegs?\b|chân|mông|đùi/.test(q) ? ['ppl', 'legs']
+        : previous ? [previous.split, previous.focus] : ['full_body', 'full'];
   return { split, focus, minutes, note: [...text.trim()].slice(0, 300).join('') };
 }
 
@@ -81,6 +83,7 @@ function ruleReply(user, ctx, text) {
 function createChatService({ db, ai = {} }) {
   const quests = createQuestService({ db });
   const plans = createWorkoutPlanService({ db, ai });
+  const rulePlans = createWorkoutPlanService({ db });
   const agent = createCoachAgent({ db, ai });
   async function ownSession(user, sessionId) {
     if (!isUuid(sessionId)) throw fail(400, 'session_id không hợp lệ.');
@@ -140,7 +143,7 @@ function createChatService({ db, ai = {} }) {
       if (saved.replayed) return { success: true, replayed: true, message: saved.message, reply: null, reward_coins: 0, fit_coins: saved.user.fit_coins };
 
       const ctx = await todayContext(db, saved.user);
-      let text, engine = RULE_ENGINE, plan = null, actions = [];
+      let text, engine = RULE_ENGINE, plan = null, actions = [], slow = false;
       if (ai.apiKey) {
         const history = await db.collection('ai_chat_messages').find({ user_id: saved.user.user_id, session_id: body.session_id })
           .sort({ timestamp: -1, message_id: -1 }).limit(20).toArray();
@@ -150,14 +153,19 @@ function createChatService({ db, ai = {} }) {
         try {
           ({ text, kinds: actions } = await agent.reply(saved.user, ctx, history, body.context));
           engine = actions.length ? `agent:${actions.join(',')}` : ai.model;
-        } catch { text = undefined; actions = []; }
+        } catch (error) { console.warn(`Coach AI lỗi, dùng luật: ${error.name}`); text = undefined; actions = []; slow = error.name === 'TimeoutError'; }
       }
-      // Without AI, a plain "lên lịch tập ..." still builds the plan so the Tập luyện tab has it.
-      const wanted = !text && planRequest(content);
+      // A plain "lên lịch tập ..." always ends with a real plan in the Tập luyện tab, even when AI is off or skipped the action.
+      const wanted = !actions.includes('plan') && planRequest(content, (await plans.latest(saved.user)).plan);
       if (wanted) {
-        try { plan = (await plans.create(saved.user, wanted)).plan; text = planReply(plan); engine = PLAN_ENGINE; actions = ['plan']; }
-        catch (error) {
-          if (error.httpStatus === 402 || error.httpStatus === 503) text = `${error.message} Bạn vẫn có thể tự tạo ở tab Tập luyện.`;
+        try {
+          // After a model timeout the plan is built from rules instead of waiting on the model a second time.
+          plan = (await (slow ? rulePlans : plans).create(saved.user, wanted)).plan;
+          text = text ? `${text}\n\n${planReply(plan)}` : planReply(plan);
+          actions = [...actions, 'plan'];
+          engine = engine === RULE_ENGINE ? PLAN_ENGINE : `agent:${actions.join(',')}`;
+        } catch (error) {
+          if (!text && (error.httpStatus === 402 || error.httpStatus === 503)) text = `${error.message} Bạn vẫn có thể tự tạo ở tab Tập luyện.`;
         }
       }
       if (!text) text = ruleReply(saved.user, ctx, content);

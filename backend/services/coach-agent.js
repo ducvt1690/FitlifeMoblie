@@ -16,6 +16,8 @@ const CONTEXTS = { general: '', workout: 'Người dùng đang ở tab Tập luy
 const SPLIT_OF = { push: 'ppl', pull: 'ppl', legs: 'ppl', upper: 'upper_lower', lower: 'upper_lower', full: 'full_body' };
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
 const clean = (s, max) => [...String(s).replace(/\s+/g, ' ').trim()].slice(0, max).join('');
+// The app shows plain text, so markdown from the model (**bold**, # headings, * bullets) is turned into plain text.
+const plainText = s => s.replace(/\*\*(.+?)\*\*|__(.+?)__/g, '$1$2').replace(/^#{1,6}\s*/gm, '').replace(/^\s*[*-]\s+/gm, '• ').trim();
 
 function createCoachAgent({ db, ai = {} }) {
   const plans = createWorkoutPlanService({ db, ai });
@@ -111,10 +113,19 @@ Trả về {"reply":"lời nhắn cho người dùng","actions":[]}. Chỉ thêm
 {"type":"allergy","add":["tôm"]} lưu dị ứng;
 {"type":"remember","fact":"..."} nhớ lâu dài điều quan trọng (chấn thương, thiết bị, lịch rảnh, món thích/ghét);
 {"type":"forget","fact":"..."} quên điều người dùng muốn bỏ.
-Khi có action, reply chỉ cần một câu ngắn, kết quả sẽ được app nối thêm.`;
-      const out = await complete(ai, { system, json: true, smart: true, maxTokens: 900,
-        messages: history.map(m => ({ role: m.sender === 'ai' ? 'assistant' : 'user', content: m.content })) });
+Người dùng muốn có, đổi hay chỉnh lịch tập (kể cả "chỉnh lại", "đổi bài", "ở phòng gym", "ở nhà") → LUÔN dùng action plan,
+đưa yêu cầu vào note (VD "tập ở phòng gym, có máy"); KHÔNG tự viết danh sách bài tập trong reply.
+Khi có action, reply chỉ cần một câu ngắn, kết quả sẽ được app nối thêm. reply là chữ thường, không markdown, tối đa 120 từ.`;
+      const messages = history.map(m => ({ role: m.sender === 'ai' ? 'assistant' : 'user', content: m.content }));
+      let out;
+      try { out = await complete(ai, { system, json: true, smart: true, maxTokens: 1500, messages }); }
+      catch (error) {
+        // A reply that is not valid JSON still answers the member, just without actions.
+        if (!(error instanceof SyntaxError)) throw error;
+        out = { reply: await complete(ai, { system: system.split('Trả về {')[0], smart: true, maxTokens: 800, messages }), actions: [] };
+      }
       if (!isText(out?.reply, 4000) && !Array.isArray(out?.actions)) throw new Error('bad reply');
+      out.reply = isText(out.reply, 4000) ? plainText(out.reply) : '';
       const done = [];
       for (const action of (Array.isArray(out.actions) ? out.actions : []).slice(0, MAX_ACTIONS)) {
         const result = await run(user, action);
