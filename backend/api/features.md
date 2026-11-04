@@ -45,7 +45,7 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 - `POST /api/chat/messages` body `{ session_id: UUID, message_id: UUID, content: 1–4000 ký tự }` → `201 { message, reply, reward_coins }`. Session tự tạo ở tin nhắn đầu tiên. Tin nhắn đầu tiên trong ngày hoàn thành `q_chat`.
 - `GET /api/chat/sessions`, `GET /api/chat/sessions/:sessionId/messages` — chỉ chủ session đọc được (`404` với người khác).
 - `DELETE /api/chat/sessions/:sessionId` → `200 { deleted: true, session_id, deleted_messages }`: xóa cuộc trò chuyện và mọi tin nhắn của nó. FE nên hỏi xác nhận trước khi gọi. Session của người khác → `404`.
-- Gói miễn phí: tối đa 10 câu hỏi/24 giờ, đếm trong collection `ai_question_usage` (giữ 48 giờ). **Xóa hội thoại không làm mới hạn mức.** Vượt hạn mức → `402`; Premium không giới hạn.
+- Hạn mức câu hỏi AI Coach trong 24 giờ: mặc định Free 10, Premium 200; admin đổi được qua `PUT /api/admin/settings/ai-limits` (xem `admin.md`). Đếm trong collection `ai_question_usage` (giữ 48 giờ). **Xóa hội thoại không làm mới hạn mức.** Vượt hạn mức → `402`.
 - Có `ANTHROPIC_API_KEY` trong `backend/.env` thì trả lời bằng Claude (`AI_MODEL`, mặc định `claude-sonnet-5`). Không có key hoặc gọi lỗi thì dùng coach theo quy tắc dựa trên số liệu hôm nay (`ai_engine: "fitlife-rules"`).
 
 Kiểm thử: `node --test test/features.test.js`.

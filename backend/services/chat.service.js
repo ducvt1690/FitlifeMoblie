@@ -6,12 +6,13 @@ const { HttpError } = require('../utils/http-error');
 const { isUuid, isText, isPlainBody } = require('../utils/validate');
 const { createQuestService, lockMember } = require('./quest.service');
 const { membershipOf } = require('./payment.service');
+const { aiLimits, DEFAULT_AI_LIMITS } = require('./ai-usage');
 const { createWorkoutPlanService } = require('./workout-plan.service');
 const { CONTEXTS, createCoachAgent } = require('./coach-agent');
 const fail = (status, message) => new HttpError(status, message);
 const RULE_ENGINE = 'fitlife-rules';
-// Free members get this many questions per rolling 24 hours; Premium is unlimited.
-const FREE_DAILY_MESSAGES = 10;
+// Default free limit (questions per rolling 24 hours); the live limits per plan come from ai_limits settings.
+const FREE_DAILY_MESSAGES = DEFAULT_AI_LIMITS.free.chat;
 const fmt = n => Math.round(n).toLocaleString('vi-VN');
 const PLAN_ENGINE = 'workout-plan';
 
@@ -132,10 +133,14 @@ function createChatService({ db, ai = {} }) {
           }
           return { user, message: existing, replayed: true, reward: 0 };
         }
-        if (!(await membershipOf(db, user.user_id, session)).premium) {
-          const recent = await db.collection('ai_question_usage').countDocuments({ user_id: user.user_id,
-            created_at: { $gte: new Date(now.getTime() - 86400000) } }, { session });
-          if (recent >= FREE_DAILY_MESSAGES) throw fail(402, `Gói miễn phí được hỏi ${FREE_DAILY_MESSAGES} câu mỗi 24 giờ. Nâng cấp Premium để hỏi không giới hạn.`);
+        // Limits come from admin settings (ai_limits.chat) and count questions in the last 24 hours.
+        const premium = (await membershipOf(db, user.user_id, session)).premium;
+        const limit = (await aiLimits(db, session))[premium ? 'premium' : 'free'].chat;
+        const recent = await db.collection('ai_question_usage').countDocuments({ user_id: user.user_id,
+          created_at: { $gte: new Date(now.getTime() - 86400000) } }, { session });
+        if (recent >= limit) {
+          throw fail(402, premium ? `Bạn đã dùng hết ${limit} câu hỏi AI trong 24 giờ.`
+            : `Gói miễn phí được hỏi ${limit} câu mỗi 24 giờ. Nâng cấp Premium để hỏi nhiều hơn.`);
         }
         const chat = await db.collection('ai_chat_sessions').findOne({ session_id: body.session_id }, { session });
         if (chat && chat.user_id !== user.user_id) throw fail(404, 'Cuộc trò chuyện không tồn tại.');

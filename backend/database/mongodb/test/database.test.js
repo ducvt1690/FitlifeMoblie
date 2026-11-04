@@ -42,7 +42,7 @@ after(async () => {
 test('all 17 collections, validators, role fixtures and demo references pass the audit', async () => {
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  assert.equal(Object.keys(report.counts).length, 24);
+  assert.equal(Object.keys(report.counts).length, 26);
   assert.equal(report.counts.users, 3);
   assert.equal(report.counts.reward_items, 6);
   assert.equal(report.counts.challenges, 3);

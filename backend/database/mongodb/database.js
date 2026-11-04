@@ -11,8 +11,10 @@ async function initializeDatabase(db, { migrating = false } = {}) {
     for (const definition of collections) {
       const actual = metadata.find((entry) => entry.name === definition.name);
       if (!actual) continue;
+      // Additive changes (new optional fields, wider enums) are applied when every existing
+      // document already satisfies the new validator; anything else still needs a migration.
       if (!isDeepStrictEqual(actual.options.validator, definition.validator)
-        && await db.collection(definition.name).countDocuments({}, { limit: 1 })) {
+        && await db.collection(definition.name).countDocuments({ $nor: [definition.validator] }, { limit: 1 })) {
         throw new Error(`Existing data needs migration: ${definition.name}. Run db:migrate:plan, then db:migrate.`);
       }
       if (definition.name === 'user_challenges'

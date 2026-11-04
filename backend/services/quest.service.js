@@ -3,6 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { localDay } = require('../auth/registration');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
+const { changeCoins } = require('../utils/coins');
 const { addDays, isDate } = require('../utils/validate');
 const templates = require('../database/mongodb/data/catalogs.json').quest_templates;
 const STREAK_MIN_QUESTS = 5;
@@ -39,7 +40,7 @@ function createQuestService({ db }) {
       { $set: { is_completed: true, completed_at: now, updated_at: now } }, { session });
     const reward = changed.modifiedCount ? 10 : 0;
     if (reward) {
-      await db.collection('users').updateOne({ user_id: user.user_id }, { $inc: { fit_coins: reward } }, { session });
+      await changeCoins(db, { userId: user.user_id, amount: reward, source: 'quest', refId: `${questKey}:${day}`, now, session });
       await updateStreak(user, day, now, session);
     }
     return reward;
@@ -51,8 +52,8 @@ function createQuestService({ db }) {
       { user_id: user.user_id, quest_date: day, quest_key: questKey, is_completed: true },
       { $set: { is_completed: false, completed_at: null, updated_at: now } }, { session });
     if (!changed.modifiedCount) return 0;
-    const debit = await db.collection('users').updateOne({ user_id: user.user_id, fit_coins: { $gte: 10 } }, { $inc: { fit_coins: -10 } }, { session });
-    if (!debit.modifiedCount) throw new HttpError(409, `Không đủ xu để hoàn tác phần thưởng ${rewardName}. ${logName} chưa bị xóa.`);
+    const debit = await changeCoins(db, { userId: user.user_id, amount: -10, source: 'quest_refund', refId: `${questKey}:${day}`, now, session });
+    if (debit === null) throw new HttpError(409, `Không đủ xu để hoàn tác phần thưởng ${rewardName}. ${logName} chưa bị xóa.`);
     return 10;
   }
 

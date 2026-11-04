@@ -103,7 +103,7 @@ Buổi tập phải vừa ${body.minutes} phút, tính cả khởi động; mỗ
 Người tập: ${user.gender === 'male' ? 'nam' : 'nữ'}, ${user.age} tuổi, ${user.weight} kg, mục tiêu ${user.goal}.
 Dạng: {"title":"tên buổi ngắn","tip":"một câu lưu ý","items":[{"i":0,"sets":3,"reps":"8-10","rest":90}]}.`,
             messages: [{ role: 'user', content: `Buổi ${FOCUS[body.focus].label}, ${body.minutes} phút.${note ? ` Yêu cầu thêm: ${note}` : ''}\nDanh sách:\n`
-              + pool.map((e, i) => `${i}. ${e.name} (${e.target_muscles?.[0] ?? ''}, ${e.equipments?.[0] ?? ''})`).join('\n') }] }));
+              + pool.map((e, i) => `${i}. ${e.name} (${e.target_muscles?.[0] ?? ''}, ${e.equipments?.[0] ?? ''})`).join('\n') }] }), 'workout_plan');
           const seen = new Set();
           items = (Array.isArray(out?.items) ? out.items : []).filter(r => Number.isInteger(r?.i) && pool[r.i] && !seen.has(r.i) && seen.add(r.i))
             .slice(0, 10).map(r => itemFor(pool[r.i], Math.min(Math.max(Number.parseInt(r.sets, 10) || 3, 1), 6),
