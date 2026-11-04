@@ -72,11 +72,15 @@ export function createApi(call) {
       today: () => call('/api/nutrition/today'),
       parse: (text) => post('/api/nutrition/parse', { text }),
       suggest: () => post('/api/nutrition/suggestions'),
+      accept: (id) => post(`/api/nutrition/suggestions/${id}/accept`),
       eat: (id) => post(`/api/nutrition/suggestions/${id}/eat`),
       setDay: (completed) => call('/api/nutrition/day', { method: 'PUT', body: { completed } }),
       setAllergies: (allergies) => call('/api/nutrition/allergies', { method: 'PUT', body: { allergies } }),
       addMeal: (meal) => post('/api/meal-logs', { meal_id: newId(), ...meal }),
       removeMeal: (id) => call(`/api/meal-logs/${id}`, { method: 'DELETE' }),
+    },
+    exercises: {
+      get: (id) => call(`/api/exercises/${id}`),
     },
     plans: {
       today: () => call('/api/workout-plans/today'),

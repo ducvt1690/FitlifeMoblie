@@ -34,6 +34,8 @@ export default function CoachChat({ context = 'general', starters = [], header =
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  // Post-workout meals the member added from the chat: suggestion id -> 'open' | 'eaten'.
+  const [added, setAdded] = useState({});
   const scroll = useRef(null);
 
   // Reload on focus so a chat started in another tab shows up here too.
@@ -64,6 +66,14 @@ export default function CoachChat({ context = 'general', starters = [], header =
     } finally { setSending(false); }
   }, [api, sending, sessionId, context, onAction]);
 
+  const accept = async (id) => {
+    try {
+      const { suggestion } = await api.nutrition.accept(id);
+      setAdded(a => ({ ...a, [id]: suggestion.status }));
+      onAction?.(['meal']);
+    } catch (e) { setError(e.message); }
+  };
+
   const recent = messages.slice(-40);
   return (
     <View ref={box} onLayout={measure} style={styles.fill}>
@@ -86,6 +96,20 @@ export default function CoachChat({ context = 'general', starters = [], header =
                   <Text variant="label" color={colors.ink}>{l.label}</Text>
                 </Pressable>
               )) : null}
+              {m.sender === 'ai' && m.ai_engine?.startsWith('after-workout:') ? (() => {
+                const id = m.ai_engine.slice('after-workout:'.length);
+                return added[id] ? (
+                  <Pressable onPress={() => { onLink?.(); router.navigate('/home/nutrition'); }} style={[styles.link, styles.linkDone]} accessibilityRole="button">
+                    <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+                    <Text variant="label" color={colors.text}>{added[id] === 'eaten' ? 'Đã ăn món này' : 'Đã thêm · Mở Ăn uống'}</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => accept(id)} style={styles.link} accessibilityRole="button">
+                    <Ionicons name="add-circle" size={16} color={colors.ink} />
+                    <Text variant="label" color={colors.ink}>Thêm vào thực đơn</Text>
+                  </Pressable>
+                );
+              })() : null}
             </View>
           ))}
           {messages.length && starters.length && !sending ? (
@@ -121,6 +145,7 @@ const styles = StyleSheet.create({
   theirs: { alignSelf: 'flex-start', backgroundColor: colors.surfaceHigh, borderBottomLeftRadius: 6 },
   link: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 14,
     paddingVertical: 8, borderRadius: 999, backgroundColor: colors.accent },
+  linkDone: { backgroundColor: colors.surface },
   chips: { gap: 8, paddingVertical: 2 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.stroke },
   inputBar: { width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingTop: 8, backgroundColor: colors.bg },

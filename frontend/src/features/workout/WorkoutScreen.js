@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +14,7 @@ import NumberStepper from '../../ui/NumberStepper';
 import { colors, radius } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import AskCoach from '../coach/AskCoach';
+import ExerciseSheet from './ExerciseSheet';
 import SwipeToDone from '../../ui/SwipeToDone';
 import { scheduleReminders } from '../../lib/reminders';
 
@@ -37,6 +38,8 @@ export default function WorkoutScreen() {
   const [showForm, setShowForm] = useState(false);
   const [broken, setBroken] = useState({});
   const [scheduled, setScheduled] = useState(0);
+  const [nudge, setNudge] = useState('');
+  const [detail, setDetail] = useState(null);
 
   const load = useCallback(async () => {
     try { setPlan((await api.plans.today()).plan); } catch (e) { setError({ message: e.message }); }
@@ -58,6 +61,7 @@ export default function WorkoutScreen() {
       const res = await api.plans.complete(plan.plan_id);
       await load();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (res.coach?.preview) setNudge(res.coach.preview);
       setScheduled(await scheduleReminders(res.after?.reminders));
     } catch (e) { setError({ message: e.message }); } finally { setBusy(''); }
   };
@@ -102,22 +106,23 @@ export default function WorkoutScreen() {
             <Text variant="heading">{plan.title}</Text>
             {plan.tip ? <Text tone="dim">{plan.tip}</Text> : null}
             {plan.notice ? <Text variant="caption" tone="faint">{plan.notice}</Text> : null}
-            {plan.status !== 'done' ? <Text variant="caption" tone="dim">{doneIds.length}/{plan.items.length} bài xong · vuốt bài sang trái để đánh dấu</Text> : null}
+            {plan.status !== 'done' ? <Text variant="caption" tone="dim">{doneIds.length}/{plan.items.length} bài xong · vuốt trái để đánh dấu, chạm để xem cách tập</Text> : null}
           </Surface>
           {plan.status === 'done' && plan.after ? (
             <Surface radius={radius.lg} style={styles.card}>
-              <Text variant="caption" tone="accent">Coach gợi ý sau buổi tập</Text>
-              {plan.after.tips.map(t => (
-                <View key={t.title} style={styles.tip}>
-                  <View style={styles.tipIcon}><Ionicons name={t.icon} size={18} color={colors.accent} /></View>
-                  <View style={styles.flex}><Text variant="label">{t.title}</Text><Text tone="dim">{t.text}</Text></View>
+              <View style={styles.tip}>
+                <View style={styles.tipIcon}><Ionicons name="chatbubble-ellipses" size={18} color={colors.accent} /></View>
+                <View style={styles.flex}>
+                  <Text variant="label">Coach đã nhắn cho bạn</Text>
+                  <Text tone="dim">Lưu ý phục hồi và gợi ý bữa sau tập nằm trong khung chat. Bấm "Hỏi AI" để xem.</Text>
                 </View>
-              ))}
+              </View>
               {scheduled ? <Text variant="caption" tone="faint">Đã hẹn {scheduled} lời nhắc: tắm sau {plan.after.reminders[0].in_minutes} phút, ăn sau {plan.after.reminders[1].in_minutes} phút.</Text> : null}
             </Surface>
           ) : null}
           {plan.items.map((it, i) => (
             <SwipeToDone key={it.exercise_id} done={doneIds.includes(it.exercise_id)} disabled={plan.status === 'done'} onToggle={() => toggle(it.exercise_id)}>
+            <Pressable onPress={() => setDetail(it.exercise_id)} accessibilityRole="button" accessibilityHint="Xem cách tập và mẹo">
             <Surface radius={radius.md} style={[styles.exercise, doneIds.includes(it.exercise_id) && styles.doneRow]}>
               {it.gif_url && !broken[it.exercise_id] ? (
                 <Image source={{ uri: it.gif_url }} style={styles.gif} contentFit="cover" transition={200}
@@ -129,7 +134,9 @@ export default function WorkoutScreen() {
                 <Text variant="label" tone="dim">{it.sets} hiệp × {it.reps} · nghỉ {it.rest_seconds}s</Text>
               </View>
               {doneIds.includes(it.exercise_id) ? <Ionicons name="checkmark-circle" size={26} color={colors.accent} /> : null}
+              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
             </Surface>
+            </Pressable>
             </SwipeToDone>
           ))}
           {plan.status !== 'done' ? <Button title={allDone ? 'Hoàn thành buổi tập' : 'Đã tập xong'} onPress={finish} loading={busy === 'done'} disabled={!!busy} style={styles.gap} /> : null}
@@ -137,7 +144,8 @@ export default function WorkoutScreen() {
         </>
       ) : form}
     </Screen>
-    <AskCoach context="workout" title="Lịch tập, kỹ thuật, phục hồi" starters={COACH_STARTERS} onDone={load} />
+    <AskCoach context="workout" title="Lịch tập, kỹ thuật, phục hồi" starters={COACH_STARTERS} onDone={load} nudge={nudge} onSeen={() => setNudge('')} />
+    <ExerciseSheet exerciseId={detail} onClose={() => setDetail(null)} />
     </>
   );
 }
