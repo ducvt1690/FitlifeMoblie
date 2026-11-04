@@ -68,7 +68,8 @@ test('admin locks accounts and manages the catalogs with an audit trail', async 
   assert.equal((await request('/api/quests', member.token)).status, 401, 'old sessions are revoked');
   assert.equal((await request(`/api/admin/accounts/${admin.id}`, admin.token, 'PATCH', { is_active: false })).status, 409);
   assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'admin' })).status, 400);
-  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { is_active: true })).status, 200);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { is_active: true })).status, 400, 'a reason is required');
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { is_active: true, note: 'Đã xác minh' })).status, 200);
 
   const found = await request(`/api/admin/accounts?q=${encodeURIComponent('Role user')}&role=user`, admin.token);
   assert.ok(found.body.accounts.every(row => row.role === 'user' && row.password_hash === undefined));
@@ -84,8 +85,8 @@ test('admin locks accounts and manages the catalogs with an audit trail', async 
   const item = { item_id: randomUUID(), title: 'Huy hiệu thử nghiệm', category: 'badge', cost_coins: 0, icon: 'ribbon-outline', is_available: true };
   assert.equal((await request('/api/admin/rewards', admin.token, 'POST', item)).status, 201);
   assert.equal((await request(`/api/rewards/${item.item_id}/purchase`, student.token, 'POST', { purchase_id: randomUUID() })).status, 201);
-  const sales = await request('/api/admin/transactions', admin.token);
-  assert.ok(sales.body.transactions.some(row => row.item_id === item.item_id && row.item_title === item.title));
+  const sales = await request('/api/admin/rewards', admin.token);
+  assert.equal(sales.body.items.find(row => row.item_id === item.item_id).sold, 1);
 
   const logs = (await request('/api/admin/logs', admin.token)).body.logs.map(row => row.action);
   for (const action of ['lock_account', 'unlock_account', 'create_challenge', 'update_challenge', 'create_reward_item']) {
