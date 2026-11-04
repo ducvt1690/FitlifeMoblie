@@ -88,6 +88,8 @@ export function createApi(call) {
       sessions: () => call('/api/chat/sessions'),
       messages: (id) => call(`/api/chat/sessions/${id}/messages`),
       send: (body) => post('/api/chat/messages', body),
+      memory: () => call('/api/chat/memory'),
+      clearMemory: () => call('/api/chat/memory', { method: 'DELETE' }),
     },
     admin: {
       overview: () => call('/api/admin/overview'),

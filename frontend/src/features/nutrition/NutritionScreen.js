@@ -11,6 +11,9 @@ import Button from '../../ui/Button';
 import Segmented from '../../ui/Segmented';
 import { colors, fonts, radius } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
+import AskCoach from '../coach/AskCoach';
+
+const COACH_STARTERS = ['Gợi ý bữa tiếp theo cho mình', 'Trưa nay mình ăn 1 tô phở bò', 'Còn thiếu bao nhiêu đạm?', 'Mình dị ứng tôm'];
 
 const fmt = (n) => Math.round(n ?? 0).toLocaleString('vi-VN');
 const r1 = (n) => Math.round(n * 10) / 10;
@@ -94,6 +97,7 @@ export default function NutritionScreen() {
   const t = data?.targets ?? {};
 
   return (
+    <>
     <Screen tabBar refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }}>
       <Text variant="title" style={styles.title}>Ăn uống</Text>
       {error ? <Text tone="danger" style={styles.gap}>{error}</Text> : null}
@@ -249,6 +253,8 @@ export default function NutritionScreen() {
           await load();
         })} />
     </Screen>
+    <AskCoach context="nutrition" title="Bữa ăn, macro, dị ứng" starters={COACH_STARTERS} onDone={load} />
+    </>
   );
 }
 

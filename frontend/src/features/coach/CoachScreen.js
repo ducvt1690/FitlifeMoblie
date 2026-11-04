@@ -1,105 +1,57 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import Text from '../../ui/Text';
-import { colors, fonts, radius } from '../../theme/tokens';
+import { colors, radius } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useAuth } from '../../context/AuthContext';
-import { newId } from '../../api/client';
-import { useKeyboardVisible } from '../../ui/useKeyboard';
+import CoachChat from './CoachChat';
 
 const STARTERS = ['Hôm nay mình nên ăn gì thêm?', 'Lên lịch tập ngực 45 phút cho mình', 'Tối nay ngủ sao cho sâu?'];
-// Replies that built a workout plan (server ai_engine) get a button to the Tập luyện tab.
-const PLAN_ENGINE = 'workout-plan';
 
-// One running conversation per visit; the server keeps the history and the free-tier limit.
+// The Coach tab: the shared chat plus what the coach remembers about the member.
 export default function CoachScreen() {
   const { api } = useAuth();
-  const router = useRouter();
-  const typing = useKeyboardVisible();
-  const { insets, gutter, contentWidth } = useLayout();
-  const [sessionId, setSessionId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  const scroll = useRef(null);
+  const { insets } = useLayout();
+  const [facts, setFacts] = useState([]);
+  const [open, setOpen] = useState(false);
+  const loadMemory = useCallback(() => { api.chat.memory().then(r => setFacts(r.facts)).catch(() => {}); }, [api]);
+  useFocusEffect(loadMemory);
 
-  useEffect(() => {
-    api.chat.sessions().then(async ({ sessions }) => {
-      if (!sessions.length) { setSessionId(newId()); return; }
-      setSessionId(sessions[0].session_id);
-      setMessages((await api.chat.messages(sessions[0].session_id)).messages);
-    }).catch((e) => { setSessionId(newId()); setError(e.message); });
-  }, [api]);
-
-  const send = useCallback(async (content) => {
-    const body = content.trim();
-    if (!body || sending || !sessionId) return;
-    const mine = { message_id: newId(), sender: 'user', content: body };
-    setMessages(m => [...m, mine]); setText(''); setSending(true); setError('');
-    try {
-      const res = await api.chat.send({ session_id: sessionId, message_id: mine.message_id, content: body });
-      if (res.reply) setMessages(m => [...m, res.reply]);
-    } catch (e) {
-      setMessages(m => m.filter(x => x.message_id !== mine.message_id));
-      setText(body);
-      setError(e.message);
-    } finally { setSending(false); }
-  }, [api, sending, sessionId]);
+  const header = (
+    <View style={{ gap: 10, paddingTop: insets.top + 12 }}>
+      <Text variant="title">AI Coach</Text>
+      <Text tone="dim">Nhờ Coach lên lịch tập, ghi bữa ăn, gợi ý món hay hỏi về giấc ngủ. Coach nhớ những điều bạn dặn.</Text>
+      <Pressable onPress={() => setOpen(o => !o)} style={styles.memory} accessibilityRole="button">
+        <Ionicons name="sparkles" size={16} color={colors.accent} />
+        <Text variant="label" tone="dim" style={{ flex: 1 }}>Coach đang nhớ {facts.length} điều về bạn</Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textFaint} />
+      </Pressable>
+      {open ? (
+        <View style={styles.facts}>
+          {facts.length ? facts.map(f => <Text key={f} variant="label">• {f}</Text>)
+            : <Text variant="label" tone="faint">Chưa có. Thử nhắn: "Nhớ giúp mình là mình đau gối trái".</Text>}
+          {facts.length ? (
+            <Pressable onPress={() => api.chat.clearMemory().then(r => setFacts(r.facts)).catch(() => {})} accessibilityRole="button">
+              <Text variant="label" tone="danger">Xoá hết bộ nhớ</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
 
   return (
-    <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView ref={scroll} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: gutter, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
-        <View style={{ width: '100%', maxWidth: contentWidth, alignSelf: 'center', gap: 10 }}>
-          <Text variant="title">AI Coach</Text>
-          <Text tone="dim">Hỏi về ăn uống, tập luyện hay giấc ngủ. Coach đọc số liệu hôm nay của bạn.</Text>
-          {!messages.length ? STARTERS.map(s => (
-            <Pressable key={s} onPress={() => send(s)} style={styles.starter} accessibilityRole="button">
-              <Text variant="label" tone="dim">{s}</Text>
-            </Pressable>
-          )) : null}
-          {messages.map(m => (
-            <View key={m.message_id} style={[styles.bubble, m.sender === 'user' ? styles.mine : styles.theirs]}>
-              <Text color={m.sender === 'user' ? colors.ink : colors.text}>{m.content}</Text>
-              {m.ai_engine === PLAN_ENGINE ? (
-                <Pressable onPress={() => router.navigate('/home/workout')} style={styles.planBtn} accessibilityRole="button">
-                  <Ionicons name="barbell" size={16} color={colors.ink} />
-                  <Text variant="label" color={colors.ink}>Mở lịch tập</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ))}
-          {sending ? <Text variant="caption" tone="faint">Coach đang trả lời…</Text> : null}
-          {error ? <Text variant="label" tone="danger">{error}</Text> : null}
-        </View>
-      </ScrollView>
-      <View style={[styles.inputBar, { marginHorizontal: gutter, marginBottom: typing ? 8 : 96 + insets.bottom, maxWidth: contentWidth }]}>
-        <TextInput value={text} onChangeText={setText} placeholder="Nhắn cho Coach…" placeholderTextColor={colors.textFaint}
-          style={styles.input} multiline selectionColor={colors.accent} />
-        <Pressable onPress={() => send(text)} disabled={!text.trim() || sending} accessibilityLabel="Gửi"
-          style={[styles.send, (!text.trim() || sending) && styles.sendOff]}>
-          <Ionicons name="arrow-up" size={20} color={colors.ink} />
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+    <View style={styles.page}>
+      <CoachChat starters={STARTERS} header={header} bottom={88 + insets.bottom} onAction={loadMemory} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
-  starter: { padding: 14, borderRadius: radius.sm, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.strokeSoft },
-  bubble: { maxWidth: '86%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
-  mine: { alignSelf: 'flex-end', backgroundColor: colors.text, borderBottomRightRadius: 6 },
-  theirs: { alignSelf: 'flex-start', backgroundColor: colors.surfaceHigh, borderBottomLeftRadius: 6 },
-  inputBar: { width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingTop: 8 },
-  input: { flex: 1, maxHeight: 120, minHeight: 46, color: colors.text, fontFamily: fonts.regular, fontSize: 16, paddingHorizontal: 16,
-    paddingTop: 12, paddingBottom: 12, borderRadius: 23, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.stroke, outlineStyle: 'none' },
-  send: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-  sendOff: { opacity: 0.4 },
-  planBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 14,
-    paddingVertical: 8, borderRadius: 999, backgroundColor: colors.accent },
+  memory: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: radius.sm, backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.strokeSoft },
+  facts: { gap: 6, padding: 12, borderRadius: radius.sm, backgroundColor: colors.surface },
 });

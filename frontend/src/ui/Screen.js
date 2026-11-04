@@ -11,7 +11,9 @@ export default function Screen({ children, scroll = true, refreshing, onRefresh,
   return (
     <View style={styles.page}>
       {scroll ? (
+        // iOS moves the focused field above the keyboard by itself; Android resizes the window (app.json softwareKeyboardLayoutMode).
         <ScrollView contentContainerStyle={padding} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive"
           refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={colors.accent} /> : undefined}>
           {inner}
         </ScrollView>

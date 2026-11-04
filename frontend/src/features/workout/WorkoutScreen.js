@@ -12,6 +12,9 @@ import Segmented from '../../ui/Segmented';
 import NumberStepper from '../../ui/NumberStepper';
 import { colors, radius } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
+import AskCoach from '../coach/AskCoach';
+
+const COACH_STARTERS = ['Lên lịch tập ngực 45 phút', 'Hôm nay nên tập nhóm cơ nào?', 'Lên lịch tập ở nhà không có tạ 30 phút', 'Tập xong nên ăn gì?'];
 
 const SPLITS = [
   { value: 'ppl', label: 'Push · Pull · Legs', days: [['push', 'Push'], ['pull', 'Pull'], ['legs', 'Legs']] },
@@ -63,6 +66,7 @@ export default function WorkoutScreen() {
   );
 
   return (
+    <>
     <Screen tabBar>
       <Text variant="title" style={styles.title}>Tập luyện</Text>
       {error ? (
@@ -96,6 +100,8 @@ export default function WorkoutScreen() {
         </>
       ) : form}
     </Screen>
+    <AskCoach context="workout" title="Lịch tập, kỹ thuật, phục hồi" starters={COACH_STARTERS} onDone={load} />
+    </>
   );
 }
 
