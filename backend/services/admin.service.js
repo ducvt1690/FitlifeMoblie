@@ -80,6 +80,18 @@ const exerciseSpec = {
   is_active: [rules.bool(), 'is_active phải là true/false.'],
 };
 const EXERCISE_REQUIRED = ['name_vi', 'body_parts', 'target_muscles', 'equipments', 'gif_url', 'instructions_vi'];
+// Readable name per log target type: [collection, id field, projection to a label].
+const TARGET_LABELS = {
+  user: ['users', 'user_id', d => d.full_name ? `${d.full_name} (${d.email})` : d.email],
+  challenge: ['challenges', 'challenge_id', d => d.title],
+  reward_item: ['reward_items', 'item_id', d => d.title],
+  exercise: ['exercises', 'exercise_id', d => d.name_vi || d.name],
+  payment: ['payment_orders', 'order_id', d => `${PRODUCTS[d.product]?.title ?? d.product} · ${d.amount_vnd.toLocaleString('vi-VN')}đ`],
+};
+const LABEL_FIELDS = { _id: 0, user_id: 1, challenge_id: 1, item_id: 1, exercise_id: 1, order_id: 1, full_name: 1, email: 1, title: 1, name: 1, name_vi: 1, product: 1, amount_vnd: 1 };
+// Default log note when an edit has no reason: what changed, in words.
+const changeNote = changes => Object.entries(changes).map(([key, value]) =>
+  key === 'is_active' ? (value ? 'Bật' : 'Tắt') : key === 'is_available' ? (value ? 'Mở bán' : 'Ngừng bán') : `Sửa ${key}`).join(', ');
 const requireNote = note => { if (!note) throw fail(400, 'Cần nhập lý do (note) cho thao tác này.'); return note; };
 const readUserId = value => {
   if (typeof value !== 'string' || !value || value.length > 128) throw fail(400, 'user_id không hợp lệ.');
@@ -159,7 +171,7 @@ function createAdminService({ db }) {
           const item = await coll().findOneAndUpdate({ [id]: itemId }, { $set: { ...changes, updated_at: now } },
             { session, returnDocument: 'after', projection: { _id: 0 } });
           if (!item) throw fail(404, `Không tìm thấy ${label}.`);
-          await writeLog(db, admin, `update_${target}`, target, itemId, note || Object.keys(changes).join(', '), now, session);
+          await writeLog(db, admin, `update_${target}`, target, itemId, note || changeNote(changes), now, session);
           return { success: true, message: `Đã cập nhật ${label}.`, item };
         });
       },
@@ -184,13 +196,23 @@ function createAdminService({ db }) {
     guard: guardChallengeRules });
   const rewards = catalog({ name: 'reward_items', id: 'item_id', spec: rewardSpec, target: 'reward_item', label: 'vật phẩm' });
 
+  // Adds target_label to each log row, one query per target type on the page.
+  async function labelTargets(rows) {
+    await Promise.all(Object.entries(TARGET_LABELS).map(async ([type, [name, key, label]]) => {
+      const ids = [...new Set(rows.filter(r => r.target_type === type).map(r => r.target_id))];
+      if (!ids.length) return;
+      const docs = await db.collection(name).find({ [key]: { $in: ids } }, { projection: LABEL_FIELDS }).toArray();
+      const byId = new Map(docs.map(d => [d[key], label(d)]));
+      for (const r of rows) if (r.target_type === type) r.target_label = byId.get(r.target_id) ?? null;
+    }));
+  }
   const service = {
     async overview() {
       const weekAgo = new Date(Date.now() - 7 * 86400000);
       const [roles, locked, newUsers, purchases, activeChallenges, availableRewards, purchasesTotal, recentLogs, paid, premium] = await Promise.all([
         users().aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]).toArray(),
         users().countDocuments({ is_active: false }),
-        users().countDocuments({ created_at: { $gte: weekAgo } }),
+        users().countDocuments({ role: 'user', created_at: { $gte: weekAgo } }),
         db.collection('purchases').aggregate([{ $match: { purchased_at: { $gte: weekAgo } } },
           { $group: { _id: null, count: { $sum: 1 }, coins: { $sum: '$spent_coins' } } }]).toArray(),
         db.collection('challenges').countDocuments({ is_active: true }),
@@ -578,8 +600,9 @@ function createAdminService({ db }) {
             await changeCoins(db, { userId: order.user_id, amount: -revokedCoins, source: 'payment_refund', refId: orderId, note, now, session });
           }
         }
+        const revoked = [revokedDays && `${revokedDays} ngày Premium`, revokedCoins && `${revokedCoins} xu`].filter(Boolean);
         await writeLog(db, admin, 'refund_payment', 'payment', orderId,
-          `${note} (thu hồi ${revokedDays} ngày Premium, ${revokedCoins} xu)`, now, session);
+          revoked.length ? `${note} (thu hồi ${revoked.join(', ')})` : note, now, session);
         return { success: true, message: 'Đã đánh dấu hoàn tiền.', revoked_premium_days: revokedDays, revoked_coins: revokedCoins,
           coins_not_recovered: (product.coins ?? 0) - revokedCoins };
       });
@@ -716,7 +739,7 @@ function createAdminService({ db }) {
           { session, returnDocument: 'after', projection: { _id: 0 } });
         if (!exercise) throw fail(404, 'Không tìm thấy bài tập.');
         await writeLog(db, admin, changes.is_active === false ? 'hide_exercise' : changes.is_active === true ? 'show_exercise' : 'update_exercise',
-          'exercise', exerciseId, note || Object.keys(changes).join(', '), now, session);
+          'exercise', exerciseId, note || changeNote(changes), now, session);
         return { success: true, message: 'Đã cập nhật bài tập.', exercise };
       });
     },
@@ -740,6 +763,7 @@ function createAdminService({ db }) {
         ]).toArray(),
         db.collection('admin_logs').countDocuments(filter),
       ]);
+      await labelTargets(rows);
       return { success: true, logs: rows, page: current, page_size: PAGE_SIZE, total };
     },
   };

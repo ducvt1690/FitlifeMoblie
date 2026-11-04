@@ -123,6 +123,7 @@ test('logout-all revokes every session of a member, is audited, and cannot targe
   const logs = await request(`/api/admin/logs?action=force_logout&target_id=${member.id}`, admin.token);
   assert.equal(logs.body.total, 2);
   assert.ok(logs.body.logs.some(row => row.note === 'Mất điện thoại'));
+  assert.ok(logs.body.logs.every(row => row.target_label.includes(member.email)), 'logs name their target');
 });
 
 test('granting admin needs a reason, ends the member sessions, and admins cannot change other admins', async () => {
@@ -257,7 +258,10 @@ test('payments filter by status, product, user and date; detail, CSV export and 
   assert.equal(Math.round(left / 86400000), 10);
   assert.equal((await request(refund, admin.token, 'POST', { note: 'lần 2' })).status, 409);
   assert.equal((await list('status=refunded')).body.total, 1);
-  assert.equal((await request(`/api/admin/logs?action=refund_payment&target_type=payment&target_id=${paid.order_id}`, admin.token)).body.total, 1);
+  const refundLog = (await request(`/api/admin/logs?action=refund_payment&target_type=payment&target_id=${paid.order_id}`, admin.token)).body;
+  assert.equal(refundLog.total, 1);
+  assert.equal(refundLog.logs[0].note, 'Khách khiếu nại, đã hoàn trên cổng VNPay (thu hồi 30 ngày Premium, 40 xu)');
+  assert.match(refundLog.logs[0].target_label, /^Premium 1 tháng · /);
   assert.equal((await request(`/api/admin/transactions?user_id=${member.id}&source=payment_refund`, admin.token)).body.transactions[0].amount, -40);
 });
 
