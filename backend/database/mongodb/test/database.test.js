@@ -9,6 +9,7 @@ const { collections } = require('../schema');
 const { initializeDatabase, verifyDatabase } = require('../database');
 const { seedCatalogs, seedDemo, buildDemoDocuments, DEMO_USER_ID, localDate } = require('../seed');
 const { DEMO_TRAINER_ID, DEMO_ADMIN_ID } = require('../seed');
+const { sampleCollections } = require('../sample-data');
 
 // A real ephemeral MongoDB replica set exercises validators, indexes and transactions.
 // Tests do not read .env or contact Atlas.
@@ -46,7 +47,8 @@ test('all 17 collections, validators, role fixtures and demo references pass the
   assert.equal(report.counts.reward_items, 6);
   assert.equal(report.counts.challenges, 3);
   assert.equal(report.counts.daily_quest_logs, 7);
-  assert.ok(Object.entries(report.counts).filter(([name]) => name !== 'exercises').every(([, count]) => count > 0));
+  const empty = sampleCollections.map(({ name }) => name).filter(name => !(report.counts[name] > 0));
+  assert.deepEqual(empty, [], `Collection seed demo bị rỗng: ${empty.join(', ')}`);
 });
 
 test('schema and catalog reruns preserve catalog edits and existing user data', async () => {

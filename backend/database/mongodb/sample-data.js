@@ -262,4 +262,4 @@ async function applySampleData(db, client, plan) {
   } finally { await session.endSession(); }
 }
 
-module.exports = { planSampleData, verifySamplePlan, applySampleData };
+module.exports = { planSampleData, verifySamplePlan, applySampleData, sampleCollections };

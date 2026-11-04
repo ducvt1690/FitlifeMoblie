@@ -7,7 +7,7 @@ const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { initializeDatabase, verifyDatabase } = require('../database');
 const { collections, QUEST_KEYS } = require('../schema');
 const { seedCatalogs, seedDemo, localDate } = require('../seed');
-const { planSampleData, applySampleData, verifySamplePlan } = require('../sample-data');
+const { planSampleData, applySampleData, verifySamplePlan, sampleCollections } = require('../sample-data');
 
 const password = 'FitLife-sample-test-only-password';
 const now = new Date('2026-10-26T03:00:00.000Z');
@@ -128,7 +128,7 @@ test('sample plan is read-only and application tops up every business collection
   await applySampleData(db, client, plan);
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  for (const { name } of collections.filter(entry => entry.name !== 'exercises')) {
+  for (const { name } of sampleCollections) {
     assert.ok(report.counts[name] >= 6, `${name} must have at least six documents`);
     assert.equal(report.counts[name], plan.afterCounts[name]);
   }
