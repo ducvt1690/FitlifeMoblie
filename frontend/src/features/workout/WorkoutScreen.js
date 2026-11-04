@@ -157,7 +157,8 @@ export default function WorkoutScreen() {
             </Pressable>
             </SwipeToDone>
           ))}
-          {plan.status !== 'done' ? <Button title={allDone ? 'Hoàn thành buổi tập' : 'Đã tập xong'} onPress={finish} loading={busy === 'done'} disabled={!!busy} style={styles.gap} /> : null}
+          {plan.status !== 'done' && !doneIds.length ? <Text variant="caption" tone="faint" align="center" style={styles.gap}>Đánh dấu bài đã tập để hoàn thành buổi. Chỉ bài đã tập được tính phút và kcal.</Text> : null}
+          {plan.status !== 'done' ? <Button title={allDone ? 'Hoàn thành buổi tập' : 'Đã tập xong'} onPress={finish} loading={busy === 'done'} disabled={!!busy || !doneIds.length} style={styles.gap} /> : null}
           <Button title="Tạo lịch khác" variant="glass" onPress={() => setShowForm(true)} style={styles.gap} />
         </>
       ) : form}

@@ -54,6 +54,8 @@ export const authApi = {
   register: (payload) => request('/api/auth/register', { method: 'POST', body: payload }),
   me: (token) => request('/api/auth/me', { token }),
   logout: (token) => request('/api/auth/logout', { method: 'POST', token }),
+  forgotPassword: (email) => request('/api/auth/forgot-password', { method: 'POST', body: { email } }),
+  resetPassword: (email, code, new_password) => request('/api/auth/reset-password', { method: 'POST', body: { email, code, new_password } }),
 };
 
 // Client-made ids let the backend ignore a request sent twice (double tap, flaky network).

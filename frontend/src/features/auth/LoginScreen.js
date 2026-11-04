@@ -47,6 +47,7 @@ export default function LoginScreen() {
           <View style={styles.alert} accessibilityLiveRegion="polite"><Text variant="label" tone="danger">{error}</Text></View>
         ) : null}
         <Button title="Đăng nhập" onPress={submit} loading={busy} style={styles.cta} />
+        <Button title="Quên mật khẩu?" variant="ghost" onPress={() => router.push('/forgot')} />
       </Glass>
 
       <View style={styles.footer}>
