@@ -159,6 +159,10 @@ test('stats summarise the requested days and chat stores both turns with a once-
   assert.equal(next.body.reward_coins, 0);
   const history = await request(`/api/chat/sessions/${sessionId}/messages`, member.token);
   assert.deepEqual(history.body.messages.map(m => m.sender), ['user', 'ai', 'user', 'ai']);
+  // Asking for a plan goes to the plan builder, which is Premium only.
+  const planAsk = await request('/api/chat/messages', member.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Lên lịch tập ngực 45 phút' });
+  assert.equal(planAsk.body.plan, null);
+  assert.match(planAsk.body.reply.content, /Premium/);
   const other = await register();
   assert.equal((await request(`/api/chat/sessions/${sessionId}/messages`, other.token)).status, 404);
   assert.equal((await request('/api/chat/messages', other.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Hi' })).status, 404);

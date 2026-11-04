@@ -7,11 +7,32 @@ const { isUuid, isText, isPlainBody } = require('../utils/validate');
 const { createQuestService, lockMember } = require('./quest.service');
 const { membershipOf } = require('./payment.service');
 const { complete } = require('./ai.client');
+const { createWorkoutPlanService } = require('./workout-plan.service');
 const fail = (status, message) => new HttpError(status, message);
 const RULE_ENGINE = 'fitlife-rules';
 // Free members get this many questions per rolling 24 hours; Premium is unlimited.
 const FREE_DAILY_MESSAGES = 10;
 const fmt = n => Math.round(n).toLocaleString('vi-VN');
+const PLAN_ENGINE = 'workout-plan';
+
+// "Lên lịch tập 45 phút cho ngực" → the same request the Tập luyện tab sends; null when the message is not asking for a plan.
+function planRequest(text) {
+  const q = text.toLowerCase();
+  if (!/(lịch|giáo án|kế hoạch|chương trình|plan|buổi)\s*(tập|workout|gym)|lên lịch|xếp lịch/.test(q)) return null;
+  const hours = q.match(/(\d+(?:[.,]\d+)?)\s*(tiếng|giờ|h\b)/);
+  const mins = q.match(/(\d{1,3})\s*(phút|p\b|min)/);
+  const minutes = Math.min(Math.max(Math.round(hours ? Number(hours[1].replace(',', '.')) * 60 : mins ? Number(mins[1]) : 45), 15), 120);
+  const [split, focus] = /thân trên|upper/.test(q) ? ['upper_lower', 'upper'] : /thân dưới|lower/.test(q) ? ['upper_lower', 'lower']
+    : /push|ngực|vai|tay sau/.test(q) ? ['ppl', 'push'] : /pull|lưng|xô|tay trước|bắp tay/.test(q) ? ['ppl', 'pull']
+      : /\blegs?\b|chân|mông|đùi/.test(q) ? ['ppl', 'legs'] : ['full_body', 'full'];
+  return { split, focus, minutes, note: [...text.trim()].slice(0, 300).join('') };
+}
+
+function planReply(plan) {
+  const lines = plan.items.map((i, n) => `${n + 1}. ${i.name}: ${i.sets} hiệp × ${i.reps}, nghỉ ${i.rest_seconds}s`);
+  return [`Mình đã lên lịch "${plan.title}" (khoảng ${plan.estimated_minutes} phút, khởi động ${plan.warmup_minutes} phút):`, ...lines,
+    plan.tip, 'Lịch đã có sẵn trong tab Tập luyện, bạn mở ra tập luôn.'].join('\n');
+}
 
 // Today's numbers give both the AI model and the rule-based coach something concrete to say.
 async function todayContext(db, user) {
@@ -68,6 +89,7 @@ Hôm nay đã ghi: ${ctx.water} ml nước, ${ctx.calories} kcal, ${ctx.workoutM
 
 function createChatService({ db, ai = {} }) {
   const quests = createQuestService({ db });
+  const plans = createWorkoutPlanService({ db, ai });
   async function ownSession(user, sessionId) {
     if (!isUuid(sessionId)) throw fail(400, 'session_id không hợp lệ.');
     const chat = await db.collection('ai_chat_sessions').findOne({ session_id: sessionId, user_id: user.user_id }, { projection: { _id: 0 } });
@@ -123,8 +145,16 @@ function createChatService({ db, ai = {} }) {
       if (saved.replayed) return { success: true, replayed: true, message: saved.message, reply: null, reward_coins: 0, fit_coins: saved.user.fit_coins };
 
       const ctx = await todayContext(db, saved.user);
-      let text, engine = RULE_ENGINE;
-      if (ai.apiKey) {
+      let text, engine = RULE_ENGINE, plan = null;
+      const wanted = planRequest(content);
+      if (wanted) {
+        // Asking the coach for a plan builds the real plan, so the Tập luyện tab shows it with nothing left to fill in.
+        try { plan = (await plans.create(saved.user, wanted)).plan; text = planReply(plan); engine = PLAN_ENGINE; }
+        catch (error) {
+          if (error.httpStatus === 402 || error.httpStatus === 503) text = `${error.message} Bạn vẫn có thể tự tạo ở tab Tập luyện.`;
+        }
+      }
+      if (!text && ai.apiKey) {
         const history = await db.collection('ai_chat_messages').find({ user_id: saved.user.user_id, session_id: body.session_id })
           .sort({ timestamp: -1, message_id: -1 }).limit(20).toArray();
         history.reverse();
@@ -139,9 +169,9 @@ function createChatService({ db, ai = {} }) {
         content: text, ai_engine: engine, timestamp: now, created_at: now, updated_at: now };
       await db.collection('ai_chat_messages').insertOne(reply);
       delete reply._id;
-      return { success: true, replayed: false, message: saved.message, reply,
+      return { success: true, replayed: false, message: saved.message, reply, plan,
         reward_coins: saved.reward, fit_coins: saved.user.fit_coins + saved.reward };
     },
   };
 }
-module.exports = { FREE_DAILY_MESSAGES, createChatService };
+module.exports = { FREE_DAILY_MESSAGES, PLAN_ENGINE, createChatService, planRequest };
