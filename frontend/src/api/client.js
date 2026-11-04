@@ -61,6 +61,13 @@ export const authApi = {
 // Client-made ids let the backend ignore a request sent twice (double tap, flaky network).
 export const newId = () => randomUUID();
 
+// Query string from an object, leaving out empty values.
+const qs = (params = {}) => {
+  const parts = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+};
+
 // Signed-in endpoints. `call(path, { method, body })` already carries the token.
 export function createApi(call) {
   const post = (path, body) => call(path, { method: 'POST', body });
@@ -109,6 +116,30 @@ export function createApi(call) {
     },
     admin: {
       overview: () => call('/api/admin/overview'),
+      analytics: (range) => call(`/api/admin/analytics?range=${range}`),
+      accounts: (filter) => call(`/api/admin/accounts${qs(filter)}`),
+      account: (id) => call(`/api/admin/accounts/${id}`),
+      updateAccount: (id, body) => call(`/api/admin/accounts/${id}`, { method: 'PATCH', body }),
+      logoutAll: (id, note) => post(`/api/admin/accounts/${id}/logout-all`, { note }),
+      grantPremium: (id, days, note) => post(`/api/admin/accounts/${id}/premium`, { days, note }),
+      revokePremium: (id, note) => call(`/api/admin/accounts/${id}/premium`, { method: 'DELETE', body: { note } }),
+      coins: (id, amount, note) => post(`/api/admin/accounts/${id}/coins`, { amount, note }),
+      clearChat: (id, note) => call(`/api/admin/accounts/${id}/chat`, { method: 'DELETE', body: { note } }),
+      payments: (filter) => call(`/api/admin/payments${qs(filter)}`),
+      payment: (id) => call(`/api/admin/payments/${id}`),
+      refund: (id, note) => post(`/api/admin/payments/${id}/refund`, { note }),
+      aiLimits: () => call('/api/admin/settings/ai-limits'),
+      setAiLimits: (body) => call('/api/admin/settings/ai-limits', { method: 'PUT', body }),
+      challenges: () => call('/api/admin/challenges'),
+      createChallenge: (body) => post('/api/admin/challenges', { challenge_id: newId(), ...body }),
+      updateChallenge: (id, body) => call(`/api/admin/challenges/${id}`, { method: 'PATCH', body }),
+      rewards: () => call('/api/admin/rewards'),
+      createReward: (body) => post('/api/admin/rewards', { item_id: newId(), ...body }),
+      updateReward: (id, body) => call(`/api/admin/rewards/${id}`, { method: 'PATCH', body }),
+      exercises: (filter) => call(`/api/admin/exercises${qs(filter)}`),
+      updateExercise: (id, body) => call(`/api/admin/exercises/${id}`, { method: 'PATCH', body }),
+      transactions: (filter) => call(`/api/admin/transactions${qs(filter)}`),
+      logs: (filter) => call(`/api/admin/logs${qs(filter)}`),
     },
   };
 }

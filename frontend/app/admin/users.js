@@ -1,5 +1,1 @@
-import ComingSoon from '../../src/ui/ComingSoon';
-
-export default function Users() {
-  return <ComingSoon title="Người dùng" note="Quản lý tài khoản, phân quyền và khóa/mở khóa sẽ có ở bản tiếp theo." />;
-}
+export { default } from '../../src/features/admin/UsersScreen';
