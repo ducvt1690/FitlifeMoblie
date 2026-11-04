@@ -1,0 +1,1018 @@
+{
+  "info": {
+    "name": "FitLife — ALL API (Run all)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run ALL requests in order. No token/environment required. Each run creates one isolated test user, captures fresh tokens locally, tests every implemented route, then logs out both sessions. Expected 400/401/409 are negative tests. Each run retains its test account/logs for inspection. Registration is limited to 20 requests/IP/15 minutes: this collection uses three registration requests per run. On 429 the run stops with Retry-After instead of cascading authentication failures."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{fitlifeRunToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 429) { pm.test('Rate limited: wait Retry-After=' + pm.response.headers.get('Retry-After') + ' seconds before rerunning', () => pm.response.to.have.status(200)); pm.execution.setNextRequest(null); }"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — API index",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('baseUrl', (pm.environment.get('baseUrl') || 'http://localhost:5000').replace(/\\/$/, ''));",
+              "['fitlifeRunToken','fitlifeRegistrationToken','fitlifeUserId','fitlifeExerciseId','fitlifeCursor'].forEach(k => pm.variables.unset(k));",
+              "const id = pm.variables.replaceIn('{{$guid}}');",
+              "pm.variables.set('fitlifeEmail', 'postman-all-' + (pm.variables.get('fitlifeRunTag') || 'desktop') + '-' + id + '@fitlife.example');",
+              "pm.variables.set('fitlifePassword', 'FitLife-' + pm.variables.replaceIn('{{$guid}}'));",
+              "['Meal','Water','Workout'].forEach(k => pm.variables.set('fitlife' + k + 'Id', pm.variables.replaceIn('{{$guid}}').toLowerCase()));",
+              "pm.variables.set('fitlifeRegistrationBody', JSON.stringify({email:pm.variables.get('fitlifeEmail'),password:pm.variables.get('fitlifePassword'),full_name:'Kiểm thử Postman',gender:'male',age:23,height:170,weight:65,activity_level:'moderate',goal:'maintain',timezone:'Asia/Ho_Chi_Minh'}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"01 — API index — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Route catalog contains all business groups\", () => { const e=pm.response.json().endpoints; ['auth','profile','water','workouts','exercises','meals','quests'].forEach(k=>pm.expect(e).to.have.property(k)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Database health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"02 — Database health — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Database connected\", () => { pm.expect(pm.response.json().database).to.eql('connected'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Invalid registration",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"03 — Invalid registration — HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Register isolated user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{fitlifeRegistrationBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"04 — Register isolated user — HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); } else { const b=pm.response.json(); pm.variables.set('fitlifeRunToken',b.token); pm.variables.set('fitlifeRegistrationToken',b.token); pm.variables.set('fitlifeUserId',b.user.user_id); }",
+              "pm.test(\"New account has user role, zero coins and valid token\", () => { const b=pm.response.json(); pm.expect(b.user.role).to.eql('user'); pm.expect(b.user.profile.coins).to.eql(0); pm.expect(b.token).to.match(/^[A-Za-z0-9_-]{43}$/); });",
+              "pm.test(\"Session expiry is positive and no longer than 12h\", () => { const remaining=Date.parse(pm.response.json().expires_at)-Date.now(); pm.expect(remaining).to.be.above(0); pm.expect(remaining).to.be.at.most(43200000); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — Duplicate account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{fitlifeRegistrationBody}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"05 — Duplicate account — HTTP 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Login fresh session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{fitlifeEmail}}\",\n  \"password\": \"{{fitlifePassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"06 — Login fresh session — HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); } else pm.variables.set('fitlifeRunToken',pm.response.json().token);",
+              "pm.test(\"Login retains the account ID\", () => { pm.expect(pm.response.json().user.user_id).to.eql(pm.variables.get('fitlifeUserId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — Reject missing bearer",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"07 — Reject missing bearer — HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — Current session",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"08 — Current session — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Session belongs to this run\", () => { pm.expect(pm.response.json().user.user_id).to.eql(pm.variables.get('fitlifeUserId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 — Read profile",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"09 — Read profile — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Profile is private and birthday is initially unknown\", () => { const p=pm.response.json().profile; pm.expect(p.user_id).to.eql(pm.variables.get('fitlifeUserId')); pm.expect(p.date_of_birth).to.eql(null); pm.expect(p).not.to.have.property('password_hash'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 — Patch name, birthday and email",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Hồ sơ đã cập nhật\",\n  \"date_of_birth\": \"2000-05-15\",\n  \"email\": \"{{fitlifeEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"10 — Patch name, birthday and email — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Birthday and email persisted\", () => { const p=pm.response.json().profile; pm.expect(p.full_name).to.eql('Hồ sơ đã cập nhật'); pm.expect(p.date_of_birth).to.eql('2000-05-15'); pm.expect(p.email).to.eql(pm.variables.get('fitlifeEmail')); pm.expect(p.age).to.be.within(5,100); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 — Invalid calendar date",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date_of_birth\": \"2001-02-29\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"11 — Invalid calendar date — HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 — Reject profile privilege injection",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"role\": \"admin\",\n  \"fit_coins\": 9999\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"12 — Reject profile privilege injection — HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 — Water create",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/water-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"log_id\": \"{{fitlifeWaterId}}\",\n  \"amount\": 250\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"13 — Water create — HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Water grants exactly 10 coins\", () => { const b=pm.response.json(); pm.expect(b.reward_coins).to.eql(10); pm.expect(b.fit_coins).to.eql(10); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 — Water retry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/water-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"log_id\": \"{{fitlifeWaterId}}\",\n  \"amount\": 250\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"14 — Water retry — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"No duplicate water reward\", () => { const b=pm.response.json(); pm.expect(b.replayed).to.eql(true); pm.expect(b.reward_coins).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 — Water read",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/water-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"15 — Water read — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Water total is 250ml\", () => { const b=pm.response.json(); pm.expect(b.logs).to.have.lengthOf(1); pm.expect(b.total).to.eql(250); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 — Workout create",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/workout-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workout_id\": \"{{fitlifeWorkoutId}}\",\n  \"title\": \"Hít đất\",\n  \"category\": \"Toàn thân\",\n  \"duration_seconds\": 600,\n  \"calories_burned\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"16 — Workout create — HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Workout reward and daily water bonus\", () => { const b=pm.response.json(); pm.expect(b.reward_coins).to.eql(10); pm.expect(b.fit_coins).to.eql(20); pm.expect(b.target_water).to.eql(2625); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 — Workout retry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/workout-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workout_id\": \"{{fitlifeWorkoutId}}\",\n  \"title\": \"Hít đất\",\n  \"category\": \"Toàn thân\",\n  \"duration_seconds\": 600,\n  \"calories_burned\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"17 — Workout retry — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Workout is not duplicated\", () => { const b=pm.response.json(); pm.expect(b.replayed).to.eql(true); pm.expect(b.reward_coins).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 — Workout read",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/workout-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"18 — Workout read — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Workout totals match\", () => { const b=pm.response.json(); pm.expect(b.logs).to.have.lengthOf(1); pm.expect(b.total_duration_seconds).to.eql(600); pm.expect(b.total_calories_burned).to.eql(50); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 — Invalid workout date",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/workout-logs?date=2026-02-30"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"19 — Invalid workout date — HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 — Meal create",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/meal-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"meal_id\": \"{{fitlifeMealId}}\",\n  \"meal_name\": \"Phở bò\",\n  \"calories\": 450,\n  \"protein\": 25,\n  \"carbs\": 55,\n  \"fat\": 14,\n  \"meal_type\": \"breakfast\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"20 — Meal create — HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Meal reward increases total to 30\", () => { const b=pm.response.json(); pm.expect(b.reward_coins).to.eql(10); pm.expect(b.fit_coins).to.eql(30); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 — Meal retry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/meal-logs",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"meal_id\": \"{{fitlifeMealId}}\",\n  \"meal_name\": \"Phở bò\",\n  \"calories\": 450,\n  \"protein\": 25,\n  \"carbs\": 55,\n  \"fat\": 14,\n  \"meal_type\": \"breakfast\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"21 — Meal retry — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Meal retry awards zero coins\", () => { pm.expect(pm.response.json().reward_coins).to.eql(0); pm.expect(pm.response.json().replayed).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 — Meal read",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/meal-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"22 — Meal read — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Nutrition totals reflect the isolated meal\", () => { const b=pm.response.json(); pm.expect(b.logs).to.have.lengthOf(1); pm.expect(b.total_calories).to.eql(450); pm.expect(b.total_protein).to.eql(25); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 — Partial meal patch",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/meal-logs/{{fitlifeMealId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calories\": 600\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"23 — Partial meal patch — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Partial PATCH preserves omitted fields\", () => { const b=pm.response.json(); pm.expect(b.meal.calories).to.eql(600); pm.expect(b.meal.meal_name).to.eql('Phở bò'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 — Confirm meal quest",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/quests"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"24 — Confirm meal quest — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Only water, workout and meal quests are complete\", () => { const qs=pm.response.json().quests; pm.expect(qs).to.have.lengthOf(7); pm.expect(qs.filter(q=>q.is_completed).map(q=>q.quest_key).sort()).to.eql(['q_meal','q_water','q_workout']); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 — Meal delete",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/meal-logs/{{fitlifeMealId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"25 — Meal delete — HTTP 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 — Meal absence",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/meal-logs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"26 — Meal absence — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Deleted meal no longer contributes calories\", () => { const b=pm.response.json(); pm.expect(b.logs).to.have.lengthOf(0); pm.expect(b.total_calories).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 — Verify refund balance",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"27 — Verify refund balance — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Only meal reward was withdrawn\", () => { const p=pm.response.json().profile; pm.expect(p.fit_coins).to.eql(20); pm.expect(p.target_water).to.eql(2625); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 — Verify quest reset",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/quests"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"28 — Verify quest reset — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Meal quest reset after last meal deletion\", () => { pm.expect(pm.response.json().quests.find(q=>q.quest_key==='q_meal').is_completed).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 — Exercise list first page",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/exercises?limit=2"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"29 — Exercise list first page — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Exercise catalog is populated and localized\", () => { const b=pm.response.json(); pm.expect(b.data).to.have.lengthOf(2); pm.expect(b.data[0].display_name).to.be.a('string').and.not.empty; pm.expect(b.data[0].gif_url.startsWith('https://')).to.eql(true); pm.expect(b.meta.hasNextPage).to.eql(true); });",
+              "if(pm.response.code===200 && pm.response.json().data.length) { const b=pm.response.json(); pm.variables.set('fitlifeExerciseId',b.data[0].exercise_id); pm.variables.set('fitlifeCursor',b.meta.nextAfter); pm.variables.set('fitlifeFirstIds',JSON.stringify(b.data.map(x=>x.exercise_id))); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 — Exercise next page",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/exercises?limit=2&after={{fitlifeCursor}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"30 — Exercise next page — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Cursor does not repeat exercises\", () => { const previous=JSON.parse(pm.variables.get('fitlifeFirstIds')); pm.response.json().data.forEach(x=>pm.expect(previous).not.to.include(x.exercise_id)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 — Exercise detail by internal UUID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/exercises/{{fitlifeExerciseId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"31 — Exercise detail by internal UUID — HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Exercise detail matches selected ID\", () => { pm.expect(pm.response.json().exercise.exercise_id).to.eql(pm.variables.get('fitlifeExerciseId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 — Invalid exercise identifier",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/exercises/not-a-uuid"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"32 — Invalid exercise identifier — HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 — Logout registration session",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('fitlifeLoginToken',pm.variables.get('fitlifeRunToken')); pm.variables.set('fitlifeRunToken',pm.variables.get('fitlifeRegistrationToken'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"33 — Logout registration session — HTTP 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 — Revoked registration token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"34 — Revoked registration token — HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35 — Login session remains active",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('fitlifeRunToken',pm.variables.get('fitlifeLoginToken'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"35 — Login session remains active — HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "36 — Logout remaining session",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"36 — Logout remaining session — HTTP 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "37 — Session revoked immediately",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"37 — Session revoked immediately — HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
