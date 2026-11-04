@@ -1,6 +1,9 @@
+import { Fragment } from 'react';
 import { Stack } from 'expo-router';
-import { colors } from '../../src/theme/tokens';
+import { colors, useScheme } from '../../src/theme/tokens';
 
 export default function AuthLayout() {
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }} />;
+  const scheme = useScheme();
+  return <Stack screenLayout={({ children }) => <Fragment key={scheme}>{children}</Fragment>}
+    screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }} />;
 }

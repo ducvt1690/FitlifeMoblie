@@ -1,8 +1,7 @@
-import { Appearance, DevSettings, Platform } from 'react-native';
+import { Appearance, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-// The theme is read synchronously before any stylesheet is built, so every screen picks its palette at start-up.
-// Changing it saves the choice and reloads the app.
+// The saved theme choice. It is read synchronously at start-up so the first frame already has the right palette.
 const KEY = 'fitlife.theme';
 export const THEMES = [
   { value: 'dark', label: 'Tối' },
@@ -17,15 +16,12 @@ export function readTheme() {
   } catch { return 'dark'; }
 }
 
-export const themeChoice = readTheme();
-export const scheme = themeChoice === 'system' ? (Appearance.getColorScheme() === 'light' ? 'light' : 'dark') : themeChoice;
-
-// Returns false when the app could not restart itself (a release build without a dev menu): the change applies next launch.
-export function applyTheme(value) {
+export function saveTheme(value) {
   try {
-    if (Platform.OS === 'web') { globalThis.localStorage?.setItem(KEY, value); globalThis.location?.reload(); return true; }
-    SecureStore.setItem(KEY, value);
-  } catch { return false; }
-  if (__DEV__) { DevSettings.reload(); return true; }
-  return false;
+    if (Platform.OS === 'web') globalThis.localStorage?.setItem(KEY, value);
+    else SecureStore.setItem(KEY, value);
+  } catch {}
 }
+
+// The palette a choice stands for right now ('system' follows the phone's setting).
+export const resolveScheme = (choice) => (choice === 'system' ? (Appearance.getColorScheme() === 'light' ? 'light' : 'dark') : choice);

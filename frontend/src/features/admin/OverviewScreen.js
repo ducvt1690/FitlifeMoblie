@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import Screen from '../../ui/Screen';
 import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 
 const fmt = (n) => (n ?? 0).toLocaleString('vi-VN');
@@ -59,11 +59,11 @@ export default function OverviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   title: { marginBottom: 18 },
   alert: { padding: 12, marginBottom: 12, backgroundColor: colors.dangerSoft },
   revenue: { padding: 18, marginBottom: 12, gap: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { flexBasis: '30%', flexGrow: 1, minWidth: 100, padding: 14, gap: 6, justifyContent: 'space-between' },
   tileLabel: { minHeight: 34 },
-});
+}));

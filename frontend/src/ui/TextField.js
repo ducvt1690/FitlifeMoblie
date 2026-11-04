@@ -2,7 +2,7 @@ import { forwardRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Text from './Text';
-import { colors, fonts, radius } from '../theme/tokens';
+import { colors, fonts, radius, themed } from '../theme/tokens';
 
 // Labelled input. `secure` adds a show/hide toggle; `error` shows a message under the field.
 const TextField = forwardRef(function TextField({ label, error, secure, suffix, style, onFocus, onBlur, ...input }, ref) {
@@ -30,7 +30,7 @@ const TextField = forwardRef(function TextField({ label, error, secure, suffix, 
 });
 export default TextField;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   label: { marginBottom: 6, marginLeft: 4 },
   box: { flexDirection: 'row', alignItems: 'center', minHeight: 54, paddingHorizontal: 16, gap: 10, borderRadius: radius.sm,
     backgroundColor: colors.field, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.stroke },
@@ -39,4 +39,4 @@ const styles = StyleSheet.create({
   input: { flex: 1, color: colors.text, fontFamily: fonts.medium, fontSize: 17, paddingVertical: 14, outlineStyle: 'none' },
   suffix: { marginLeft: 4 },
   error: { marginTop: 6, marginLeft: 4 },
-});
+}));

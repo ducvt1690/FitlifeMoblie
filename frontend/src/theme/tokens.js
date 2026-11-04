@@ -1,4 +1,6 @@
-import { scheme } from './preference';
+import { useSyncExternalStore } from 'react';
+import { Appearance } from 'react-native';
+import { readTheme, resolveScheme, saveTheme } from './preference';
 
 // Design tokens: dark and quiet by default, with a light palette the member can switch to. Content sits on flat surfaces; glass is kept for things that float
 // (tab bar, controls over photos). Lime is the brand colour and is used sparingly.
@@ -61,9 +63,45 @@ const light = {
   steps: '#7FB800',
 };
 
-// Picked once at start-up from the saved choice (see preference.js).
-export const colors = scheme === 'light' ? light : dark;
-export { scheme };
+// The theme can change while the app runs. `colors` is one object updated in place, so values read while rendering are
+// always current; stylesheets are built through `themed` so they are rebuilt for the new palette; screens re-render
+// through `useScheme` (see GlassTabs and the root layout).
+let choice = readTheme();
+export let scheme = resolveScheme(choice);
+export const colors = { ...(scheme === 'light' ? light : dark) };
+let version = 0;
+const listeners = new Set();
+
+function setScheme(next) {
+  if (next === scheme) return;
+  scheme = next;
+  version += 1;
+  Object.assign(colors, next === 'light' ? light : dark);
+  listeners.forEach(l => l());
+}
+
+export const themeChoice = () => choice;
+export function applyTheme(value) {
+  choice = value;
+  saveTheme(value);
+  setScheme(resolveScheme(value));
+}
+// "Theo máy" follows the phone when it switches between light and dark.
+Appearance.addChangeListener(() => { if (choice === 'system') setScheme(resolveScheme('system')); });
+
+const subscribe = (l) => { listeners.add(l); return () => listeners.delete(l); };
+export const useScheme = () => useSyncExternalStore(subscribe, () => scheme);
+
+// A stylesheet that is built on first use and rebuilt after the palette changes: `themed(() => StyleSheet.create({...}))`.
+export function themed(build) {
+  let cache, builtFor = -1;
+  return new Proxy({}, {
+    get(_, key) {
+      if (builtFor !== version) { cache = build(); builtFor = version; }
+      return cache[key];
+    },
+  });
+}
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
 export const radius = { sm: 12, md: 18, lg: 24, pill: 999 };

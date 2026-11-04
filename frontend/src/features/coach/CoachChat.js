@@ -3,7 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindow
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Text from '../../ui/Text';
-import { colors, fonts, radius } from '../../theme/tokens';
+import { colors, fonts, radius, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useAuth } from '../../context/AuthContext';
 import { newId } from '../../api/client';
@@ -137,7 +137,7 @@ export default function CoachChat({ context = 'general', starters = [], header =
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   fill: { flex: 1 },
   starter: { padding: 14, borderRadius: radius.sm, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.strokeSoft },
   bubble: { maxWidth: '86%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
@@ -154,4 +154,4 @@ const styles = StyleSheet.create({
     borderColor: colors.stroke, outlineStyle: 'none' },
   send: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   sendOff: { opacity: 0.4 },
-});
+}));

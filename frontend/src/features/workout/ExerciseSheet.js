@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } fro
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Text from '../../ui/Text';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useAuth } from '../../context/AuthContext';
 
@@ -84,7 +84,7 @@ export default function ExerciseSheet({ exerciseId, onClose }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   flex: { flex: 1 },
   sheet: { flex: 1, backgroundColor: colors.bg },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 12 },
@@ -97,4 +97,4 @@ const styles = StyleSheet.create({
   block: { gap: 10, padding: 16, borderRadius: radius.md, backgroundColor: colors.surface },
   row: { flexDirection: 'row', gap: 10 },
   num: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-});
+}));

@@ -6,7 +6,7 @@ import Glass from '../../ui/Glass';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
 import TextField from '../../ui/TextField';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
@@ -57,10 +57,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   hero: { marginTop: 20, marginBottom: 22, gap: 6 },
   card: { padding: 18, gap: 14 },
   alert: { backgroundColor: colors.dangerSoft, borderRadius: radius.sm, padding: 12 },
   cta: { marginTop: 4 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-});
+}));

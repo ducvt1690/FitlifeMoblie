@@ -9,7 +9,7 @@ import Button from '../../ui/Button';
 import TextField from '../../ui/TextField';
 import Segmented from '../../ui/Segmented';
 import NumberStepper from '../../ui/NumberStepper';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { authApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -191,7 +191,7 @@ function PlanStep({ result, onDone }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   progress: { flexDirection: 'row', gap: 6 },
   dash: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.glassStrong },
   dashOn: { backgroundColor: colors.text },
@@ -207,4 +207,4 @@ const styles = StyleSheet.create({
   spacer: { flexGrow: 1, minHeight: 24 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   planRow: { padding: 16, gap: 2 },
-});
+}));

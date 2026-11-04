@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Glass from './Glass';
 import Text from './Text';
-import { colors, fonts, radius } from '../theme/tokens';
+import { colors, fonts, radius, themed } from '../theme/tokens';
 
 // Pressable that shrinks slightly and ticks the haptic engine, like system buttons.
 // `style` sizes the visible content; `containerStyle` positions the pressable itself (e.g. flex: 1 in a row).
@@ -48,9 +48,9 @@ export default function Button({ title, onPress, variant = 'primary', icon, load
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   base: { minHeight: 54, borderRadius: radius.pill, justifyContent: 'center', paddingHorizontal: 22 },
   primary: { backgroundColor: colors.text },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   title: { fontFamily: fonts.semibold, fontSize: 17 },
-});
+}));

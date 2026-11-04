@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Glass from '../../ui/Glass';
 import { PressScale } from '../../ui/Button';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 
 const PHOTO = require('../../../assets/images/landing.jpg');
@@ -38,7 +38,7 @@ export default function AuthShell({ children, onBack, header }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   fill: { flex: 1 },
   top: { paddingBottom: 8 },
@@ -46,4 +46,4 @@ const styles = StyleSheet.create({
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   scroll: { flexGrow: 1 },
   column: { width: '100%', alignSelf: 'center', flexGrow: 1 },
-});
+}));

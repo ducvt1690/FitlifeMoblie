@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
-import { colors } from '../../theme/tokens';
+import { colors, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -53,10 +53,10 @@ export default function RestTimer({ rest, onClose }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
   bar: { width: '100%', maxWidth: 520, backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: colors.stroke, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, overflow: 'hidden' },
   fill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.accentSoft },
   flex: { flex: 1 },
   chip: { minWidth: 40, height: 36, paddingHorizontal: 10, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-});
+}));

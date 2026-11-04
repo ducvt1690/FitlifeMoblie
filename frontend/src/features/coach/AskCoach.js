@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Text from '../../ui/Text';
-import { colors } from '../../theme/tokens';
+import { colors, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useKeyboardVisible } from '../../ui/useKeyboard';
 import CoachChat from './CoachChat';
@@ -54,7 +54,7 @@ export default function AskCoach({ context, title, starters, onDone, nudge, onSe
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   fab: { position: 'absolute', right: 16, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 12,
     borderRadius: 999, backgroundColor: colors.accent, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
   nudge: { position: 'absolute', right: 16, maxWidth: 260, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12,
@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: colors.bg },
   head: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
   close: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-});
+}));

@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import Logo from '../../ui/Logo';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
-import { colors } from '../../theme/tokens';
+import { colors, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 
 const PHOTO = require('../../../assets/images/landing.jpg');
@@ -73,7 +73,7 @@ export default function LandingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
   topShade: { position: 'absolute', top: 0, left: 0, right: 0, height: 160 },
   bottomShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '70%' },
@@ -83,4 +83,4 @@ const styles = StyleSheet.create({
   sub: { marginBottom: 28, maxWidth: 360 },
   signin: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   signinBtn: { marginLeft: -12 },
-});
+}));

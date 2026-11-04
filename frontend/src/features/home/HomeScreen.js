@@ -7,7 +7,7 @@ import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
 import ProgressRing from '../../ui/ProgressRing';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useLayout } from '../../theme/useLayout';
 import { useAuth } from '../../context/AuthContext';
 
@@ -172,7 +172,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
@@ -192,4 +192,4 @@ const styles = StyleSheet.create({
   bar: { width: '100%', borderRadius: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { flexBasis: '47%', flexGrow: 1, padding: 16, gap: 4 },
-});
+}));

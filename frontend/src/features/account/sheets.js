@@ -10,7 +10,7 @@ import Surface from '../../ui/Surface';
 import TextField from '../../ui/TextField';
 import Segmented from '../../ui/Segmented';
 import NumberStepper from '../../ui/NumberStepper';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 
 export const GOALS = [
@@ -165,7 +165,7 @@ export function MembershipSheet({ visible, onClose, onChanged }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   flex: { flex: 1 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
   premium: { backgroundColor: colors.accent },
@@ -173,4 +173,4 @@ const styles = StyleSheet.create({
   buy: { minWidth: 120 },
   section: { marginTop: 8 },
   order: { flexDirection: 'row', gap: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.strokeSoft },
-});
+}));

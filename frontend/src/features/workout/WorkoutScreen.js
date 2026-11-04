@@ -11,7 +11,7 @@ import TextField from '../../ui/TextField';
 import Button from '../../ui/Button';
 import Segmented from '../../ui/Segmented';
 import NumberStepper from '../../ui/NumberStepper';
-import { colors, radius } from '../../theme/tokens';
+import { colors, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import AskCoach from '../coach/AskCoach';
 import ExerciseSheet from './ExerciseSheet';
@@ -169,7 +169,7 @@ export default function WorkoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   title: { marginBottom: 16 },
   card: { padding: 18, gap: 12, marginBottom: 12 },
   alert: { borderColor: colors.stroke },
@@ -183,4 +183,4 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   restChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: colors.accentSoft },
   gap: { marginTop: 10 },
-});
+}));

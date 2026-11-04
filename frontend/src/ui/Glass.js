@@ -1,7 +1,7 @@
 import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { colors, radius as radii, scheme } from '../theme/tokens';
+import { colors, radius as radii, themed, useScheme } from '../theme/tokens';
 
 const liquid = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
@@ -9,6 +9,7 @@ const liquid = Platform.OS === 'ios' && isLiquidGlassAvailable();
 // iOS 26 uses the system Liquid Glass; older iOS, Android and web use a dark blur with a hairline edge.
 // `blur` is for surfaces floating over imagery; plain cards on the dark background only need the tint.
 export default function Glass({ children, style, radius = radii.md, blur = false, intensity = 40, tint, interactive = false, ...rest }) {
+  const scheme = useScheme();
   const shape = { borderRadius: radius, overflow: 'hidden' };
   if (liquid) {
     return (
@@ -29,10 +30,10 @@ export default function Glass({ children, style, radius = radii.md, blur = false
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   edge: {
     backgroundColor: colors.glass,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.stroke,
   },
-});
+}));

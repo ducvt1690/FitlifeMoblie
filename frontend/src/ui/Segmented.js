@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from './Surface';
 import Text from './Text';
 import { PressScale } from './Button';
-import { colors, radius } from '../theme/tokens';
+import { colors, radius, themed } from '../theme/tokens';
 
 // Choice chips. options: [{ value, label, hint?, icon? }]. `stacked` lays them out as full-width rows.
 export default function Segmented({ options, value, onChange, stacked = false }) {
@@ -29,7 +29,7 @@ export default function Segmented({ options, value, onChange, stacked = false })
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   cell: { flex: 1 },
   stack: { gap: 10 },
@@ -38,4 +38,4 @@ const styles = StyleSheet.create({
   on: { borderColor: colors.text, borderWidth: 1 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.textFaint },
   radioOn: { borderWidth: 6, borderColor: colors.accent },
-});
+}));

@@ -10,8 +10,8 @@ import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
 import Segmented from '../../ui/Segmented';
-import { colors, radius } from '../../theme/tokens';
-import { THEMES, themeChoice, applyTheme } from '../../theme/preference';
+import { colors, radius, themed, themeChoice, applyTheme, useScheme } from '../../theme/tokens';
+import { THEMES } from '../../theme/preference';
 import { useAuth } from '../../context/AuthContext';
 import { loadPhotos, pickPhoto, clearPhoto } from '../../lib/media';
 import { readReminderSettings, saveReminderSettings } from '../../lib/reminders';
@@ -69,8 +69,8 @@ export default function MeScreen({ tabBar = true }) {
     setNotify(next);
     try { await saveReminderSettings(next); } catch (e) { setNotify(notify); setError(e.message); }
   };
-  const [themeNote, setThemeNote] = useState('');
-  const pickTheme = (v) => { if (v !== themeChoice && !applyTheme(v)) setThemeNote('Đã lưu. Mở lại ứng dụng để đổi giao diện.'); };
+  useScheme();
+  const pickTheme = (v) => { if (v !== themeChoice()) applyTheme(v); };
 
   const name = profile?.full_name ?? user?.name;
   const initial = (name?.trim().split(' ').pop()?.[0] ?? 'F').toUpperCase();
@@ -232,8 +232,7 @@ export default function MeScreen({ tabBar = true }) {
       <Text variant="heading" style={styles.h}>Cài đặt</Text>
       <Surface radius={radius.lg} style={styles.card}>
         <Text variant="caption" tone="dim">Giao diện</Text>
-        <Segmented value={themeChoice} onChange={pickTheme} options={THEMES} />
-        {themeNote ? <Text variant="caption" tone="faint">{themeNote}</Text> : null}
+        <Segmented value={themeChoice()} onChange={pickTheme} options={THEMES} />
       </Surface>
       {member ? (
         <Surface radius={radius.lg} style={styles.card}>
@@ -265,7 +264,7 @@ export default function MeScreen({ tabBar = true }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: 'center' },
   cover: { height: 150, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.surface },
@@ -295,4 +294,4 @@ const styles = StyleSheet.create({
   barCol: { flex: 1, height: '100%', justifyContent: 'flex-end' },
   bar: { borderRadius: 4, backgroundColor: colors.accent },
   version: { marginTop: 14 },
-});
+}));

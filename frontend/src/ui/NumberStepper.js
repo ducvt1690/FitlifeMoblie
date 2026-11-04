@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from './Surface';
 import Text from './Text';
 import { PressScale } from './Button';
-import { colors, fonts, radius } from '../theme/tokens';
+import { colors, fonts, radius, themed } from '../theme/tokens';
 
 // Big number with −/+ buttons; the number itself is also typeable. Out-of-range input snaps back on blur.
 export default function NumberStepper({ label, value, onChange, min, max, step = 1, unit }) {
@@ -41,11 +41,11 @@ export default function NumberStepper({ label, value, onChange, min, max, step =
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   box: { paddingHorizontal: 12, paddingVertical: 12 },
   label: { marginBottom: 4, marginLeft: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   btn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   valueWrap: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 },
   value: { color: colors.text, fontFamily: fonts.display, fontSize: 34, minWidth: 48, maxWidth: 72, textAlign: 'center', padding: 0, outlineStyle: 'none' },
-});
+}));

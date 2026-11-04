@@ -9,7 +9,7 @@ import Text from '../../ui/Text';
 import TextField from '../../ui/TextField';
 import Button from '../../ui/Button';
 import Segmented from '../../ui/Segmented';
-import { colors, fonts, radius } from '../../theme/tokens';
+import { colors, fonts, radius, themed } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import AskCoach from '../coach/AskCoach';
 
@@ -23,9 +23,9 @@ const MEAL_TYPES = [
 ];
 const TYPE_LABEL = Object.fromEntries(MEAL_TYPES.map(t => [t.value, t.label]));
 const MACROS = [
-  { key: 'protein', label: 'Đạm', color: colors.move },
-  { key: 'carbs', label: 'Tinh bột', color: colors.calories },
-  { key: 'fat', label: 'Chất béo', color: colors.water },
+  { key: 'protein', label: 'Đạm', get color() { return colors.move; } },
+  { key: 'carbs', label: 'Tinh bột', get color() { return colors.calories; } },
+  { key: 'fat', label: 'Chất béo', get color() { return colors.water; } },
 ];
 const typeByHour = () => {
   const h = new Date().getHours();
@@ -258,7 +258,7 @@ export default function NutritionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   title: { marginBottom: 16 },
   gap: { marginTop: 8 },
   gapTop: { marginTop: 10 },
@@ -283,4 +283,4 @@ const styles = StyleSheet.create({
   manualRow: { flexDirection: 'row', gap: 8 },
   buttons: { gap: 4 },
   mealRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginBottom: 8 },
-});
+}));

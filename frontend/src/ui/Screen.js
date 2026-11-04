@@ -1,5 +1,5 @@
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { colors } from '../theme/tokens';
+import { colors, themed } from '../theme/tokens';
 import { useLayout } from '../theme/useLayout';
 
 // Plain dark page. Content is centred and width-capped on tablets.
@@ -22,7 +22,7 @@ export default function Screen({ children, scroll = true, refreshing, onRefresh,
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   fill: { flex: 1 },
-});
+}));
