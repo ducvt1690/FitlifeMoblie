@@ -51,6 +51,12 @@ function loadConfig(env = process.env) {
       webAppUrl: (values.WEB_APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
     },
     trustProxy: values.TRUST_PROXY === '1',
+    // Optional SMTP for password reset emails. Without it, development prints the code to the console.
+    mail: {
+      host: values.SMTP_HOST || '', port: integerOption('SMTP_PORT', 587, 1, 65535),
+      user: values.SMTP_USER || '', pass: values.SMTP_PASS || '', from: values.MAIL_FROM || '',
+      production: values.NODE_ENV === 'production',
+    },
   };
 }
 

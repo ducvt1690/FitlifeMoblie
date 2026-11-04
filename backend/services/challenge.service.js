@@ -47,6 +47,18 @@ function createChallengeService({ db }) {
       });
     },
 
+    // Leave the current run (progress is discarded; no coins were paid before completion). Works even if the challenge was closed.
+    async leave(member, challengeId) {
+      if (!isUuid(challengeId)) throw fail(400, 'challenge_id không hợp lệ.');
+      return transaction(db, async session => {
+        const user = await lockMember(db, member.user_id, session, new Date());
+        const run = await db.collection('user_challenges').findOne({ user_id: user.user_id, challenge_id: challengeId, is_completed: false }, { session });
+        if (!run) throw fail(404, 'Bạn chưa tham gia thử thách này.');
+        await db.collection('user_challenges').deleteOne({ id: run.id }, { session });
+        return { success: true, message: 'Đã rời thử thách. Tiến độ của lượt này đã bị xóa.', challenge_id: challengeId };
+      });
+    },
+
     // Progress counts distinct check-in days; the completion reward is paid once, in the same transaction.
     async checkin(member, challengeId) {
       return transaction(db, async session => {

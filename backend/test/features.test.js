@@ -171,3 +171,51 @@ test('stats summarise the requested days and chat stores both turns with a once-
   assert.equal((await request(`/api/chat/sessions/${sessionId}/messages`, other.token)).status, 404);
   assert.equal((await request('/api/chat/messages', other.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Hi' })).status, 404);
 });
+
+test('deleting a chat removes its messages but keeps the free daily quota', async () => {
+  const chatId = randomUUID();
+  const send = sessionId => request('/api/chat/messages', member.token, 'POST',
+    { session_id: sessionId, message_id: randomUUID(), content: 'Tôi nên uống bao nhiêu nước?' });
+  for (let i = 0; i < 10; i++) assert.equal((await send(chatId)).status, 201, `message ${i + 1}`);
+  // Người khác không xóa được; ID sai định dạng bị từ chối
+  const other = await register();
+  assert.equal((await request(`/api/chat/sessions/${chatId}`, other.token, 'DELETE')).status, 404);
+  assert.equal((await request('/api/chat/sessions/khong-phai-uuid', member.token, 'DELETE')).status, 400);
+  const removed = await request(`/api/chat/sessions/${chatId}`, member.token, 'DELETE');
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.equal(removed.body.deleted_messages, 20);
+  assert.equal((await request('/api/chat/sessions', member.token)).body.sessions.length, 0);
+  assert.equal((await request(`/api/chat/sessions/${chatId}/messages`, member.token)).status, 404);
+  // Xóa hội thoại không làm mới hạn mức: câu thứ 11 trong 24 giờ vẫn bị chặn
+  assert.equal((await send(randomUUID())).status, 402);
+});
+
+test('quest history returns a past day and rejects future or impossible dates', async () => {
+  const today = (await request('/api/quests', member.token)).body.date;
+  const shift = days => new Date(Date.parse(`${today}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+  assert.equal((await request('/api/quests/checkin', member.token, 'POST')).status, 200);
+  const past = await request(`/api/quests?date=${shift(-1)}`, member.token);
+  assert.equal(past.status, 200, JSON.stringify(past.body));
+  assert.equal(past.body.date, shift(-1));
+  assert.equal(past.body.quests.length, 7);
+  assert.ok(past.body.quests.every(quest => quest.is_completed === false));
+  const current = await request(`/api/quests?date=${today}`, member.token);
+  assert.equal(current.body.quests.find(quest => quest.quest_key === 'q_checkin').is_completed, true);
+  assert.equal((await request(`/api/quests?date=${shift(1)}`, member.token)).status, 400);
+  assert.equal((await request('/api/quests?date=2026-02-30', member.token)).status, 400);
+});
+
+test('leaving a challenge discards the current run and allows joining again', async () => {
+  const challenge = (await request('/api/challenges', member.token)).body.challenges.find(c => c.target_days > 1);
+  const id = challenge.challenge_id;
+  assert.equal((await request(`/api/challenges/${id}/leave`, member.token, 'POST')).status, 404);
+  assert.equal((await request(`/api/challenges/${id}/join`, member.token, 'POST')).status, 201);
+  assert.equal((await request(`/api/challenges/${id}/checkin`, member.token, 'POST')).status, 200);
+  const left = await request(`/api/challenges/${id}/leave`, member.token, 'POST');
+  assert.equal(left.status, 200, JSON.stringify(left.body));
+  const after = (await request('/api/challenges', member.token)).body.challenges.find(c => c.challenge_id === id);
+  assert.equal(after.joined, false);
+  assert.equal(after.current_progress, 0);
+  assert.equal((await request(`/api/challenges/${id}/join`, member.token, 'POST')).status, 201);
+  assert.equal((await request('/api/challenges/khong-phai-uuid/leave', member.token, 'POST')).status, 400);
+});

@@ -270,21 +270,6 @@ test('logout revokes the selected session immediately, preserves another login, 
   assert.equal((await request('/api/auth/logout', { method: 'POST', token: 'invalid' })).status, 401);
 });
 
-test('changing the password needs the current one and signs out the other devices only', async () => {
-  const here = await login();
-  const other = await login();
-  const change = (current_password, new_password) => request('/api/auth/password', { method: 'POST', token: here.token, body: { current_password, new_password } });
-  assert.equal((await change('wrong-password', 'new-password-1')).status, 401);
-  assert.equal((await change(password, 'short')).status, 400);
-  const done = await change(password, 'new-password-1');
-  assert.equal(done.status, 200);
-  assert.equal(done.body.signed_out_devices, 1);
-  assert.equal((await request('/api/auth/me', { token: here.token })).status, 200);
-  assert.equal((await request('/api/auth/me', { token: other.token })).status, 401);
-  await login(DEMO_EMAIL, 'new-password-1');
-  assert.equal((await change('new-password-1', password)).status, 200);
-});
-
 test('expired sessions are rejected before the TTL background cleanup removes them', async () => {
   const { token } = await login();
   await db.collection('auth_sessions').updateOne({ token_hash: tokenHash(token) }, {
@@ -628,4 +613,49 @@ test('register limits repeated attempts separately from login and rejects malfor
   assert.equal(limited.status, 429);
   assert.ok(Number(limited.headers.get('retry-after')) > 0);
   assert.equal((await login()).user.user_id, DEMO_USER_ID);
+});
+
+test('change-password checks the current password, rotates the hash and signs out other devices', async (t) => {
+  const body = onboarding();
+  cleanupRegistration(t, body.email);
+  const registered = await request('/api/auth/register', { method: 'POST', body });
+  assert.equal(registered.status, 201, JSON.stringify(registered.body));
+  const current = registered.body.token;
+  const other = (await login(body.email, body.password)).token;
+  const newPassword = 'mat khau moi FitLife 2026';
+  const change = (payload, token = current) => request('/api/auth/change-password', { method: 'POST', token, body: payload });
+
+  // Không có token → 401
+  assert.equal((await change({ current_password: body.password, new_password: newPassword }, null)).status, 401);
+  // Sai mật khẩu cũ, mật khẩu mới quá ngắn, trùng mật khẩu cũ, gửi thêm trường lạ → 400
+  assert.equal((await change({ current_password: 'sai mat khau', new_password: newPassword })).status, 400);
+  assert.equal((await change({ current_password: body.password, new_password: 'ngan' })).status, 400);
+  assert.equal((await change({ current_password: body.password, new_password: body.password })).status, 400);
+  assert.equal((await change({ current_password: body.password, new_password: newPassword, role: 'admin' })).status, 400);
+  const before = await db.collection('users').findOne({ email: body.email });
+
+  const ok = await change({ current_password: body.password, new_password: newPassword });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.success, true);
+
+  const after = await db.collection('users').findOne({ email: body.email });
+  assert.notEqual(after.password_hash, before.password_hash);
+  assert.match(after.password_hash, /^scrypt\$/);
+  // Phiên hiện tại vẫn dùng được, thiết bị khác bị đăng xuất
+  assert.equal((await request('/api/auth/me', { token: current })).status, 200);
+  assert.equal((await request('/api/auth/me', { token: other })).status, 401);
+  // Mật khẩu cũ hết tác dụng, mật khẩu mới đăng nhập được
+  const oldLogin = await request('/api/auth/login', { method: 'POST', body: { email: body.email, password: body.password } });
+  assert.equal(oldLogin.status, 401);
+  await login(body.email, newPassword);
+});
+
+test('logout-all signs out every session of the user', async () => {
+  const one = await login();
+  const two = await login();
+  assert.equal((await request('/api/auth/logout-all', { method: 'POST' })).status, 401);
+  assert.equal((await request('/api/auth/logout-all', { method: 'POST', token: one.token })).status, 204);
+  assert.equal((await request('/api/auth/me', { token: one.token })).status, 401);
+  assert.equal((await request('/api/auth/me', { token: two.token })).status, 401);
+  await login();
 });

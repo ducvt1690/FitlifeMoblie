@@ -11,6 +11,7 @@ function createChatRouter({ db, ai }) {
   router.delete('/memory', asyncHandler(async (req, res) => res.json(await service.clearMemory(req.auth.user))));
   router.get('/sessions', asyncHandler(async (req, res) => res.json(await service.sessions(req.auth.user))));
   router.get('/sessions/:sessionId/messages', asyncHandler(async (req, res) => res.json(await service.messages(req.auth.user, req.params.sessionId))));
+  router.delete('/sessions/:sessionId', asyncHandler(async (req, res) => res.json(await service.remove(req.auth.user, req.params.sessionId))));
   router.post('/messages', asyncHandler(async (req, res) => {
     const result = await service.send(req.auth.user, req.body);
     res.status(result.replayed ? 200 : 201).json(result);

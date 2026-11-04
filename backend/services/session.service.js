@@ -41,6 +41,10 @@ function createSessionService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECO
       if (stored.is_active !== true) throw new HttpError(403, 'Tài khoản đã bị khóa.');
       return { user: await withLiveTargets(db, stored, now), session, tokenHash };
     },
+    // Sign out every device of this user (all sessions, including the current one).
+    async revokeAll(userId) {
+      await db.collection('auth_sessions').deleteMany({ user_id: userId });
+    },
     async revoke(token) {
       if (!token) throw new HttpError(401, 'Phiên đăng nhập không hợp lệ.');
       await db.collection('auth_sessions').deleteOne({ token_hash: hashToken(token) });

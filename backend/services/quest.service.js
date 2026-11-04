@@ -3,7 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { localDay } = require('../auth/registration');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
-const { addDays } = require('../utils/validate');
+const { addDays, isDate } = require('../utils/validate');
 const templates = require('../database/mongodb/data/catalogs.json').quest_templates;
 const STREAK_MIN_QUESTS = 5;
 
@@ -45,11 +45,25 @@ function createQuestService({ db }) {
     return reward;
   }
 
+  // Undo a quest reward when the last log of that day is deleted. Throws 409 (rolling back the delete) if coins were spent.
+  async function unrewardActivity(user, day, now, session, questKey, rewardName, logName) {
+    const changed = await db.collection('daily_quest_logs').updateOne(
+      { user_id: user.user_id, quest_date: day, quest_key: questKey, is_completed: true },
+      { $set: { is_completed: false, completed_at: null, updated_at: now } }, { session });
+    if (!changed.modifiedCount) return 0;
+    const debit = await db.collection('users').updateOne({ user_id: user.user_id, fit_coins: { $gte: 10 } }, { $inc: { fit_coins: -10 } }, { session });
+    if (!debit.modifiedCount) throw new HttpError(409, `Không đủ xu để hoàn tác phần thưởng ${rewardName}. ${logName} chưa bị xóa.`);
+    return 10;
+  }
+
   return {
-    async getToday(user) {
-      const date = localDay(new Date(), user.timezone);
+    // Quests of today, or of a past day with ?date=YYYY-MM-DD (days without activity show all 7 as not done).
+    async getToday(user, requestedDate) {
+      const today = localDay(new Date(), user.timezone);
+      const date = requestedDate ?? today;
+      if (!isDate(date) || date > today) throw new HttpError(400, 'Ngày không hợp lệ hoặc ở tương lai. Dùng định dạng YYYY-MM-DD.');
       const quests = await db.collection('daily_quest_logs').find({ user_id: user.user_id, quest_date: date }, { projection: { _id: 0 } }).toArray();
-      return { success: true, date, fit_coins: user.fit_coins, streak_days: currentStreak(user, date), streak_min_quests: STREAK_MIN_QUESTS,
+      return { success: true, date, fit_coins: user.fit_coins, streak_days: currentStreak(user, today), streak_min_quests: STREAK_MIN_QUESTS,
         quests: templates.map(t => quests.find(q => q.quest_key === t.quest_key) || { ...t, quest_date: date, is_completed: false, completed_at: null }) };
     },
     async checkin(member) {
@@ -67,15 +81,9 @@ function createQuestService({ db }) {
     rewardSleep: (user, day, now, session) => rewardActivity(user, day, now, session, 'q_sleep'),
     rewardMood: (user, day, now, session) => rewardActivity(user, day, now, session, 'q_mood'),
     rewardChat: (user, day, now, session) => rewardActivity(user, day, now, session, 'q_chat'),
-    async unrewardMeal(user, day, now, session) {
-      const changed = await db.collection('daily_quest_logs').updateOne(
-        { user_id: user.user_id, quest_date: day, quest_key: 'q_meal', is_completed: true },
-        { $set: { is_completed: false, completed_at: null, updated_at: now } }, { session });
-      if (!changed.modifiedCount) return 0;
-      const debit = await db.collection('users').updateOne({ user_id: user.user_id, fit_coins: { $gte: 10 } }, { $inc: { fit_coins: -10 } }, { session });
-      if (!debit.modifiedCount) throw new HttpError(409, 'Không đủ xu để hoàn tác phần thưởng bữa ăn. Bữa ăn chưa bị xóa.');
-      return 10;
-    },
+    unrewardMeal: (user, day, now, session) => unrewardActivity(user, day, now, session, 'q_meal', 'bữa ăn', 'Bữa ăn'),
+    unrewardWater: (user, day, now, session) => unrewardActivity(user, day, now, session, 'q_water', 'uống nước', 'Log nước'),
+    unrewardWorkout: (user, day, now, session) => unrewardActivity(user, day, now, session, 'q_workout', 'tập luyện', 'Buổi tập'),
   };
 }
 module.exports = { createQuestService, lockMember, currentStreak };

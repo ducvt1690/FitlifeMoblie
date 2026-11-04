@@ -5,6 +5,7 @@ Tất cả endpoint cần `Authorization: Bearer <token>` của tài khoản rol
 ## Nhiệm vụ, điểm danh và chuỗi ngày
 
 - `GET /api/quests` → `{ date, fit_coins, streak_days, streak_min_quests: 5, quests[7] }`.
+- `GET /api/quests?date=YYYY-MM-DD` → nhiệm vụ của một **ngày trong quá khứ** (lịch sử). Ngày không có hoạt động trả đủ 7 nhiệm vụ chưa hoàn thành. Ngày tương lai hoặc không có thật → `400`. `streak_days` luôn là chuỗi hiện tại.
 - `POST /api/quests/checkin` → hoàn thành `q_checkin`, `+10` xu một lần/ngày; gọi lại trả `reward_coins: 0`.
 - Khi hoàn thành nhiệm vụ thứ 5/7 trong ngày, `streak_days` tăng 1 (một lần/ngày). Bỏ một ngày thì bắt đầu lại từ 1. `streak_days` trả về là 0 nếu ngày tăng gần nhất không phải hôm nay hoặc hôm qua.
 
@@ -27,6 +28,7 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 - `GET /api/challenges` → thử thách đang mở, kèm `joined`, `current_progress`, `checked_in_today`, `completed_count` của bạn.
 - `POST /api/challenges/:challengeId/join` → `201`; đang tham gia rồi → `409`.
 - `POST /api/challenges/:challengeId/checkin` → `current_progress + 1`, tối đa 1 lần/ngày (`409` nếu lặp). Đủ `target_days` thì hoàn thành và cộng `reward_coins` một lần; có thể tham gia lượt mới sau đó.
+- `POST /api/challenges/:challengeId/leave` → rời lượt đang tham gia, **xóa tiến độ** của lượt đó (chưa có xu nào được cộng trước khi hoàn thành nên không trừ xu). Chưa tham gia → `404`. Rời được cả khi admin đã đóng thử thách. Sau khi rời có thể tham gia lại từ đầu.
 
 ## Đổi thưởng
 
@@ -41,6 +43,8 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 
 - `POST /api/chat/messages` body `{ session_id: UUID, message_id: UUID, content: 1–4000 ký tự }` → `201 { message, reply, reward_coins }`. Session tự tạo ở tin nhắn đầu tiên. Tin nhắn đầu tiên trong ngày hoàn thành `q_chat`.
 - `GET /api/chat/sessions`, `GET /api/chat/sessions/:sessionId/messages` — chỉ chủ session đọc được (`404` với người khác).
+- `DELETE /api/chat/sessions/:sessionId` → `200 { deleted: true, session_id, deleted_messages }`: xóa cuộc trò chuyện và mọi tin nhắn của nó. FE nên hỏi xác nhận trước khi gọi. Session của người khác → `404`.
+- Gói miễn phí: tối đa 10 câu hỏi/24 giờ, đếm trong collection `ai_question_usage` (giữ 48 giờ). **Xóa hội thoại không làm mới hạn mức.** Vượt hạn mức → `402`; Premium không giới hạn.
 - Có `ANTHROPIC_API_KEY` trong `backend/.env` thì trả lời bằng Claude (`AI_MODEL`, mặc định `claude-sonnet-5`). Không có key hoặc gọi lỗi thì dùng coach theo quy tắc dựa trên số liệu hôm nay (`ai_engine: "fitlife-rules"`).
 
 Kiểm thử: `node --test test/features.test.js`.

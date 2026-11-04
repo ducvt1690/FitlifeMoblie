@@ -144,3 +144,48 @@ test('health logs at early Vietnam morning use local date for water, workout and
   assert.equal(meal.body.log.meal_date, expectedDay);
   assert.equal((await request('/api/quests', first.token)).body.date, expectedDay);
 });
+test('deleting water logs refunds q_water only for the last log and rolls back when coins were spent', async () => {
+  const a = await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount: 250 });
+  const b = await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount: 300 });
+  assert.equal(a.status, 201); assert.equal(b.status, 201);
+  // Người khác không xóa được log của mình; ID sai định dạng bị từ chối
+  assert.equal((await request(`/api/water-logs/${a.body.log.log_id}`, second.token, 'DELETE')).status, 404);
+  assert.equal((await request('/api/water-logs/khong-phai-uuid', first.token, 'DELETE')).status, 400);
+  // Xóa log đầu: vẫn còn log khác trong ngày nên giữ nguyên phần thưởng
+  const delA = await request(`/api/water-logs/${a.body.log.log_id}`, first.token, 'DELETE');
+  assert.equal(delA.status, 200, JSON.stringify(delA.body));
+  assert.equal(delA.body.refund_coins, 0);
+  assert.equal((await request('/api/water-logs', first.token)).body.total, 300);
+  // Đã tiêu hết xu: không hoàn tác được phần thưởng nên log cuối cùng KHÔNG bị xóa (409)
+  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { fit_coins: 0 } });
+  assert.equal((await request(`/api/water-logs/${b.body.log.log_id}`, first.token, 'DELETE')).status, 409);
+  assert.equal((await request('/api/water-logs', first.token)).body.total, 300);
+  // Có đủ xu: xóa log cuối, trừ lại 10 xu và quest q_water trở về chưa hoàn thành
+  await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { fit_coins: 10 } });
+  const delB = await request(`/api/water-logs/${b.body.log.log_id}`, first.token, 'DELETE');
+  assert.equal(delB.status, 200, JSON.stringify(delB.body));
+  assert.equal(delB.body.refund_coins, 10);
+  assert.equal(delB.body.fit_coins, 0);
+  const quest = (await request('/api/quests', first.token)).body.quests.find(q => q.quest_key === 'q_water');
+  assert.equal(quest.is_completed, false);
+  assert.equal((await request('/api/water-logs', first.token)).body.total, 0);
+  assert.equal((await request(`/api/water-logs/${b.body.log.log_id}`, first.token, 'DELETE')).status, 404);
+});
+test('clearing a water day deletes every log of that day and refunds q_water once', async () => {
+  for (const amount of [200, 300]) {
+    assert.equal((await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount })).status, 201);
+  }
+  await request('/api/water-logs', second.token, 'POST', { log_id: randomUUID(), amount: 400 });
+  const cleared = await request('/api/water-logs', first.token, 'DELETE');
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  assert.equal(cleared.body.deleted_count, 2);
+  assert.equal(cleared.body.refund_coins, 10);
+  assert.equal(cleared.body.fit_coins, 0);
+  assert.equal((await request('/api/water-logs', first.token)).body.total, 0);
+  // Không ảnh hưởng người khác
+  assert.equal((await request('/api/water-logs', second.token)).body.total, 400);
+  const again = await request('/api/water-logs', first.token, 'DELETE');
+  assert.equal(again.body.deleted_count, 0);
+  assert.equal(again.body.refund_coins, 0);
+  assert.equal((await request('/api/water-logs?date=2999-01-01', first.token, 'DELETE')).status, 400);
+});

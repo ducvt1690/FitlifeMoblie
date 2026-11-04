@@ -9,4 +9,7 @@ const isPlainBody = (body, allowed) => !!body && typeof body === 'object' && !Ar
   && Object.keys(body).every(key => allowed.includes(key));
 // Shift a YYYY-MM-DD business day by whole days without timezone drift.
 const addDays = (day, delta) => new Date(Date.parse(`${day}T00:00:00Z`) + delta * 86400000).toISOString().slice(0, 10);
-module.exports = { UUID, isUuid, isDate, isText, isPlainBody, addDays };
+// New password rule shared by change/reset password (same as registration): 8+ characters, not only spaces, at most 1024 bytes.
+const isNewPassword = value => typeof value === 'string' && [...value].length >= 8
+  && Buffer.byteLength(value, 'utf8') <= 1024 && value.trim().length > 0;
+module.exports = { UUID, isUuid, isDate, isText, isPlainBody, addDays, isNewPassword };

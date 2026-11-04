@@ -234,3 +234,31 @@ test('recorded day and default history use each authenticated user timezone', as
     assert.equal(list.body.logs.length, 1);
   }
 });
+
+test('deleting workouts refunds q_workout after the last one and removes the daily water bonus', async () => {
+  const base = (await storedUser()).target_water;
+  const one = await create(workout());
+  const two = await create(workout({ title: 'Squat' }));
+  assert.equal(one.status, 201); assert.equal(two.status, 201);
+  assert.equal(one.body.target_water, base + 350);
+  // Người khác không xóa được; ID sai định dạng bị từ chối
+  assert.equal((await request(`/api/workout-logs/${one.body.log.workout_id}`, second.token, 'DELETE')).status, 404);
+  assert.equal((await request('/api/workout-logs/khong-phai-uuid', first.token, 'DELETE')).status, 400);
+  // Còn một buổi tập khác trong ngày: giữ xu và giữ +350 ml
+  const delOne = await request(`/api/workout-logs/${one.body.log.workout_id}`, first.token, 'DELETE');
+  assert.equal(delOne.status, 200, JSON.stringify(delOne.body));
+  assert.equal(delOne.body.refund_coins, 0);
+  assert.equal(delOne.body.target_water, base + 350);
+  // Xóa buổi cuối: trừ lại 10 xu, quest chưa hoàn thành, mục tiêu nước về mức gốc
+  const delTwo = await request(`/api/workout-logs/${two.body.log.workout_id}`, first.token, 'DELETE');
+  assert.equal(delTwo.status, 200, JSON.stringify(delTwo.body));
+  assert.equal(delTwo.body.refund_coins, 10);
+  assert.equal(delTwo.body.fit_coins, 0);
+  assert.equal(delTwo.body.target_water, base);
+  const stored = await storedUser();
+  assert.equal(stored.target_water, base);
+  assert.equal(stored.fit_coins, 0);
+  const quest = (await request('/api/quests', first.token)).body.quests.find(q => q.quest_key === 'q_workout');
+  assert.equal(quest.is_completed, false);
+  assert.equal((await request(`/api/workout-logs/${one.body.log.workout_id}`, first.token, 'DELETE')).status, 404);
+});
