@@ -78,4 +78,4 @@ export function useAuth() {
 }
 
 // Where each role lands after signing in.
-export const homeFor = (role) => ({ admin: '/admin', trainer: '/trainer' }[role] ?? '/home');
+export const homeFor = (role) => (role === 'admin' ? '/admin' : '/home');

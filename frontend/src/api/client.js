@@ -68,6 +68,26 @@ export function createApi(call) {
     water: () => call('/api/water-logs'),
     addWater: (amount) => post('/api/water-logs', { log_id: newId(), amount }),
     steps: () => call('/api/steps-logs'),
+    nutrition: {
+      today: () => call('/api/nutrition/today'),
+      parse: (text) => post('/api/nutrition/parse', { text }),
+      suggest: () => post('/api/nutrition/suggestions'),
+      eat: (id) => post(`/api/nutrition/suggestions/${id}/eat`),
+      setDay: (completed) => call('/api/nutrition/day', { method: 'PUT', body: { completed } }),
+      addMeal: (meal) => post('/api/meal-logs', { meal_id: newId(), ...meal }),
+      removeMeal: (id) => call(`/api/meal-logs/${id}`, { method: 'DELETE' }),
+    },
+    plans: {
+      today: () => call('/api/workout-plans/today'),
+      create: (body) => post('/api/workout-plans', body),
+      complete: (id) => post(`/api/workout-plans/${id}/complete`),
+    },
+    workouts: () => call('/api/workout-logs'),
+    chat: {
+      sessions: () => call('/api/chat/sessions'),
+      messages: (id) => call(`/api/chat/sessions/${id}/messages`),
+      send: (body) => post('/api/chat/messages', body),
+    },
     admin: {
       overview: () => call('/api/admin/overview'),
     },

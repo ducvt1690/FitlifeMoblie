@@ -12,8 +12,6 @@ const TILES = [
   { key: 'users', label: 'Thành viên' },
   { key: 'new_users_7d', label: 'Mới trong 7 ngày' },
   { key: 'premium_members', label: 'Premium' },
-  { key: 'trainers', label: 'Huấn luyện viên' },
-  { key: 'active_trainer_links', label: 'Đang được kèm' },
   { key: 'locked', label: 'Bị khóa' },
   { key: 'active_challenges', label: 'Thử thách mở' },
   { key: 'available_rewards', label: 'Phần thưởng' },

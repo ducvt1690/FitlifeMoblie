@@ -7,7 +7,7 @@ import Button from '../../ui/Button';
 import { colors, radius } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 
-const ROLE_LABEL = { user: 'Thành viên', trainer: 'Huấn luyện viên', admin: 'Quản trị viên' };
+const ROLE_LABEL = { user: 'Thành viên', admin: 'Quản trị viên' };
 
 // Account card shared by every role. `tabBar` leaves room for the floating tab bar.
 export default function MeScreen({ tabBar = true }) {

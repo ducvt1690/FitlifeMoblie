@@ -28,11 +28,8 @@ function Root() {
       <Stack.Protected guard={!user}>
         <Stack.Screen name="(auth)" options={{ animation: 'slide_from_right' }} />
       </Stack.Protected>
-      <Stack.Protected guard={!!user && role !== 'admin' && role !== 'trainer'}>
+      <Stack.Protected guard={!!user && role !== 'admin'}>
         <Stack.Screen name="home" options={{ animation: 'fade' }} />
-      </Stack.Protected>
-      <Stack.Protected guard={role === 'trainer'}>
-        <Stack.Screen name="trainer" options={{ animation: 'fade' }} />
       </Stack.Protected>
       <Stack.Protected guard={role === 'admin'}>
         <Stack.Screen name="admin" options={{ animation: 'fade' }} />
