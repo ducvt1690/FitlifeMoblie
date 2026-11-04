@@ -4,7 +4,7 @@ const { hashPassword } = require('../auth/password');
 const { normalizeEmail } = require('../auth/registration');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
-const { isPlainBody } = require('../utils/validate');
+const { isPlainBody, isNewPassword } = require('../utils/validate');
 
 const CODE_TTL_MS = 10 * 60 * 1000;   // Mã có hiệu lực 10 phút
 const RESEND_AFTER_MS = 60 * 1000;    // Tối đa 1 email mỗi phút cho một tài khoản
@@ -12,9 +12,6 @@ const MAX_ATTEMPTS = 5;               // Nhập sai 5 lần thì mã bị khóa
 const SENT = 'Nếu email đã đăng ký, mã xác nhận gồm 6 chữ số đã được gửi. Mã có hiệu lực trong 10 phút.';
 const INVALID = 'Mã xác nhận không đúng hoặc đã hết hạn.';
 
-// Same rule as registration: 8+ characters, not only spaces, at most 1024 bytes.
-const isNewPassword = value => typeof value === 'string' && [...value].length >= 8
-  && Buffer.byteLength(value, 'utf8') <= 1024 && value.trim().length > 0;
 // Hash with reset_id so the same 6 digits in two requests never share a digest.
 const hashCode = (resetId, code) => createHash('sha256').update(`${resetId}:${code}`, 'utf8').digest('hex');
 

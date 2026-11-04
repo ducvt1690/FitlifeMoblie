@@ -20,7 +20,15 @@ Mỗi lần chạy tạo một tài khoản thử trong database `fitlife` và l
 
 ## API nhật ký tập luyện
 
-[Hợp đồng API nhật ký tập luyện](workouts.md) mô tả `GET /api/workout-logs` và `POST /api/workout-logs`, body/response, Bearer token, gửi lại bằng cùng UUID, thưởng nhiệm vụ một lần/ngày và mục tiêu nước trong ngày tập. Chạy BE bằng `npm run dev`; dùng token của tài khoản role `user` để gọi hai endpoint này.
+[Hợp đồng API nhật ký tập luyện](workouts.md) mô tả `GET`, `POST` và `DELETE /api/workout-logs`, body/response, Bearer token, gửi lại bằng cùng UUID, thưởng nhiệm vụ một lần/ngày và mục tiêu nước trong ngày tập. Chạy BE bằng `npm run dev`; dùng token của tài khoản role `user` để gọi hai endpoint này.
+
+## API mật khẩu
+
+[Hợp đồng API mật khẩu](password.md) mô tả đổi mật khẩu khi đang đăng nhập, quên mật khẩu bằng mã 6 số gửi qua email, đặt lại mật khẩu và cách cấu hình SMTP.
+
+## API nhật ký uống nước
+
+[Hợp đồng API nhật ký uống nước](water.md) mô tả `GET/POST/DELETE /api/water-logs`, gửi lại bằng cùng UUID và hoàn tác thưởng `q_water` khi xóa log cuối cùng trong ngày.
 
 ## API nhật ký bữa ăn
 

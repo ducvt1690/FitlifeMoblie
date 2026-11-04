@@ -123,6 +123,33 @@ Lần ghi nhận mới đầu tiên trong ngày hoàn thành `q_workout` và c�
 
 Ghi nhật ký, hoàn thành nhiệm vụ, cộng xu và cập nhật mục tiêu nước cùng transaction. Nếu một bước ghi thất bại, transaction rollback; không để lại nhật ký hoặc thưởng dở dang. Gửi đồng thời cũng chỉ thưởng `q_workout` một lần/ngày.
 
+## Xóa buổi tập — `DELETE /api/workout-logs/:workoutId`
+
+```http
+DELETE /api/workout-logs/60000000-0000-4000-8000-000000000001
+Authorization: Bearer <token>
+```
+
+HTTP `200`:
+
+```json
+{
+  "success": true,
+  "deleted": true,
+  "workout_id": "60000000-0000-4000-8000-000000000001",
+  "refund_coins": 10,
+  "fit_coins": 0,
+  "target_water": 2275
+}
+```
+
+- Chỉ xóa được buổi tập của chính mình; của người khác hoặc không tồn tại trả `404`. `workoutId` không phải UUID trả `400`.
+- Còn buổi tập khác trong **cùng ngày**: giữ thưởng `q_workout` (`refund_coins: 0`).
+- Xóa **buổi tập cuối cùng** của ngày: nhiệm vụ `q_workout` trở về chưa hoàn thành và trừ lại `10` xu.
+- `target_water` được tính lại: hôm nay không còn buổi tập nào thì mất phần cộng `350` ml.
+- `409`: không đủ `10` xu để trừ lại (đã tiêu). Khi đó **buổi tập không bị xóa**, mọi thay đổi rollback.
+- Xóa không làm giảm chuỗi ngày (`streak_days`) đã tính.
+
 ## Mục tiêu nước trong ngày tập
 
 Mục tiêu cơ bản là `round(min(weight × 35, 4000))` ml. Có ít nhất một nhật ký tập luyện hôm nay thì cộng thêm `350` ml, chỉ cộng một lần trong ngày; tối đa `4350` ml.
@@ -155,7 +182,7 @@ Frontend đang dùng tên `durationSec` và `calories` trong kho dữ liệu loc
 
 Tạo UUID khi hoàn thành buổi tập và giữ cùng payload cho các lần retry. Chỉ tạo UUID mới cho một buổi tập mới, không tạo lại ID mỗi lần bấm gửi lại. Khi thành công, cập nhật số dư/mục tiêu từ response hoặc tải lại hồ sơ và nhiệm vụ; FE không tự cộng xu.
 
-Đợt API này chỉ có xem và thêm nhật ký. Chưa có sửa/xóa nhật ký, tạo template trainer, lưu GIF hay đồng bộ danh mục ExerciseDB.
+Hiện có xem, thêm và xóa nhật ký (xem mục **Xóa buổi tập** bên dưới). Chưa có sửa nhật ký.
 
 ## Chạy collection Postman
 
