@@ -249,6 +249,9 @@ const collections = [
     target_type: choice('user', 'challenge', 'reward_item', 'payment', 'exercise', 'setting'),
     target_id: text(128),
     note: text(500, 0),
+    // Role changes (scripts/set-role.js and the role switch) keep the before/after role.
+    previous_role: text(20),
+    new_role: text(20),
   }, [index({ created_at: -1 }, 'by_admin_log_time')], ['admin_id', 'action', 'target_type', 'target_id']),
 
   collection('challenges', 'challenge_id', {
