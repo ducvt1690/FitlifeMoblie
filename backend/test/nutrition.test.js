@@ -182,3 +182,20 @@ test('fitting a plan trims long sessions and fills short ones', () => {
   const short = fitToTime([item(0, 2)], pool, 60);
   assert.ok(secondsOf(short, 60) <= 60 * 60 && secondsOf(short, 60) > 50 * 60);
 });
+
+test('the coach agent remembers facts and logs a meal from one chat message', async () => {
+  await start(true);
+  aiReply = { reply: 'Mình ghi lại rồi nhé.', actions: [{ type: 'remember', fact: 'Đau gối trái, tránh nhảy' },
+    { type: 'meal', text: '200g ức gà, 1 bát cơm', meal_type: 'lunch' }, { type: 'plan', focus: 'push', minutes: 30 }] };
+  const sent = await call('/api/chat/messages', 'POST', { session_id: randomUUID(), message_id: randomUUID(),
+    content: 'Trưa nay mình ăn 200g ức gà với 1 bát cơm, nhớ giúp là mình đau gối trái', context: 'nutrition' });
+  assert.equal(sent.status, 201);
+  assert.deepEqual(sent.body.actions.sort(), ['meal', 'memory']);
+  assert.match(sent.body.reply.content, /Đã ghi bữa: ức gà/);
+  assert.match(sent.body.reply.content, /Premium/); // the plan action is Premium only and becomes a note
+  assert.equal(sent.body.reply.ai_engine, 'agent:memory,meal');
+  assert.equal(await db.collection('meal_logs').countDocuments({ user_id: member.user.user_id, meal_type: 'lunch' }), 1);
+  assert.deepEqual((await call('/api/chat/memory')).body.facts, ['Đau gối trái, tránh nhảy']);
+  assert.equal((await call('/api/chat/messages', 'POST', { session_id: randomUUID(), message_id: randomUUID(), content: 'hi', context: 'x' })).status, 400);
+  assert.deepEqual((await call('/api/chat/memory', 'DELETE')).body.facts, []);
+});

@@ -6,8 +6,8 @@ const { HttpError } = require('../utils/http-error');
 const { isUuid, isText, isPlainBody } = require('../utils/validate');
 const { createQuestService, lockMember } = require('./quest.service');
 const { membershipOf } = require('./payment.service');
-const { complete } = require('./ai.client');
 const { createWorkoutPlanService } = require('./workout-plan.service');
+const { CONTEXTS, createCoachAgent } = require('./coach-agent');
 const fail = (status, message) => new HttpError(status, message);
 const RULE_ENGINE = 'fitlife-rules';
 // Free members get this many questions per rolling 24 hours; Premium is unlimited.
@@ -78,18 +78,10 @@ function ruleReply(user, ctx, text) {
     + `${ctx.sleepHours === null ? '' : `, ngủ ${ctx.sleepHours} tiếng`}. Bạn có thể hỏi mình về nước uống, dinh dưỡng, giấc ngủ, tập luyện hoặc BMI.`;
 }
 
-async function aiReply(ai, user, ctx, history) {
-  const system = `Bạn là FitLife Coach, trợ lý sức khỏe nói tiếng Việt, trả lời ngắn gọn, thực tế, không chẩn đoán bệnh.
-Người dùng: ${user.full_name}, ${user.gender === 'male' ? 'nam' : 'nữ'}, ${user.age} tuổi, ${user.height} cm, ${user.weight} kg, mục tiêu ${user.goal}.
-Mục tiêu ngày: ${user.target_water} ml nước, ${user.target_calories} kcal.
-Hôm nay đã ghi: ${ctx.water} ml nước, ${ctx.calories} kcal, ${ctx.workoutMinutes} phút tập, giấc ngủ ${ctx.sleepHours ?? 'chưa ghi'} giờ.`;
-  return complete(ai, { system, smart: true, maxTokens: 800,
-    messages: history.map(m => ({ role: m.sender === 'ai' ? 'assistant' : 'user', content: m.content })) });
-}
-
 function createChatService({ db, ai = {} }) {
   const quests = createQuestService({ db });
   const plans = createWorkoutPlanService({ db, ai });
+  const agent = createCoachAgent({ db, ai });
   async function ownSession(user, sessionId) {
     if (!isUuid(sessionId)) throw fail(400, 'session_id không hợp lệ.');
     const chat = await db.collection('ai_chat_sessions').findOne({ session_id: sessionId, user_id: user.user_id }, { projection: { _id: 0 } });
@@ -97,6 +89,9 @@ function createChatService({ db, ai = {} }) {
     return chat;
   }
   return {
+    // What the coach remembers about the member, and a way to wipe it.
+    async memory(user) { return { success: true, facts: await agent.facts(user.user_id) }; },
+    async clearMemory(user) { await agent.clear(user.user_id); return { success: true, facts: [] }; },
     async sessions(user) {
       const sessions = await db.collection('ai_chat_sessions').find({ user_id: user.user_id }, { projection: { _id: 0 } })
         .sort({ updated_at: -1 }).limit(50).toArray();
@@ -110,9 +105,9 @@ function createChatService({ db, ai = {} }) {
     },
     // Saves the member's message (creating the session on first use), pays q_chat once a day, then stores the coach reply.
     async send(member, body) {
-      if (!isPlainBody(body, ['session_id', 'message_id', 'content']) || !isUuid(body.session_id)
-        || !isUuid(body.message_id) || !isText(body.content, 4000)) {
-        throw fail(400, 'Cần session_id UUID, message_id UUID và content (1–4000 ký tự).');
+      if (!isPlainBody(body, ['session_id', 'message_id', 'content', 'context']) || !isUuid(body.session_id)
+        || !isUuid(body.message_id) || !isText(body.content, 4000) || (body.context !== undefined && !Object.hasOwn(CONTEXTS, body.context))) {
+        throw fail(400, 'Cần session_id UUID, message_id UUID, content (1–4000 ký tự) và context general/workout/nutrition nếu có.');
       }
       const content = body.content.trim();
       const saved = await transaction(db, async session => {
@@ -145,23 +140,25 @@ function createChatService({ db, ai = {} }) {
       if (saved.replayed) return { success: true, replayed: true, message: saved.message, reply: null, reward_coins: 0, fit_coins: saved.user.fit_coins };
 
       const ctx = await todayContext(db, saved.user);
-      let text, engine = RULE_ENGINE, plan = null;
-      const wanted = planRequest(content);
-      if (wanted) {
-        // Asking the coach for a plan builds the real plan, so the Tập luyện tab shows it with nothing left to fill in.
-        try { plan = (await plans.create(saved.user, wanted)).plan; text = planReply(plan); engine = PLAN_ENGINE; }
-        catch (error) {
-          if (error.httpStatus === 402 || error.httpStatus === 503) text = `${error.message} Bạn vẫn có thể tự tạo ở tab Tập luyện.`;
-        }
-      }
-      if (!text && ai.apiKey) {
+      let text, engine = RULE_ENGINE, plan = null, actions = [];
+      if (ai.apiKey) {
         const history = await db.collection('ai_chat_messages').find({ user_id: saved.user.user_id, session_id: body.session_id })
           .sort({ timestamp: -1, message_id: -1 }).limit(20).toArray();
         history.reverse();
         // The model conversation must start with a user turn.
         while (history[0]?.sender === 'ai') history.shift();
-        try { text = await aiReply(ai, saved.user, ctx, history); engine = ai.model; }
-        catch { text = undefined; }
+        try {
+          ({ text, kinds: actions } = await agent.reply(saved.user, ctx, history, body.context));
+          engine = actions.length ? `agent:${actions.join(',')}` : ai.model;
+        } catch { text = undefined; actions = []; }
+      }
+      // Without AI, a plain "lên lịch tập ..." still builds the plan so the Tập luyện tab has it.
+      const wanted = !text && planRequest(content);
+      if (wanted) {
+        try { plan = (await plans.create(saved.user, wanted)).plan; text = planReply(plan); engine = PLAN_ENGINE; actions = ['plan']; }
+        catch (error) {
+          if (error.httpStatus === 402 || error.httpStatus === 503) text = `${error.message} Bạn vẫn có thể tự tạo ở tab Tập luyện.`;
+        }
       }
       if (!text) text = ruleReply(saved.user, ctx, content);
       const now = new Date();
@@ -169,7 +166,7 @@ function createChatService({ db, ai = {} }) {
         content: text, ai_engine: engine, timestamp: now, created_at: now, updated_at: now };
       await db.collection('ai_chat_messages').insertOne(reply);
       delete reply._id;
-      return { success: true, replayed: false, message: saved.message, reply, plan,
+      return { success: true, replayed: false, message: saved.message, reply, plan, actions,
         reward_coins: saved.reward, fit_coins: saved.user.fit_coins + saved.reward };
     },
   };

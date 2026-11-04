@@ -7,6 +7,8 @@ function createChatRouter({ db, ai }) {
   const router = express.Router();
   const service = createChatService({ db, ai });
   router.use(createRequireAuth({ db }), requireMember);
+  router.get('/memory', asyncHandler(async (req, res) => res.json(await service.memory(req.auth.user))));
+  router.delete('/memory', asyncHandler(async (req, res) => res.json(await service.clearMemory(req.auth.user))));
   router.get('/sessions', asyncHandler(async (req, res) => res.json(await service.sessions(req.auth.user))));
   router.get('/sessions/:sessionId/messages', asyncHandler(async (req, res) => res.json(await service.messages(req.auth.user, req.params.sessionId))));
   router.post('/messages', asyncHandler(async (req, res) => {
