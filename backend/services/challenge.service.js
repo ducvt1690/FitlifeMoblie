@@ -28,7 +28,7 @@ function createChallengeService({ db }) {
         const mine = runs.filter(r => r.challenge_id === c.challenge_id);
         const current = mine.find(r => !r.is_completed) || null;
         return { ...c, accepting_new: c.is_active, joined: !!current, current_progress: current?.current_progress ?? 0,
-          checked_in_today: current?.last_checkin_date === today, completed_count: mine.filter(r => r.is_completed).length };
+          checked_in_today: mine.some(r => r.last_checkin_date === today), completed_count: mine.filter(r => r.is_completed).length };
       }) };
     },
 
@@ -72,7 +72,12 @@ function createChallengeService({ db }) {
         // A run already started keeps going even if admin closed the challenge to new members.
         const challenge = await db.collection('challenges').findOne({ challenge_id: challengeId }, { session, projection: { _id: 0 } });
         if (!challenge) throw fail(404, 'Thử thách không tồn tại.');
-        if (run.last_checkin_date === day) throw fail(409, 'Hôm nay bạn đã check-in thử thách này.');
+        // One check-in per day across ALL runs of this challenge (fix from thongle2003 9d1ae12):
+        // "complete, join again, check in again" must not pay a 1-day challenge twice on the same day.
+        if (await db.collection('user_challenges').findOne({ user_id: user.user_id,
+          challenge_id: challengeId, last_checkin_date: day }, { session })) {
+          throw fail(409, 'Hôm nay bạn đã check-in thử thách này.');
+        }
         const progress = run.current_progress + 1;
         const completed = progress >= challenge.target_days;
         await db.collection('user_challenges').updateOne({ id: run.id }, { $set: { current_progress: progress, is_completed: completed,
