@@ -10,7 +10,7 @@ const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { createApp } = require('../app');
 const { initializeDatabase } = require('../database/mongodb/database');
 const { initializeAuthSessions } = require('../database/connection');
-const { splitMeal } = require('../services/nutrition.service');
+const { splitMeal, looksLikeFood, allergenOf } = require('../services/nutrition.service');
 const { fitToTime, secondsOf } = require('../services/workout-plan.service');
 
 // A fake OpenAI-compatible endpoint stands in for the real AI so the AI paths run offline.
@@ -63,6 +63,43 @@ test('meal text splits into amounts, units and names', () => {
     { amount: 300, unit: 'g', name: 'thịt gà' }, { amount: 2, unit: 'quả', name: 'trứng' }, { amount: 1, unit: 'bát', name: 'cơm' }]);
 });
 
+test('gibberish is not food, and allergies cover foods that do not name them', () => {
+  for (const name of ['ức gà', 'bánh cuốn', 'whey', 'nghêu hấp', 'strawberry']) assert.ok(looksLikeFood(name), name);
+  for (const name of ['asdfgh', 'aaaa', 'qwerty', 'hjkl', '123', 'đmm', 'x']) assert.ok(!looksLikeFood(name), name);
+  assert.equal(allergenOf('tôm hấp', ['hải sản']), 'hải sản');
+  assert.equal(allergenOf('whey', ['sữa']), 'sữa');
+  assert.equal(allergenOf('bơ đậu phộng', ['lac']), 'lac');
+  assert.equal(allergenOf('cà chua', ['cá']), null);
+  assert.equal(allergenOf('ức gà', ['hải sản', 'sữa']), null);
+});
+
+test('nonsense and impossible amounts are refused; allergies flag meals and steer suggestions', async () => {
+  await start(true);
+  aiReply = { items: [], invalid: ['xi măng'] };
+  assert.equal((await call('/api/nutrition/parse', 'POST', { text: 'asdfgh, qwerty' })).status, 400);
+  assert.equal((await call('/api/nutrition/parse', 'POST', { text: '99999g cơm' })).status, 400);
+  assert.equal((await call('/api/nutrition/parse', 'POST', { text: 'xi măng' })).status, 400);
+  assert.equal(aiCalls, 1);
+  const mixed = await call('/api/nutrition/parse', 'POST', { text: '200g ức gà, zzzz' });
+  assert.deepEqual([mixed.body.items.length, mixed.body.rejected], [1, ['zzzz']]);
+  assert.equal(aiCalls, 1);
+  assert.equal((await call('/api/meal-logs', 'POST', { meal_id: randomUUID(), meal_name: 'bậy', calories: 10, protein: 400,
+    carbs: 0, fat: 0, meal_type: 'lunch' })).status, 400);
+
+  assert.equal((await call('/api/nutrition/allergies', 'PUT', { allergies: ['asdfgh'] })).status, 400);
+  const saved = await call('/api/nutrition/allergies', 'PUT', { allergies: ['Hải sản', 'sữa', 'trứng', 'đậu phụ'] });
+  assert.deepEqual(saved.body.allergies, ['hải sản', 'sữa', 'trứng', 'đậu phụ']);
+  assert.deepEqual((await call('/api/nutrition/today')).body.allergies, saved.body.allergies);
+  const flagged = await call('/api/nutrition/parse', 'POST', { text: '200g tôm, 1 bát cơm' });
+  assert.deepEqual(flagged.body.items.map(i => i.allergen), ['hải sản', null]);
+  assert.equal(flagged.body.warnings.length, 1);
+
+  aiReply = { meal_name: 'tôm rang', note: 'x', items: [{ name: 'tôm', grams: 200, calories: 200, protein: 48, carbs: 0, fat: 1 }] };
+  const s = (await call('/api/nutrition/suggestions', 'POST')).body.suggestion;
+  assert.equal(s.engine, 'rules');
+  assert.ok(s.items.every(i => !allergenOf(i.name, saved.body.allergies)), JSON.stringify(s.items));
+});
+
 test('known foods are worked out locally; targets, suggestion, eating it and finishing the day', async () => {
   await start(false);
   const parsed = await call('/api/nutrition/parse', 'POST', { text: '300g ức gà luộc, 2 quả trứng, 1 bát cơm, bánh xèo' });
@@ -105,7 +142,7 @@ test('unknown foods go to AI once, are cached, and the free AI quota is enforced
   assert.equal(aiCalls, 1);
 
   aiReply = { items: [{ name: `món ${randomUUID()}`, grams: 100, kcal: 100, protein: 1, carbs: 1, fat: 1 }] };
-  for (let i = 0; i < 4; i += 1) assert.equal((await call('/api/nutrition/parse', 'POST', { text: `món lạ ${i}` })).status, 200);
+  for (let i = 0; i < 4; i += 1) assert.equal((await call('/api/nutrition/parse', 'POST', { text: `món lạ ${['một', 'hai', 'ba', 'bốn'][i]}` })).status, 200);
   const blocked = await call('/api/nutrition/parse', 'POST', { text: 'món lạ nữa' });
   assert.equal(blocked.status, 402);
   assert.equal((await call('/api/nutrition/today')).body.ai.used, 5);

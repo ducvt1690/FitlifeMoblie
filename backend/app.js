@@ -72,7 +72,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         stats: ['GET /api/stats'],
         chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'POST /api/chat/messages'],
         nutrition: ['GET /api/nutrition/today', 'POST /api/nutrition/parse', 'POST /api/nutrition/suggestions',
-          'POST /api/nutrition/suggestions/:suggestionId/eat', 'PUT /api/nutrition/day'],
+          'POST /api/nutrition/suggestions/:suggestionId/eat', 'PUT /api/nutrition/day', 'PUT /api/nutrition/allergies'],
         workout_plans: ['GET /api/workout-plans/options', 'GET /api/workout-plans/today', 'POST /api/workout-plans',
           'POST /api/workout-plans/:planId/complete'],
         admin: ['GET /api/admin/overview', 'GET /api/admin/accounts', 'PATCH /api/admin/accounts/:userId',

@@ -29,6 +29,41 @@ const COOKING = new Set('luộc nướng hấp chiên rán xào áp chảo kho r
 const norm = s => s.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, ' ').replace(/\s+/g, ' ').trim();
 const round1 = n => Math.round(n * 10) / 10;
 const num = (v, max) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
+const strip = s => s.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd');
+const MAX_PARTS = 10;
+const MAX_GRAMS = 3000;
+
+// Cheap gibberish filter so "asdfgh", "aaaa" or "123" never reach AI or the food cache.
+// Vietnamese words have a vowel and at most 3 consonants in a row ("ngh"); loanwords like "whey" still pass.
+function looksLikeFood(name) {
+  const words = strip(name).split(' ');
+  return name.length >= 2 && name.length <= 40 && words.length <= 6 && words.every(w => /^[a-z]{1,10}$/.test(w)
+    && /[aeiouy]/.test(w) && !/[^aeiouy]{4}/.test(w) && !/(.)\1\1/.test(w) && !/q(?!u)/.test(w));
+}
+
+// An allergy also covers foods whose names do not say it: "hải sản" → tôm, mực…; "sữa" → whey, phô mai…
+const ALLERGY_GROUPS = [
+  [['hải sản'], ['tôm', 'cua', 'ghẹ', 'mực', 'bạch tuộc', 'sò', 'hàu', 'nghêu', 'ngao', 'ốc', 'hến', 'tép', 'cá']],
+  [['sữa', 'lactose'], ['sữa', 'phô mai', 'whey', 'kem', 'bơ sữa', 'váng sữa']],
+  [['trứng'], ['trứng']],
+  [['đậu phộng', 'lạc'], ['đậu phộng', 'lạc']],
+  [['đậu nành'], ['đậu nành', 'đậu phụ', 'đậu hũ', 'tàu hũ', 'tào phớ']],
+  [['gluten', 'lúa mì'], ['bánh mì', 'mì', 'bánh bao', 'yến mạch', 'lúa mì']],
+  [['hạt'], ['hạnh nhân', 'óc chó', 'hạt điều', 'mắc ca', 'hạt dẻ', 'hạt']],
+];
+const hasWords = (text, term) => ` ${text} `.includes(` ${term} `);
+// The allergy that rules this food out, or null. Typed without accents ("tom") it is matched without accents too.
+function allergenOf(name, allergies) {
+  const food = norm(name);
+  for (const allergy of allergies) {
+    const bare = strip(allergy) === allergy;
+    const group = ALLERGY_GROUPS.find(([names]) => names.some(n => (bare ? strip(n) : n) === allergy));
+    const terms = group ? group[1] : [allergy];
+    if (terms.some(t => (bare ? hasWords(strip(food), strip(t)) : hasWords(food, t)))) return allergy;
+  }
+  return null;
+}
+
 const MEAL_LABEL = { breakfast: 'Bữa sáng', lunch: 'Bữa trưa', dinner: 'Bữa tối', snack: 'Bữa phụ' };
 
 function localHour(tz) {
@@ -70,6 +105,7 @@ function gramsOf(part, serving) {
 function createNutritionService({ db, ai = {} }) {
   const meals = createMealService({ db });
   const foods = () => db.collection('foods');
+  const allergiesOf = async userId => (await db.collection('nutrition_profiles').findOne({ user_id: userId }))?.allergies ?? [];
   const loadUser = async member => {
     const user = await db.collection('users').findOne({ user_id: member.user_id }, { projection: { _id: 0, password_hash: 0 } });
     if (!user) throw fail(403, 'Tài khoản không còn khả dụng.');
@@ -84,44 +120,55 @@ function createNutritionService({ db, ai = {} }) {
   }
 
   async function aiParse(text) {
-    const out = await complete(ai, { maxTokens: 700, json: true,
+    const out = await complete(ai, { maxTokens: 500, json: true,
       system: `Bạn là chuyên gia dinh dưỡng Việt Nam. Tách mô tả bữa ăn thành từng món. Với mỗi món: tên ngắn tiếng Việt,
 khối lượng ước tính theo gram (đổi bát, quả, lát… ra gram), và giá trị trên 100 g theo bảng USDA hoặc Viện Dinh dưỡng.
-Dạng: {"items":[{"name":"ức gà luộc","grams":300,"kcal":165,"protein":31,"carbs":0,"fat":3.6}]}. Nếu không phải đồ ăn, trả {"items":[]}.`,
+Dạng: {"items":[{"name":"ức gà luộc","grams":300,"kcal":165,"protein":31,"carbs":0,"fat":3.6}],"invalid":[]}.
+Thứ không ăn được hoặc vô nghĩa thì không đưa vào items mà ghi nguyên văn vào invalid.`,
       messages: [{ role: 'user', content: text }] });
     const items = (Array.isArray(out?.items) ? out.items : []).filter(i => isText(i?.name, 80) && num(i.grams, 3000) && i.grams > 0
       && num(i.kcal, 900) && num(i.protein, 100) && num(i.carbs, 100) && num(i.fat, 100)).slice(0, 15);
     const now = new Date();
     await Promise.all(items.map(i => foods().updateOne({ key: norm(i.name) }, { $setOnInsert: { key: norm(i.name), name: i.name.trim(),
       kcal: i.kcal, protein: i.protein, carbs: i.carbs, fat: i.fat, serving: Math.round(i.grams), created_at: now } }, { upsert: true })));
-    return items.map(i => withAmounts(i.name.trim(), i.grams, { kcal: i.kcal, protein: i.protein, carbs: i.carbs, fat: i.fat }, 'ai'));
+    const invalid = (Array.isArray(out?.invalid) ? out.invalid : []).filter(n => isText(n, 80)).map(n => n.trim()).slice(0, MAX_PARTS);
+    return { items: items.map(i => withAmounts(i.name.trim(), i.grams, { kcal: i.kcal, protein: i.protein, carbs: i.carbs, fat: i.fat }, 'ai')), invalid };
   }
 
   async function status(member) {
     const user = await loadUser(member);
     const day = localDay(new Date(), user.timezone);
-    const [list, done, suggestion, quota] = await Promise.all([
+    const [list, done, suggestion, quota, allergies] = await Promise.all([
       meals.list(user),
       db.collection('nutrition_days').findOne({ user_id: user.user_id, day }),
       db.collection('meal_suggestions').findOne({ user_id: user.user_id, day, status: 'open' }, { projection: { _id: 0 }, sort: { created_at: -1 } }),
       aiQuota(db, user),
+      allergiesOf(user.user_id),
     ]);
     const targets = targetsFor(user);
     const consumed = { calories: list.total_calories, protein: round1(list.total_protein), carbs: round1(list.total_carbs), fat: round1(list.total_fat) };
     const remaining = Object.fromEntries(Object.keys(targets).map(k => [k, Math.max(round1(targets[k] - consumed[k]), 0)]));
-    return { user, day, targets, consumed, remaining, meals: list.logs, suggestion, completed: !!done,
+    return { user, day, targets, consumed, remaining, meals: list.logs, suggestion, completed: !!done, allergies,
       ai: { enabled: !!ai.apiKey, premium: quota.premium, used: quota.used, limit: quota.limit } };
   }
 
-  function ruleSuggestion(kind, budget, remaining, day) {
-    const pick = (list) => list[Number(day.slice(-2)) % list.length];
+  // Rotates by date and skips anything the member is allergic to; null when nothing safe is left.
+  function ruleSuggestion(kind, budget, remaining, day, allergies) {
+    const pick = (list) => {
+      const safe = list.filter(row => row.every(x => typeof x !== 'string' || !allergenOf(x, allergies)));
+      return safe.length ? safe[Number(day.slice(-2)) % safe.length] : null;
+    };
     if (kind === 'snack') {
-      const [a, ga, b, gb] = pick([['sữa chua hy lạp', 150, 'chuối', 120], ['sữa tươi', 250, 'hạnh nhân', 20],
-        ['whey', 30, 'táo', 180], ['lòng trắng trứng', 132, 'khoai lang', 150]]);
+      const snack = pick([['sữa chua hy lạp', 150, 'chuối', 120], ['sữa tươi', 250, 'hạnh nhân', 20],
+        ['whey', 30, 'táo', 180], ['lòng trắng trứng', 132, 'khoai lang', 150], ['khoai lang', 150, 'táo', 180]]);
+      if (!snack) return null;
+      const [a, ga, b, gb] = snack;
       return { meal_name: `${a} + ${b}`, items: [withAmounts(a, ga, per(a)), withAmounts(b, gb, per(b))],
         note: 'Nhẹ bụng, nhiều đạm, dễ mua ở cửa hàng tiện lợi.' };
     }
-    const [protein, carb] = pick([['ức gà', 'cơm'], ['cá hồi', 'khoai lang'], ['thịt bò', 'cơm gạo lứt'], ['đậu phụ', 'bún'], ['tôm', 'cơm']]);
+    const meal = pick([['ức gà', 'cơm'], ['cá hồi', 'khoai lang'], ['thịt bò', 'cơm gạo lứt'], ['đậu phụ', 'bún'], ['tôm', 'cơm'], ['thịt heo nạc', 'khoai tây']]);
+    if (!meal) return null;
+    const [protein, carb] = meal;
     const p = per(protein), c = per(carb), veg = withAmounts('rau', 150, per('rau'));
     const pg = Math.min(Math.max(Math.round(remaining.protein * 0.6 / p.protein * 10) * 10, 80), 250);
     const pItem = withAmounts(protein, pg, p);
@@ -141,35 +188,68 @@ Dạng: {"items":[{"name":"ức gà luộc","grams":300,"kcal":165,"protein":31,
     async parse(member, body) {
       if (!isPlainBody(body, ['text']) || !isText(body.text, 300)) throw fail(400, 'Nhập món đã ăn (1–300 ký tự), ví dụ "300g ức gà, 1 bát cơm".');
       const parts = splitMeal(body.text);
-      const known = await knownFoods();
+      if (parts.length > MAX_PARTS) throw fail(400, `Mỗi lần nhập tối đa ${MAX_PARTS} món.`);
+      // Gibberish and impossible amounts are rejected here, before the food table, AI or the shared cache see them.
+      const rejected = parts.filter(p => !looksLikeFood(p.name)).map(p => p.name || '(trống)');
+      const tooMuch = parts.filter(p => p.amount !== null && (p.amount <= 0 || (p.unit === 'kg' ? p.amount * 1000 : p.amount) > MAX_GRAMS));
+      if (tooMuch.length) throw fail(400, `Khối lượng không hợp lý: ${tooMuch.map(p => `${p.amount}${p.unit ?? ''} ${p.name}`).join(', ')}. Mỗi món từ 1 g đến 3 kg.`);
+      if (rejected.length === parts.length) throw fail(400, 'Không nhận ra món ăn nào. Hãy ghi kiểu "300g ức gà, 1 bát cơm".');
+      const [known, allergies] = await Promise.all([knownFoods(), allergiesOf(member.user_id)]);
       const items = [];
       const unknown = [];
-      for (const part of parts) {
+      const unknownText = [];
+      for (const part of parts.filter(p => looksLikeFood(p.name))) {
         const food = known.find(f => part.name === f.key || (part.name.startsWith(`${f.key} `)
           && part.name.slice(f.key.length).trim().split(' ').every(w => COOKING.has(w))));
-        if (!food) { unknown.push(part.name); continue; }
+        if (!food) { unknown.push(part.name); unknownText.push(`${part.amount ?? ''}${part.unit ?? ''} ${part.name}`.trim()); continue; }
         items.push(withAmounts(food.name ?? food.key, gramsOf(part, food.serving),
           { kcal: food.kcal, protein: food.protein, carbs: food.carbs, fat: food.fat }, food.source));
       }
-      if (!unknown.length) return { success: true, items, unknown, engine: 'table' };
+      const notes = rejected.length ? [`Bỏ qua vì không giống món ăn: ${rejected.join(', ')}.`] : [];
+      // Each item says which allergy it hits; the app warns but still lets the member log what they really ate.
+      const done = (result) => {
+        const flagged = result.items.map(i => ({ ...i, allergen: allergenOf(i.name, allergies) }));
+        const hits = [...new Set(flagged.filter(i => i.allergen).map(i => i.allergen))];
+        const warnings = hits.map(a => `Cảnh báo: bữa này có món bạn dị ứng (${a}).`);
+        const message = [...notes, ...(result.message ? [result.message] : [])].join(' ');
+        return { success: true, ...result, items: flagged, rejected, warnings, ...(message ? { message } : {}) };
+      };
+      if (!unknown.length) return done({ items, unknown, engine: 'table' });
       if (!ai.apiKey) {
-        return { success: true, items, unknown, engine: 'table',
-          message: `Chưa nhận ra: ${unknown.join(', ')}. Bạn nhập macro tay ở ô bên dưới.` };
+        return done({ items, unknown, engine: 'table', message: `Chưa nhận ra: ${unknown.join(', ')}. Bạn nhập macro tay ở ô bên dưới.` });
       }
       const user = await loadUser(member);
       try {
-        const aiItems = await withAiQuota(db, user, () => aiParse(body.text.trim()));
-        return { success: true, items: aiItems, unknown: [], engine: 'ai' };
+        // Only the foods the table does not know go to AI, which keeps prompts short.
+        const out = await withAiQuota(db, user, () => aiParse(unknownText.join(', ')));
+        rejected.push(...out.invalid);
+        if (out.invalid.length) notes.push(`Không phải đồ ăn: ${out.invalid.join(', ')}.`);
+        if (!items.length && !out.items.length) throw fail(400, 'Không nhận ra món ăn nào. Hãy ghi kiểu "300g ức gà, 1 bát cơm".');
+        return done({ items: [...items, ...out.items], unknown: [], engine: 'ai' });
       } catch (error) {
         if (error instanceof HttpError) throw error;
-        return { success: true, items, unknown, engine: 'table', message: 'AI đang bận, bạn nhập macro tay cho món chưa nhận ra.' };
+        return done({ items, unknown, engine: 'table', message: 'AI đang bận, bạn nhập macro tay cho món chưa nhận ra.' });
       }
+    },
+
+    // Foods the member must not eat. Suggestions avoid them and parsed meals are flagged.
+    async setAllergies(member, body) {
+      const list = body?.allergies;
+      if (!isPlainBody(body, ['allergies']) || !Array.isArray(list) || list.length > 10
+        || !list.every(a => isText(a, 30) && looksLikeFood(norm(a)))) {
+        throw fail(400, 'Dị ứng là danh sách tối đa 10 món, mỗi món là tên thực phẩm thật (VD: tôm, sữa, đậu phộng).');
+      }
+      const allergies = [...new Set(list.map(norm))];
+      const now = new Date();
+      await db.collection('nutrition_profiles').updateOne({ user_id: member.user_id },
+        { $set: { allergies, updated_at: now }, $setOnInsert: { user_id: member.user_id, created_at: now } }, { upsert: true });
+      return { success: true, allergies };
     },
 
     // One meal idea for what is left today: a light snack late in the evening, a proper meal earlier.
     async suggest(member) {
       const state = await status(member);
-      const { user, day, remaining } = state;
+      const { user, day, remaining, allergies } = state;
       if (remaining.calories < 100) return { success: true, suggestion: null, message: 'Bạn đã ăn gần đủ mục tiêu hôm nay.' };
       const hour = localHour(user.timezone);
       const kind = hour >= 20 || hour < 5 ? 'snack' : hour < 10 ? 'breakfast' : hour < 14 ? 'lunch' : hour < 17 ? 'snack' : 'dinner';
@@ -180,20 +260,23 @@ Dạng: {"items":[{"name":"ức gà luộc","grams":300,"kcal":165,"protein":31,
         try {
           idea = await withAiQuota(db, user, () => complete(ai, { json: true, maxTokens: 600,
             system: `Bạn là chuyên gia dinh dưỡng ở Việt Nam. Gợi ý MỘT ${kind === 'snack' ? 'bữa phụ nhẹ' : MEAL_LABEL[kind].toLowerCase()}
-khoảng ${budget} kcal, ưu tiên bù đạm còn thiếu, món dễ mua hoặc dễ nấu ở Việt Nam. Mục tiêu người dùng: ${user.goal}.
+khoảng ${budget} kcal, ưu tiên bù đạm còn thiếu, món dễ mua hoặc dễ nấu ở Việt Nam. Mục tiêu người dùng: ${user.goal}.${allergies.length ? `
+Người dùng dị ứng, tuyệt đối không dùng: ${allergies.join(', ')} (kể cả nước sốt hay bột làm từ chúng).` : ''}
 Dạng: {"meal_name":"...","note":"một câu lý do","items":[{"name":"...","grams":150,"calories":200,"protein":20,"carbs":10,"fat":5}]}.`,
             messages: [{ role: 'user', content: `Bây giờ ${hour} giờ. Còn thiếu: ${remaining.calories} kcal, ${remaining.protein} g đạm, ${remaining.carbs} g tinh bột, ${remaining.fat} g béo.` }] }));
           const items = (Array.isArray(idea?.items) ? idea.items : []).filter(i => isText(i?.name, 80) && num(i.grams, 2000)
             && num(i.calories, 3000) && num(i.protein, 300) && num(i.carbs, 500) && num(i.fat, 300)).slice(0, 6)
             .map(i => ({ name: i.name.trim(), grams: Math.round(i.grams), calories: Math.round(i.calories), protein: round1(i.protein), carbs: round1(i.carbs), fat: round1(i.fat) }));
-          idea = items.length && isText(idea.meal_name, 120) ? { meal_name: idea.meal_name.trim(), note: isText(idea.note, 300) ? idea.note.trim() : '', items } : null;
+          // A reply that still contains an allergen is thrown away for the safe rules suggestion.
+          idea = items.length && isText(idea.meal_name, 120) && ![idea.meal_name, ...items.map(i => i.name)].some(n => allergenOf(n, allergies)) ? { meal_name: idea.meal_name.trim(), note: isText(idea.note, 300) ? idea.note.trim() : '', items } : null;
           if (idea) engine = 'ai';
         } catch (error) {
           if (error instanceof HttpError) throw error;
           idea = null;
         }
       }
-      idea ??= ruleSuggestion(kind, budget, remaining, day);
+      idea ??= ruleSuggestion(kind, budget, remaining, day, allergies);
+      if (!idea) return { success: true, suggestion: null, message: 'Chưa có gợi ý hợp với danh sách dị ứng của bạn.' };
       const total = k => round1(idea.items.reduce((s, i) => s + i[k], 0));
       const now = new Date();
       const suggestion = { suggestion_id: randomUUID(), user_id: user.user_id, day, meal_type: kind, meal_name: idea.meal_name,
@@ -231,4 +314,4 @@ Dạng: {"meal_name":"...","note":"một câu lý do","items":[{"name":"...","gr
   };
 }
 
-module.exports = { createNutritionService, splitMeal, targetsFor };
+module.exports = { createNutritionService, splitMeal, targetsFor, looksLikeFood, allergenOf };

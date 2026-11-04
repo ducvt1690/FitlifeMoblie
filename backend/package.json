@@ -11,7 +11,8 @@
     "test:postman": "node scripts/run-postman-regression.js",
     "test:postman:atlas": "node scripts/run-postman-regression.js --atlas",
     "role": "node scripts/set-role.js",
-    "ai:check": "node scripts/ai-check.js"
+    "ai:check": "node scripts/ai-check.js",
+    "tester": "node scripts/tester.js"
   },
   "engines": {
     "node": ">=20.19.0"

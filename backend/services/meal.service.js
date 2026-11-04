@@ -26,6 +26,11 @@ function validateMeal(body, { requireId = true } = {}) {
     || typeof body.meal_type !== 'string' || !mealTypes.has(body.meal_type)) {
     throw fail(400, 'Bữa ăn cần meal_id UUID, meal_name, calories nguyên dương, protein/carbs/fat không âm và meal_type hợp lệ.');
   }
+  // One meal is at most 5000 kcal, and its macros cannot hold much more energy than the kcal typed in.
+  if (body.calories > 5000 || body.protein > 500 || body.carbs > 800 || body.fat > 400
+    || body.protein * 4 + body.carbs * 4 + body.fat * 9 > body.calories * 1.5 + 50) {
+    throw fail(400, 'Số liệu bữa ăn không hợp lý: tối đa 5000 kcal, và đạm/tinh bột/béo phải khớp với kcal.');
+  }
   return { ...(requireId ? { meal_id: body.meal_id } : {}), meal_name: body.meal_name.trim(),
     calories: body.calories, protein: body.protein, carbs: body.carbs, fat: body.fat, meal_type: body.meal_type };
 }
