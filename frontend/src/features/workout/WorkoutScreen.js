@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import Screen from '../../ui/Screen';
 import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
@@ -13,6 +14,8 @@ import NumberStepper from '../../ui/NumberStepper';
 import { colors, radius } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import AskCoach from '../coach/AskCoach';
+import SwipeToDone from '../../ui/SwipeToDone';
+import { scheduleReminders } from '../../lib/reminders';
 
 const COACH_STARTERS = ['Lên lịch tập ngực 45 phút', 'Hôm nay nên tập nhóm cơ nào?', 'Lên lịch tập ở nhà không có tạ 30 phút', 'Tập xong nên ăn gì?'];
 
@@ -32,6 +35,8 @@ export default function WorkoutScreen() {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [broken, setBroken] = useState({});
+  const [scheduled, setScheduled] = useState(0);
 
   const load = useCallback(async () => {
     try { setPlan((await api.plans.today()).plan); } catch (e) { setError({ message: e.message }); }
@@ -49,8 +54,21 @@ export default function WorkoutScreen() {
   };
   const finish = async () => {
     setBusy('done'); setError(null);
-    try { await api.plans.complete(plan.plan_id); await load(); } catch (e) { setError({ message: e.message }); } finally { setBusy(''); }
+    try {
+      const res = await api.plans.complete(plan.plan_id);
+      await load();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setScheduled(await scheduleReminders(res.after?.reminders));
+    } catch (e) { setError({ message: e.message }); } finally { setBusy(''); }
   };
+  const doneIds = plan?.done_items ?? [];
+  const toggle = async (id) => {
+    const before = doneIds;
+    const next = before.includes(id) ? before.filter(d => d !== id) : [...before, id];
+    setPlan(p => ({ ...p, done_items: next }));
+    try { await api.plans.setDone(plan.plan_id, next); } catch (e) { setPlan(p => ({ ...p, done_items: before })); setError({ message: e.message }); }
+  };
+  const allDone = !!plan?.items.length && plan.items.every(i => doneIds.includes(i.exercise_id));
 
   const form = (
     <Surface radius={radius.lg} style={styles.card}>
@@ -83,19 +101,38 @@ export default function WorkoutScreen() {
             <Text variant="caption" tone="accent">{plan.status === 'done' ? 'Đã tập xong' : `Khoảng ${plan.estimated_minutes} phút · khởi động ${plan.warmup_minutes} phút`}</Text>
             <Text variant="heading">{plan.title}</Text>
             {plan.tip ? <Text tone="dim">{plan.tip}</Text> : null}
+            {plan.notice ? <Text variant="caption" tone="faint">{plan.notice}</Text> : null}
+            {plan.status !== 'done' ? <Text variant="caption" tone="dim">{doneIds.length}/{plan.items.length} bài xong · vuốt bài sang trái để đánh dấu</Text> : null}
           </Surface>
+          {plan.status === 'done' && plan.after ? (
+            <Surface radius={radius.lg} style={styles.card}>
+              <Text variant="caption" tone="accent">Coach gợi ý sau buổi tập</Text>
+              {plan.after.tips.map(t => (
+                <View key={t.title} style={styles.tip}>
+                  <View style={styles.tipIcon}><Ionicons name={t.icon} size={18} color={colors.accent} /></View>
+                  <View style={styles.flex}><Text variant="label">{t.title}</Text><Text tone="dim">{t.text}</Text></View>
+                </View>
+              ))}
+              {scheduled ? <Text variant="caption" tone="faint">Đã hẹn {scheduled} lời nhắc: tắm sau {plan.after.reminders[0].in_minutes} phút, ăn sau {plan.after.reminders[1].in_minutes} phút.</Text> : null}
+            </Surface>
+          ) : null}
           {plan.items.map((it, i) => (
-            <Surface key={it.exercise_id} radius={radius.md} style={styles.exercise}>
-              <Image source={{ uri: it.gif_url }} style={styles.gif} contentFit="cover" transition={200}
-                accessibilityLabel={`Minh họa ${it.name}`} />
+            <SwipeToDone key={it.exercise_id} done={doneIds.includes(it.exercise_id)} disabled={plan.status === 'done'} onToggle={() => toggle(it.exercise_id)}>
+            <Surface radius={radius.md} style={[styles.exercise, doneIds.includes(it.exercise_id) && styles.doneRow]}>
+              {it.gif_url && !broken[it.exercise_id] ? (
+                <Image source={{ uri: it.gif_url }} style={styles.gif} contentFit="cover" transition={200}
+                  onError={() => setBroken(b => ({ ...b, [it.exercise_id]: true }))} accessibilityLabel={`Minh họa ${it.name}`} />
+              ) : <View style={[styles.gif, styles.noGif]}><Ionicons name="barbell" size={30} color={colors.textFaint} /></View>}
               <View style={styles.flex}>
                 <Text variant="label" numberOfLines={2}>{i + 1}. {it.name}</Text>
                 {it.target ? <Text variant="caption" tone="faint">{it.target}</Text> : null}
                 <Text variant="label" tone="dim">{it.sets} hiệp × {it.reps} · nghỉ {it.rest_seconds}s</Text>
               </View>
+              {doneIds.includes(it.exercise_id) ? <Ionicons name="checkmark-circle" size={26} color={colors.accent} /> : null}
             </Surface>
+            </SwipeToDone>
           ))}
-          {plan.status !== 'done' ? <Button title="Đã tập xong" onPress={finish} loading={busy === 'done'} disabled={!!busy} style={styles.gap} /> : null}
+          {plan.status !== 'done' ? <Button title={allDone ? 'Hoàn thành buổi tập' : 'Đã tập xong'} onPress={finish} loading={busy === 'done'} disabled={!!busy} style={styles.gap} /> : null}
           <Button title="Tạo lịch khác" variant="glass" onPress={() => setShowForm(true)} style={styles.gap} />
         </>
       ) : form}
@@ -109,7 +146,11 @@ const styles = StyleSheet.create({
   title: { marginBottom: 16 },
   card: { padding: 18, gap: 12, marginBottom: 12 },
   alert: { borderColor: colors.stroke },
-  exercise: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 10, marginBottom: 8 },
+  exercise: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 10, paddingRight: 14 },
+  doneRow: { opacity: 0.55 },
+  noGif: { backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  tip: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  tipIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   gif: { width: 76, height: 76, borderRadius: 12, backgroundColor: '#fff' },
   flex: { flex: 1, gap: 2 },
   gap: { marginTop: 10 },

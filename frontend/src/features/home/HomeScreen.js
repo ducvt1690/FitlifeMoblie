@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Screen from '../../ui/Screen';
 import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
@@ -102,9 +102,9 @@ export default function HomeScreen() {
           <Text variant="label" tone="dim">{dateLabel()}</Text>
           <Text variant="title" numberOfLines={1}>{greeting()}, {first || 'bạn'}</Text>
         </View>
-        <View style={styles.avatar}>
+        <Pressable onPress={() => router.push('/home/me')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Mở hồ sơ" style={styles.avatar}>
           <Text variant="heading">{(first?.[0] ?? 'F').toUpperCase()}</Text>
-        </View>
+        </Pressable>
       </View>
 
       {error ? (

@@ -81,6 +81,7 @@ export function createApi(call) {
     plans: {
       today: () => call('/api/workout-plans/today'),
       create: (body) => post('/api/workout-plans', body),
+      setDone: (id, done) => call(`/api/workout-plans/${id}/items`, { method: 'PUT', body: { done } }),
       complete: (id) => post(`/api/workout-plans/${id}/complete`),
     },
     workouts: () => call('/api/workout-logs'),
