@@ -8,6 +8,7 @@ function createStatsRouter({ db }) {
   const service = createStatsService({ db });
   router.use(createRequireAuth({ db }), requireMember);
   router.get('/', asyncHandler(async (req, res) => res.json(await service.summary(req.auth.user, req.query.days))));
+  router.get('/lifetime', asyncHandler(async (req, res) => res.json(await service.lifetime(req.auth.user))));
   return router;
 }
 module.exports = { createStatsRouter };

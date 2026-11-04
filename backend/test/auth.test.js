@@ -270,6 +270,21 @@ test('logout revokes the selected session immediately, preserves another login, 
   assert.equal((await request('/api/auth/logout', { method: 'POST', token: 'invalid' })).status, 401);
 });
 
+test('changing the password needs the current one and signs out the other devices only', async () => {
+  const here = await login();
+  const other = await login();
+  const change = (current_password, new_password) => request('/api/auth/password', { method: 'POST', token: here.token, body: { current_password, new_password } });
+  assert.equal((await change('wrong-password', 'new-password-1')).status, 401);
+  assert.equal((await change(password, 'short')).status, 400);
+  const done = await change(password, 'new-password-1');
+  assert.equal(done.status, 200);
+  assert.equal(done.body.signed_out_devices, 1);
+  assert.equal((await request('/api/auth/me', { token: here.token })).status, 200);
+  assert.equal((await request('/api/auth/me', { token: other.token })).status, 401);
+  await login(DEMO_EMAIL, 'new-password-1');
+  assert.equal((await change('new-password-1', password)).status, 200);
+});
+
 test('expired sessions are rejected before the TTL background cleanup removes them', async () => {
   const { token } = await login();
   await db.collection('auth_sessions').updateOne({ token_hash: tokenHash(token) }, {

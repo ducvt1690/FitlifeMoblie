@@ -83,6 +83,21 @@ function createAuthService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS
       if (user.role === 'user') user.target_water = await currentWaterTarget(db, user, { now });
       return { success: true, message: 'Đăng nhập thành công.', ...await sessions.create(user.user_id), user: publicUser(user) };
     },
+    // Needs the current password; every other signed-in device is signed out.
+    async changePassword(member, tokenHash, body) {
+      const { current_password: current, new_password: next } = body || {};
+      if (typeof current !== 'string' || typeof next !== 'string' || Buffer.byteLength(current, 'utf8') > 1024
+        || Buffer.byteLength(next, 'utf8') > 1024 || [...next].length < 8 || !next.trim()) {
+        throw new HttpError(400, 'Mật khẩu mới cần ít nhất 8 ký tự.');
+      }
+      const user = await db.collection('users').findOne({ user_id: member.user_id });
+      if (!await verifyPassword(current, user?.password_hash)) throw new HttpError(401, 'Mật khẩu hiện tại không đúng.');
+      if (current === next) throw new HttpError(400, 'Mật khẩu mới phải khác mật khẩu hiện tại.');
+      const now = new Date();
+      await db.collection('users').updateOne({ user_id: member.user_id }, { $set: { password_hash: await hashPassword(next), updated_at: now } });
+      const { deletedCount } = await db.collection('auth_sessions').deleteMany({ user_id: member.user_id, token_hash: { $ne: tokenHash } });
+      return { success: true, message: 'Đã đổi mật khẩu.', signed_out_devices: deletedCount };
+    },
   };
 }
 module.exports = { createAuthService };

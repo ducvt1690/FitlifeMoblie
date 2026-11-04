@@ -56,7 +56,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
     res.json({
       status: 'online', project: 'FitLife Health & MMA API', version: '2.0.0',
       endpoints: {
-        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me'],
+        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me', 'POST /api/auth/password'],
         profile: ['GET /api/profile', 'PATCH /api/profile'],
         water: ['GET /api/water-logs', 'POST /api/water-logs'],
         workouts: ['GET /api/workout-logs', 'POST /api/workout-logs'],
@@ -69,9 +69,9 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         bmi: ['GET /api/bmi-records', 'POST /api/bmi-records'],
         challenges: ['GET /api/challenges', 'POST /api/challenges/:challengeId/join', 'POST /api/challenges/:challengeId/checkin'],
         rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
-        stats: ['GET /api/stats'],
+        stats: ['GET /api/stats', 'GET /api/stats/lifetime'],
         chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'POST /api/chat/messages', 'GET /api/chat/memory', 'DELETE /api/chat/memory'],
-        nutrition: ['GET /api/nutrition/today', 'POST /api/nutrition/parse', 'POST /api/nutrition/suggestions',
+        nutrition: ['GET /api/nutrition/today', 'POST /api/nutrition/parse', 'POST /api/nutrition/suggestions', 'POST /api/nutrition/suggestions/:suggestionId/accept',
           'POST /api/nutrition/suggestions/:suggestionId/eat', 'PUT /api/nutrition/day', 'PUT /api/nutrition/allergies'],
         workout_plans: ['GET /api/workout-plans/options', 'GET /api/workout-plans/today', 'POST /api/workout-plans',
           'PUT /api/workout-plans/:planId/items', 'POST /api/workout-plans/:planId/complete'],

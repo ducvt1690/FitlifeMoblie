@@ -1,6 +1,6 @@
 'use strict';
 const express = require('express');
-const { readBearerToken, publicUser } = require('../auth/session');
+const { readBearerToken, publicUser, hashToken } = require('../auth/session');
 const { createAuthService } = require('../services/auth.service');
 const { createSessionService } = require('../services/session.service');
 const { createRequireAuth } = require('../middleware/require-auth');
@@ -17,6 +17,8 @@ function createAuthRouter({ db, sessionTtlSeconds, loginRateLimit } = {}) {
   router.post('/login', createLoginRateLimiter(loginRateLimit),
     asyncHandler(async (req, res) => res.json(await auth.login(req.body))));
   router.get('/me', createRequireAuth({ db }), (req, res) => res.json({ success: true, user: publicUser(req.auth.user) }));
+  router.post('/password', createRequireAuth({ db }), createLoginRateLimiter({ message: 'Thử quá nhiều lần. Vui lòng thử lại sau.' }),
+    asyncHandler(async (req, res) => res.json(await auth.changePassword(req.auth.user, hashToken(readBearerToken(req)), req.body))));
   router.post('/logout', asyncHandler(async (req, res) => {
     await sessions.revoke(readBearerToken(req));
     res.status(204).end();

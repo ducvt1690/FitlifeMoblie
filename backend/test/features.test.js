@@ -148,6 +148,10 @@ test('stats summarise the requested days and chat stores both turns with a once-
   assert.equal(stats.body.days.at(-1).water_ml, 800);
   assert.equal(stats.body.days[0].water_ml, 0);
   assert.equal((await request('/api/stats?days=40', member.token)).status, 400);
+  await request('/api/workout-logs', member.token, 'POST', { workout_id: randomUUID(), title: 'Chạy bộ', category: 'cardio', duration_seconds: 1800, calories_burned: 250 });
+  const life = (await request('/api/stats/lifetime', member.token)).body;
+  assert.ok(life.workouts >= 1 && life.minutes >= 30 && life.active_days >= 1 && life.best_streak >= 1);
+  assert.ok(life.member_since && life.recent.length >= 1 && life.records.longest.duration_seconds >= 1800);
 
   const sessionId = randomUUID();
   const sent = await request('/api/chat/messages', member.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Hôm nay mình uống đủ nước chưa?' });

@@ -53,6 +53,26 @@ function createStatsService({ db }) {
           quests_done: quests.get(date) ?? 0,
         })) };
     },
+
+    // Everything since sign-up for the profile page: totals, records, the longest run of training days and recent sessions.
+    async lifetime(user) {
+      const logs = db.collection('workout_logs');
+      const [[totals], days, recent, longest, hottest] = await Promise.all([
+        logs.aggregate([{ $match: { user_id: user.user_id } },
+          { $group: { _id: null, workouts: { $sum: 1 }, seconds: { $sum: '$duration_seconds' }, burned: { $sum: '$calories_burned' } } }]).toArray(),
+        logs.distinct('workout_date', { user_id: user.user_id }),
+        logs.find({ user_id: user.user_id }, { projection: { _id: 0, workout_id: 1, title: 1, workout_date: 1, duration_seconds: 1, calories_burned: 1 } })
+          .sort({ workout_date: -1, created_at: -1 }).limit(10).toArray(),
+        logs.find({ user_id: user.user_id }, { projection: { _id: 0, title: 1, workout_date: 1, duration_seconds: 1 } }).sort({ duration_seconds: -1 }).limit(1).next(),
+        logs.find({ user_id: user.user_id }, { projection: { _id: 0, title: 1, workout_date: 1, calories_burned: 1 } }).sort({ calories_burned: -1 }).limit(1).next(),
+      ]);
+      let best = 0;
+      let run = 0;
+      days.sort().forEach((d, i, all) => { run = i && addDays(all[i - 1], 1) === d ? run + 1 : 1; best = Math.max(best, run); });
+      return { success: true, member_since: user.created_at ?? null, workouts: totals?.workouts ?? 0,
+        minutes: Math.round((totals?.seconds ?? 0) / 60), calories_burned: Math.round(totals?.burned ?? 0), active_days: days.length,
+        streak_days: user.streak_days ?? 0, best_streak: best, records: { longest, hottest }, recent };
+    },
   };
 }
 module.exports = { createStatsService };

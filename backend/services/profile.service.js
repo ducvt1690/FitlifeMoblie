@@ -13,7 +13,7 @@ function publicProfile(user, now = new Date()) {
   const current = withCurrentAge(user, now);
   return { ...Object.fromEntries(['user_id', 'email', 'role', ...profileFields, 'timezone', 'target_water',
     'target_calories', 'fit_coins', 'streak_days'].map(key => [key, current[key]])),
-    date_of_birth: user.date_of_birth ?? null,
+    date_of_birth: user.date_of_birth ?? null, member_since: user.created_at ?? null,
     ...(user.date_of_birth === undefined ? {} : { target_calories: calculateTargets(current, now).target_calories }) };
 }
 
