@@ -65,6 +65,10 @@ HTTP `200`:
 - `400`: `code` không phải 6 chữ số, mật khẩu mới không đạt quy tắc, hoặc `"Mã xác nhận không đúng hoặc đã hết hạn."` (dùng chung một câu cho mã sai, hết hạn, đã dùng, đã khóa, email không tồn tại).
 - `429`: quá 20 lần/15 phút/IP.
 
+## Đăng xuất mọi thiết bị — `POST /api/auth/logout-all`
+
+Cần `Authorization: Bearer <token>`. Xóa **mọi phiên** của tài khoản, kể cả phiên đang dùng; trả `204` (không có body). FE xóa token đã lưu và chuyển về màn hình đăng nhập. Dùng cho nút "Đăng xuất khỏi tất cả thiết bị" hoặc khi nghi bị lộ tài khoản. Thiếu/sai token → `401`.
+
 ## Cấu hình gửi email (SMTP)
 
 Đặt trong `backend/.env` (xem `.env.example`):

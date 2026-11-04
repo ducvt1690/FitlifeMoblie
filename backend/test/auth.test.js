@@ -649,3 +649,13 @@ test('change-password checks the current password, rotates the hash and signs ou
   assert.equal(oldLogin.status, 401);
   await login(body.email, newPassword);
 });
+
+test('logout-all signs out every session of the user', async () => {
+  const one = await login();
+  const two = await login();
+  assert.equal((await request('/api/auth/logout-all', { method: 'POST' })).status, 401);
+  assert.equal((await request('/api/auth/logout-all', { method: 'POST', token: one.token })).status, 204);
+  assert.equal((await request('/api/auth/me', { token: one.token })).status, 401);
+  assert.equal((await request('/api/auth/me', { token: two.token })).status, 401);
+  await login();
+});
