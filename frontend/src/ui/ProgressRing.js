@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Platform, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { colors } from '../theme/tokens';
 
 // Web draws the final value directly: the animated wrapper leaks `collapsable` onto the DOM <circle>.
 const web = Platform.OS === 'web';
 const ArcCircle = web ? Circle : Animated.createAnimatedComponent(Circle);
 
 // Activity-style ring. `progress` 0..1+; past 1 the ring stays full.
-export default function ProgressRing({ size = 120, stroke = 12, progress = 0, color, track = 'rgba(255,255,255,0.08)', children }) {
+export default function ProgressRing({ size = 120, stroke = 12, progress = 0, color, track = colors.track, children }) {
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const clamped = Math.min(Math.max(progress, 0), 1);

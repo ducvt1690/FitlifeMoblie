@@ -26,7 +26,7 @@ export function PressScale({ children, onPress, disabled, haptic = true, style, 
 // Forward arrows read better after the label, so they trail automatically.
 export default function Button({ title, onPress, variant = 'primary', icon, loading, disabled, blur, style }) {
   const busy = loading || disabled;
-  const ink = variant === 'primary' ? colors.ink : colors.text;
+  const ink = variant === 'primary' ? colors.inverse : colors.text;
   const trailing = icon?.startsWith('arrow-forward') || icon?.startsWith('chevron-forward');
   const content = (
     <View style={styles.row}>

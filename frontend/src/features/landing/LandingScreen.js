@@ -43,8 +43,8 @@ export default function LandingScreen() {
         <Image source={PHOTO} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition="top" transition={400}
           accessible accessibilityLabel="Người tập nâng thanh tạ trong phòng gym" />
       </Animated.View>
-      <LinearGradient colors={['rgba(7,9,12,0.6)', 'rgba(7,9,12,0)']} style={styles.topShade} pointerEvents="none" />
-      <LinearGradient colors={['rgba(7,9,12,0)', 'rgba(7,9,12,0.8)', colors.bg]} locations={[0, 0.4, 0.78]}
+      <LinearGradient colors={[`rgba(${colors.shade},0.6)`, `rgba(${colors.shade},0)`]} style={styles.topShade} pointerEvents="none" />
+      <LinearGradient colors={[`rgba(${colors.shade},0)`, `rgba(${colors.shade},0.8)`, colors.bg]} locations={[0, 0.4, 0.78]}
         style={styles.bottomShade} pointerEvents="none" />
 
       <View style={[styles.content, { paddingTop: insets.top + 14, paddingBottom: Math.max(insets.bottom, 16) + 8, paddingHorizontal: gutter }]}>

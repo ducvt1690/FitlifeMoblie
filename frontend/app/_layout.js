@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Barlow_400Regular, Barlow_500Medium, Barlow_600SemiBold, Barlow_700Bold } from '@expo-google-fonts/barlow';
 import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
-import { colors } from '../src/theme/tokens';
+import { colors, scheme } from '../src/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -42,7 +42,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider style={{ backgroundColor: colors.bg }}>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
         <Root />
       </AuthProvider>
     </SafeAreaProvider>

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +15,7 @@ import { colors, radius } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import AskCoach from '../coach/AskCoach';
 import ExerciseSheet from './ExerciseSheet';
+import RestTimer from './RestTimer';
 import SwipeToDone from '../../ui/SwipeToDone';
 import { scheduleReminders } from '../../lib/reminders';
 
@@ -25,6 +26,9 @@ const SPLITS = [
   { value: 'upper_lower', label: 'Upper · Lower', days: [['upper', 'Upper'], ['lower', 'Lower']] },
   { value: 'full_body', label: 'Full body', days: [['full', 'Toàn thân']] },
 ];
+
+// On web a role=button row cannot hold the rest-timer button, so the row stays a plain clickable element there.
+const ROW_ROLE = Platform.OS === 'web' ? undefined : 'button';
 
 export default function WorkoutScreen() {
   const { api } = useAuth();
@@ -40,6 +44,8 @@ export default function WorkoutScreen() {
   const [scheduled, setScheduled] = useState(0);
   const [nudge, setNudge] = useState('');
   const [detail, setDetail] = useState(null);
+  const [rest, setRest] = useState(null);
+  const startRest = (it) => setRest({ seconds: it.rest_seconds || 60, label: it.name, key: Date.now() });
 
   const load = useCallback(async () => {
     try { setPlan((await api.plans.today()).plan); } catch (e) { setError({ message: e.message }); }
@@ -51,7 +57,7 @@ export default function WorkoutScreen() {
     setBusy('create'); setError(null);
     try {
       const res = await api.plans.create({ split, focus, minutes, ...(note.trim() ? { note: note.trim() } : {}) });
-      setPlan(res.plan); setShowForm(false);
+      setPlan(res.plan); setShowForm(false); setRest(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e) { setError({ message: e.message, premium: e.status === 402 }); } finally { setBusy(''); }
   };
@@ -60,6 +66,7 @@ export default function WorkoutScreen() {
     try {
       const res = await api.plans.complete(plan.plan_id);
       await load();
+      setRest(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       if (res.coach?.preview) setNudge(res.coach.preview);
       setScheduled(await scheduleReminders(res.after?.reminders));
@@ -70,6 +77,9 @@ export default function WorkoutScreen() {
     const before = doneIds;
     const next = before.includes(id) ? before.filter(d => d !== id) : [...before, id];
     setPlan(p => ({ ...p, done_items: next }));
+    const item = plan.items.find(i => i.exercise_id === id);
+    // Rest before the next exercise, unless this was the last one.
+    if (next.length > before.length && next.length < plan.items.length && item) startRest(item);
     try { await api.plans.setDone(plan.plan_id, next); } catch (e) { setPlan(p => ({ ...p, done_items: before })); setError({ message: e.message }); }
   };
   const allDone = !!plan?.items.length && plan.items.every(i => doneIds.includes(i.exercise_id));
@@ -106,7 +116,7 @@ export default function WorkoutScreen() {
             <Text variant="heading">{plan.title}</Text>
             {plan.tip ? <Text tone="dim">{plan.tip}</Text> : null}
             {plan.notice ? <Text variant="caption" tone="faint">{plan.notice}</Text> : null}
-            {plan.status !== 'done' ? <Text variant="caption" tone="dim">{doneIds.length}/{plan.items.length} bài xong · vuốt trái để đánh dấu, chạm để xem cách tập</Text> : null}
+            {plan.status !== 'done' ? <Text variant="caption" tone="dim">{doneIds.length}/{plan.items.length} bài xong · vuốt trái để đánh dấu, chạm để xem cách tập, bấm đồng hồ để bấm giờ nghỉ</Text> : null}
           </Surface>
           {plan.status === 'done' && plan.after ? (
             <Surface radius={radius.lg} style={styles.card}>
@@ -122,7 +132,7 @@ export default function WorkoutScreen() {
           ) : null}
           {plan.items.map((it, i) => (
             <SwipeToDone key={it.exercise_id} done={doneIds.includes(it.exercise_id)} disabled={plan.status === 'done'} onToggle={() => toggle(it.exercise_id)}>
-            <Pressable onPress={() => setDetail(it.exercise_id)} accessibilityRole="button" accessibilityHint="Xem cách tập và mẹo">
+            <Pressable onPress={() => setDetail(it.exercise_id)} accessibilityRole={ROW_ROLE} accessibilityHint="Xem cách tập và mẹo">
             <Surface radius={radius.md} style={[styles.exercise, doneIds.includes(it.exercise_id) && styles.doneRow]}>
               {it.gif_url && !broken[it.exercise_id] ? (
                 <Image source={{ uri: it.gif_url }} style={styles.gif} contentFit="cover" transition={200}
@@ -131,7 +141,15 @@ export default function WorkoutScreen() {
               <View style={styles.flex}>
                 <Text variant="label" numberOfLines={2}>{i + 1}. {it.name}</Text>
                 {it.target ? <Text variant="caption" tone="faint">{it.target}</Text> : null}
-                <Text variant="label" tone="dim">{it.sets} hiệp × {it.reps} · nghỉ {it.rest_seconds}s</Text>
+                <View style={styles.meta}>
+                  <Text variant="label" tone="dim">{it.sets} hiệp × {it.reps}</Text>
+                  {plan.status !== 'done' ? (
+                    <Pressable onPress={() => startRest(it)} hitSlop={8} style={styles.restChip} accessibilityRole="button" accessibilityLabel={`Bấm giờ nghỉ ${it.rest_seconds} giây`}>
+                      <Ionicons name="timer-outline" size={13} color={colors.accentText} />
+                      <Text variant="caption" tone="accent">{it.rest_seconds}s</Text>
+                    </Pressable>
+                  ) : <Text variant="label" tone="dim">· nghỉ {it.rest_seconds}s</Text>}
+                </View>
               </View>
               {doneIds.includes(it.exercise_id) ? <Ionicons name="checkmark-circle" size={26} color={colors.accent} /> : null}
               <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
@@ -145,6 +163,7 @@ export default function WorkoutScreen() {
       ) : form}
     </Screen>
     <AskCoach context="workout" title="Lịch tập, kỹ thuật, phục hồi" starters={COACH_STARTERS} onDone={load} nudge={nudge} onSeen={() => setNudge('')} />
+    <RestTimer rest={rest} onClose={() => setRest(null)} />
     <ExerciseSheet exerciseId={detail} onClose={() => setDetail(null)} />
     </>
   );
@@ -161,5 +180,7 @@ const styles = StyleSheet.create({
   tipIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   gif: { width: 76, height: 76, borderRadius: 12, backgroundColor: '#fff' },
   flex: { flex: 1, gap: 2 },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  restChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: colors.accentSoft },
   gap: { marginTop: 10 },
 });

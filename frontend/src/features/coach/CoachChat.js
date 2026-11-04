@@ -89,7 +89,7 @@ export default function CoachChat({ context = 'general', starters = [], header =
           )) : null}
           {recent.map(m => (
             <View key={m.message_id} style={[styles.bubble, m.sender === 'user' ? styles.mine : styles.theirs]}>
-              <Text color={m.sender === 'user' ? colors.ink : colors.text}>{m.content}</Text>
+              <Text color={m.sender === 'user' ? colors.inverse : colors.text}>{m.content}</Text>
               {m.sender === 'ai' ? LINKS.filter(l => l.match.test(m.ai_engine ?? '')).map(l => (
                 <Pressable key={l.href} onPress={() => { onLink?.(); router.navigate(l.href); }} style={styles.link} accessibilityRole="button">
                   <Ionicons name={l.icon} size={16} color={colors.ink} />

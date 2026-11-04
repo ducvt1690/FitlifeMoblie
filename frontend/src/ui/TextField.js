@@ -33,7 +33,7 @@ export default TextField;
 const styles = StyleSheet.create({
   label: { marginBottom: 6, marginLeft: 4 },
   box: { flexDirection: 'row', alignItems: 'center', minHeight: 54, paddingHorizontal: 16, gap: 10, borderRadius: radius.sm,
-    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.stroke },
+    backgroundColor: colors.field, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.stroke },
   focused: { borderColor: colors.textDim },
   errored: { borderColor: colors.danger },
   input: { flex: 1, color: colors.text, fontFamily: fonts.medium, fontSize: 17, paddingVertical: 14, outlineStyle: 'none' },

@@ -15,7 +15,7 @@ export default function AuthShell({ children, onBack, header }) {
   return (
     <View style={styles.page}>
       <Image source={PHOTO} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={Platform.OS === 'android' ? 18 : 28} />
-      <LinearGradient colors={['rgba(7,9,12,0.55)', 'rgba(7,9,12,0.88)', colors.bg]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[`rgba(${colors.shade},0.55)`, `rgba(${colors.shade},0.88)`, colors.bg]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
       <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 8, paddingHorizontal: gutter }]}>
           <View style={[styles.topInner, { maxWidth: contentWidth }]}>

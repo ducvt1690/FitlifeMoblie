@@ -64,6 +64,15 @@ export function createApi(call) {
   const post = (path, body) => call(path, { method: 'POST', body });
   return {
     profile: () => call('/api/profile'),
+    updateProfile: (body) => call('/api/profile', { method: 'PATCH', body }),
+    changePassword: (current_password, new_password) => post('/api/auth/password', { current_password, new_password }),
+    lifetime: () => call('/api/stats/lifetime'),
+    bmi: (limit = 60) => call(`/api/bmi-records?limit=${limit}`),
+    payments: {
+      plans: () => call('/api/payments/plans'),
+      orders: () => call('/api/payments/orders'),
+      create: (product, return_url) => post('/api/payments/orders', { order_id: newId(), product, return_url }),
+    },
     stats: (days) => call(`/api/stats${days ? `?days=${days}` : ''}`),
     water: () => call('/api/water-logs'),
     addWater: (amount) => post('/api/water-logs', { log_id: newId(), amount }),

@@ -1,7 +1,7 @@
 import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { colors, radius as radii } from '../theme/tokens';
+import { colors, radius as radii, scheme } from '../theme/tokens';
 
 const liquid = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
@@ -12,7 +12,7 @@ export default function Glass({ children, style, radius = radii.md, blur = false
   const shape = { borderRadius: radius, overflow: 'hidden' };
   if (liquid) {
     return (
-      <GlassView glassEffectStyle="regular" colorScheme="dark" isInteractive={interactive} tintColor={tint}
+      <GlassView glassEffectStyle="regular" colorScheme={scheme} isInteractive={interactive} tintColor={tint}
         style={[shape, style]} {...rest}>
         {children}
       </GlassView>
@@ -21,7 +21,7 @@ export default function Glass({ children, style, radius = radii.md, blur = false
   return (
     <View style={[shape, styles.edge, tint && { backgroundColor: tint }, style]} {...rest}>
       {blur && (
-        <BlurView intensity={intensity} tint="dark" blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+        <BlurView intensity={intensity} tint={scheme} blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
           style={StyleSheet.absoluteFill} />
       )}
       {children}
