@@ -614,3 +614,38 @@ test('register limits repeated attempts separately from login and rejects malfor
   assert.ok(Number(limited.headers.get('retry-after')) > 0);
   assert.equal((await login()).user.user_id, DEMO_USER_ID);
 });
+
+test('change-password checks the current password, rotates the hash and signs out other devices', async (t) => {
+  const body = onboarding();
+  cleanupRegistration(t, body.email);
+  const registered = await request('/api/auth/register', { method: 'POST', body });
+  assert.equal(registered.status, 201, JSON.stringify(registered.body));
+  const current = registered.body.token;
+  const other = (await login(body.email, body.password)).token;
+  const newPassword = 'mat khau moi FitLife 2026';
+  const change = (payload, token = current) => request('/api/auth/change-password', { method: 'POST', token, body: payload });
+
+  // Không có token → 401
+  assert.equal((await change({ current_password: body.password, new_password: newPassword }, null)).status, 401);
+  // Sai mật khẩu cũ, mật khẩu mới quá ngắn, trùng mật khẩu cũ, gửi thêm trường lạ → 400
+  assert.equal((await change({ current_password: 'sai mat khau', new_password: newPassword })).status, 400);
+  assert.equal((await change({ current_password: body.password, new_password: 'ngan' })).status, 400);
+  assert.equal((await change({ current_password: body.password, new_password: body.password })).status, 400);
+  assert.equal((await change({ current_password: body.password, new_password: newPassword, role: 'admin' })).status, 400);
+  const before = await db.collection('users').findOne({ email: body.email });
+
+  const ok = await change({ current_password: body.password, new_password: newPassword });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.success, true);
+
+  const after = await db.collection('users').findOne({ email: body.email });
+  assert.notEqual(after.password_hash, before.password_hash);
+  assert.match(after.password_hash, /^scrypt\$/);
+  // Phiên hiện tại vẫn dùng được, thiết bị khác bị đăng xuất
+  assert.equal((await request('/api/auth/me', { token: current })).status, 200);
+  assert.equal((await request('/api/auth/me', { token: other })).status, 401);
+  // Mật khẩu cũ hết tác dụng, mật khẩu mới đăng nhập được
+  const oldLogin = await request('/api/auth/login', { method: 'POST', body: { email: body.email, password: body.password } });
+  assert.equal(oldLogin.status, 401);
+  await login(body.email, newPassword);
+});

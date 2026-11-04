@@ -17,6 +17,10 @@ function createAuthRouter({ db, sessionTtlSeconds, loginRateLimit } = {}) {
   router.post('/login', createLoginRateLimiter(loginRateLimit),
     asyncHandler(async (req, res) => res.json(await auth.login(req.body))));
   router.get('/me', createRequireAuth({ db }), (req, res) => res.json({ success: true, user: publicUser(req.auth.user) }));
+  router.post('/change-password',
+    createLoginRateLimiter({ message: 'Quá nhiều lần đổi mật khẩu. Vui lòng thử lại sau.' }),
+    createRequireAuth({ db }),
+    asyncHandler(async (req, res) => res.json(await auth.changePassword(req.auth, req.body))));
   router.post('/logout', asyncHandler(async (req, res) => {
     await sessions.revoke(readBearerToken(req));
     res.status(204).end();

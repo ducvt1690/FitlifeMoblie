@@ -8,6 +8,8 @@ const { calculateTargets } = require('../utils/health-targets');
 const { currentWaterTarget } = require('../utils/water-target');
 const { withCurrentAge } = require('../utils/birth-date');
 const { HttpError } = require('../utils/http-error');
+const { transaction } = require('../database/transaction');
+const { isPlainBody } = require('../utils/validate');
 const { quest_templates: questTemplates } = require('../database/mongodb/data/catalogs.json');
 
 async function registerUser(db, input, sessions) {
@@ -48,6 +50,10 @@ async function registerUser(db, input, sessions) {
 }
 
 
+// Same rule as registration: 8+ characters, not only spaces, at most 1024 bytes.
+const isNewPassword = value => typeof value === 'string' && [...value].length >= 8
+  && Buffer.byteLength(value, 'utf8') <= 1024 && value.trim().length > 0;
+
 function createAuthService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS }) {
   const sessions = createSessionService({ db, sessionTtlSeconds });
   return {
@@ -82,6 +88,34 @@ function createAuthService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS
       if (user.date_of_birth !== undefined) user.target_calories = calculateTargets(user, now).target_calories;
       if (user.role === 'user') user.target_water = await currentWaterTarget(db, user, { now });
       return { success: true, message: 'Đăng nhập thành công.', ...await sessions.create(user.user_id), user: publicUser(user) };
+    },
+    // Đổi mật khẩu: kiểm tra mật khẩu cũ, lưu hash mới, đăng xuất mọi thiết bị khác (giữ phiên hiện tại).
+    async changePassword(auth, body) {
+      if (!isPlainBody(body, ['current_password', 'new_password'])
+        || typeof body.current_password !== 'string' || !isNewPassword(body.new_password)) {
+        throw new HttpError(400, 'Cần current_password và new_password (tối thiểu 8 ký tự).');
+      }
+      if (body.current_password === body.new_password) {
+        throw new HttpError(400, 'Mật khẩu mới phải khác mật khẩu hiện tại.');
+      }
+      const userId = auth.user.user_id;
+      const stored = await db.collection('users').findOne({ user_id: userId }, { projection: { password_hash: 1 } });
+      if (!(await verifyPassword(body.current_password, stored?.password_hash))) {
+        throw new HttpError(400, 'Mật khẩu hiện tại không đúng.');
+      }
+      // Băm ngoài transaction vì scrypt chậm; transaction có thể chạy lại.
+      const passwordHash = await hashPassword(body.new_password);
+      await transaction(db, async session => {
+        const now = new Date();
+        // Lọc theo hash cũ: nếu 2 yêu cầu đổi cùng lúc, chỉ một yêu cầu thắng.
+        const changed = await db.collection('users').updateOne(
+          { user_id: userId, is_active: true, password_hash: stored.password_hash },
+          { $set: { password_hash: passwordHash, updated_at: now } }, { session });
+        if (!changed.modifiedCount) throw new HttpError(409, 'Mật khẩu vừa được thay đổi. Vui lòng đăng nhập lại.');
+        await db.collection('auth_sessions').deleteMany(
+          { user_id: userId, token_hash: { $ne: auth.tokenHash } }, { session });
+      });
+      return { success: true, message: 'Đổi mật khẩu thành công. Các thiết bị khác đã bị đăng xuất.' };
     },
   };
 }
