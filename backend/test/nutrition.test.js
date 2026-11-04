@@ -168,8 +168,15 @@ test('AI workout plans are Premium, use only catalog exercises and fit the chose
   assert.equal(new Set(plan.items.map(i => i.exercise_id)).size, plan.items.length);
   assert.equal((await call('/api/workout-plans/today')).body.plan.plan_id, plan.plan_id);
 
+  const first = plan.items[0].exercise_id;
+  assert.deepEqual((await call(`/api/workout-plans/${plan.plan_id}/items`, 'PUT', { done: [first, 'not-in-plan'] })).body.done_items, [first]);
+  assert.equal((await call(`/api/workout-plans/${plan.plan_id}/items`, 'PUT', { done: 'x' })).status, 400);
+  assert.deepEqual((await call('/api/workout-plans/today')).body.plan.done_items, [first]);
+
   const done = await call(`/api/workout-plans/${plan.plan_id}/complete`, 'POST');
   assert.equal(done.status, 200);
+  assert.equal(done.body.after.tips.length, 4);
+  assert.ok(done.body.after.reminders.every(r => r.in_minutes > 0 && r.title && r.body));
   const logs = await call('/api/workout-logs');
   assert.equal(logs.body.logs[0].workout_id, plan.plan_id);
 });

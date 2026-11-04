@@ -7,6 +7,7 @@ const { complete } = require('./ai.client');
 const { withAiQuota } = require('./ai-usage');
 const { membershipOf } = require('./payment.service');
 const { createWorkoutService } = require('./workout.service');
+const { afterWorkout } = require('./after-workout');
 const fail = (status, message) => new HttpError(status, message);
 
 const SPLITS = { ppl: ['push', 'pull', 'legs'], upper_lower: ['upper', 'lower'], full_body: ['full'] };
@@ -107,7 +108,8 @@ Dạng: {"title":"tên buổi ngắn","tip":"một câu lưu ý","items":[{"i":0
               isText(String(r.reps ?? ''), 20) ? String(r.reps).trim() : undefined, Math.min(Math.max(Number.parseInt(r.rest, 10) || 60, 30), 180)));
           if (items.length) {
             engine = 'ai';
-            if (isText(out.title, 80)) title = out.title.trim();
+            // The real length comes from fitToTime, so a duration the model wrote into the title is dropped.
+            if (isText(out.title, 80)) title = out.title.replace(/[\s·,-]*\d+\s*(phút|phut|min)\b/giu, '').trim() || title;
             if (isText(out.tip, 300)) tip = out.tip.trim();
           } else items = null;
         } catch (error) {
@@ -120,10 +122,23 @@ Dạng: {"title":"tên buổi ngắn","tip":"một câu lưu ý","items":[{"i":0
       const now = new Date();
       const plan = { plan_id: randomUUID(), user_id: user.user_id, day: localDay(now, user.timezone), split: body.split, focus: body.focus,
         minutes: body.minutes, note, title, tip, items, warmup_minutes: warmupOf(body.minutes) / 60,
-        estimated_minutes: Math.round(secondsOf(items, body.minutes) / 60), engine, status: 'open', created_at: now, updated_at: now };
+        estimated_minutes: Math.round(secondsOf(items, body.minutes) / 60), engine, status: 'open', done_items: [], created_at: now, updated_at: now };
+      // The catalog can be too small for a long session; say so instead of silently making it shorter.
+      if (plan.estimated_minutes < body.minutes - 10) plan.notice = `Thư viện hiện có ${pool.length} bài cho nhóm này nên buổi tập dài khoảng ${plan.estimated_minutes} phút thay vì ${body.minutes} phút.`;
       await db.collection('workout_plans').insertOne(plan);
       delete plan._id;
       return { success: true, plan };
+    },
+
+    // Swipe-to-finish on each exercise: the list of exercise ids marked done.
+    async setDone(member, planId, body) {
+      if (!isUuid(planId)) throw fail(400, 'planId không hợp lệ.');
+      if (!isPlainBody(body, ['done']) || !Array.isArray(body.done) || body.done.length > 10) throw fail(400, 'done phải là danh sách exercise_id.');
+      const plan = await db.collection('workout_plans').findOne({ plan_id: planId, user_id: member.user_id });
+      if (!plan) throw fail(404, 'Không tìm thấy lịch tập.');
+      const done = plan.items.map(i => i.exercise_id).filter(id => body.done.includes(id));
+      await db.collection('workout_plans').updateOne({ plan_id: planId }, { $set: { done_items: done, updated_at: new Date() } });
+      return { success: true, done_items: done };
     },
 
     // "Đã tập xong": logs the session as a workout once (the plan id doubles as the workout id).
@@ -135,8 +150,12 @@ Dạng: {"title":"tên buổi ngắn","tip":"một câu lưu ý","items":[{"i":0
       const minutes = plan.estimated_minutes;
       const result = await workouts.create(member, { workout_id: plan.plan_id, title: [...plan.title].slice(0, 150).join(''),
         category: 'strength', duration_seconds: minutes * 60, calories_burned: Math.round(5 * user.weight * minutes / 60) });
-      await db.collection('workout_plans').updateOne({ plan_id: planId }, { $set: { status: 'done', updated_at: new Date() } });
-      return { success: true, ...result };
+      const now = new Date();
+      const [meals] = await db.collection('meal_logs').aggregate([{ $match: { user_id: user.user_id, meal_date: localDay(now, user.timezone) } },
+        { $group: { _id: null, kcal: { $sum: '$calories' } } }]).toArray();
+      const after = plan.after ?? afterWorkout({ now, timezone: user.timezone, eaten: meals?.kcal ?? 0, target: user.target_calories, minutes });
+      await db.collection('workout_plans').updateOne({ plan_id: planId }, { $set: { status: 'done', after, updated_at: now } });
+      return { success: true, ...result, after };
     },
   };
 }

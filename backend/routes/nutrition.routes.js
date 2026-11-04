@@ -25,6 +25,7 @@ function createWorkoutPlanRouter({ db, ai }) {
   router.get('/options', (req, res) => res.json(service.options()));
   router.get('/today', asyncHandler(async (req, res) => res.json(await service.latest(req.auth.user))));
   router.post('/', asyncHandler(async (req, res) => res.status(201).json(await service.create(req.auth.user, req.body))));
+  router.put('/:planId/items', asyncHandler(async (req, res) => res.json(await service.setDone(req.auth.user, req.params.planId, req.body))));
   router.post('/:planId/complete', asyncHandler(async (req, res) => res.json(await service.complete(req.auth.user, req.params.planId))));
   return router;
 }
