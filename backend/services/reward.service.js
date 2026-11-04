@@ -3,6 +3,7 @@ const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
 const { isUuid, isPlainBody } = require('../utils/validate');
 const { lockMember } = require('./quest.service');
+const { changeCoins } = require('../utils/coins');
 const fail = (status, message) => new HttpError(status, message);
 // Badges and themes are owned once; vouchers can be bought repeatedly.
 const ONE_TIME = ['badge', 'theme'];
@@ -39,7 +40,7 @@ function createRewardService({ db }) {
         }
         if (user.fit_coins < item.cost_coins) throw fail(409, `Không đủ xu. Cần ${item.cost_coins} xu, bạn có ${user.fit_coins} xu.`);
         // Skip free items: $inc by -0 would store fit_coins as a double and fail the int validator.
-        if (item.cost_coins > 0) await db.collection('users').updateOne({ user_id: user.user_id }, { $inc: { fit_coins: -item.cost_coins } }, { session });
+        if (item.cost_coins > 0) await changeCoins(db, { userId: user.user_id, amount: -item.cost_coins, source: 'purchase', refId: body.purchase_id, now, session });
         const purchase = { purchase_id: body.purchase_id, user_id: user.user_id, item_id: item.item_id, item_category: item.category,
           spent_coins: item.cost_coins, purchased_at: now, created_at: now, updated_at: now };
         await db.collection('purchases').insertOne(purchase, { session });

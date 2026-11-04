@@ -28,6 +28,11 @@ const userDayIndex = (field) => index({ user_id: 1, [field]: -1 }, `by_user_${fi
 const SCHEMA_VERSION = 2;
 const ROLES = ['user', 'trainer', 'admin'];
 const PAYMENT_PRODUCTS = ['premium_month', 'premium_year', 'coins_200', 'coins_550'];
+// Every change of users.fit_coins writes one row with its source (admin "Ví xu" and audit).
+const COIN_SOURCES = ['quest', 'quest_refund', 'challenge', 'purchase', 'payment', 'payment_refund', 'admin'];
+const AI_KINDS = ['chat', 'workout_plan', 'meal_ai'];
+const aiLimits = { bsonType: 'object', additionalProperties: false, required: AI_KINDS,
+  properties: Object.fromEntries(AI_KINDS.map(kind => [kind, { bsonType: 'int', minimum: 0, maximum: 100000 }])) };
 const QUEST_KEYS = ['q_water', 'q_workout', 'q_meal', 'q_sleep', 'q_mood', 'q_checkin', 'q_chat'];
 const dailyUnique = (field) => unique({ user_id: 1, [field]: 1 }, `uq_user_${field}`);
 
@@ -109,7 +114,7 @@ const collections = [
   }, [userDayIndex('workout_date')]),
 
   collection('exercises', 'exercise_id', {
-    source: choice('exercisedb_v1'),
+    source: choice('exercisedb_v1', 'admin'),
     source_exercise_id: text(100),
     name: text(200),
     gif_url: text(1000),
@@ -126,6 +131,7 @@ const collections = [
     instructions_vi: textArray(50, 2000),
     description_vi: text(600, 0),
     tips_vi: textArray(10, 500),
+    rest_seconds: { bsonType: 'int', minimum: 0, maximum: 600 },
     is_active: bool,
     synced_at: timestamp,
   }, [
@@ -240,7 +246,7 @@ const collections = [
   collection('admin_logs', 'log_id', {
     admin_id: identity,
     action: text(50),
-    target_type: choice('user', 'challenge', 'reward_item'),
+    target_type: choice('user', 'challenge', 'reward_item', 'payment', 'exercise', 'setting'),
     target_id: text(128),
     note: text(500, 0),
   }, [index({ created_at: -1 }, 'by_admin_log_time')], ['admin_id', 'action', 'target_type', 'target_id']),
@@ -301,7 +307,7 @@ const collections = [
     user_id: identity,
     product: choice(...PAYMENT_PRODUCTS),
     amount_vnd: integer(1000),
-    status: choice('pending', 'paid', 'failed'),
+    status: choice('pending', 'paid', 'failed', 'refunded'),
     txn_ref: { bsonType: 'string', pattern: '^[0-9a-f]{32}$' },
     return_url: text(500),
     expires_at: timestamp,
@@ -309,12 +315,36 @@ const collections = [
     vnp_transaction_no: { bsonType: ['string', 'null'], maxLength: 50 },
     bank_code: { bsonType: ['string', 'null'], maxLength: 50 },
     paid_at: { bsonType: ['date', 'null'] },
+    // Signed VNPay callback fields (vnp_SecureHash removed), kept for reconciliation.
+    vnp_response: { bsonType: ['object', 'null'] },
+    refunded_at: { bsonType: ['date', 'null'] },
+    refund_note: text(500, 0),
   }, [
     unique({ txn_ref: 1 }, 'uq_payment_txn_ref'),
     index({ user_id: 1, created_at: -1 }, 'by_user_payment_time'),
     index({ status: 1, created_at: -1 }, 'by_payment_status_time'),
   ], ['user_id', 'product', 'amount_vnd', 'status', 'txn_ref', 'return_url', 'expires_at', 'response_code',
     'vnp_transaction_no', 'bank_code', 'paid_at']),
+
+  collection('coin_transactions', 'tx_id', {
+    user_id: identity,
+    amount: { bsonType: 'int' },
+    balance_after: integer(),
+    source: choice(...COIN_SOURCES),
+    ref_id: { bsonType: ['string', 'null'], maxLength: 128 },
+    note: text(500, 0),
+  }, [
+    index({ user_id: 1, created_at: -1 }, 'by_user_coin_time'),
+    index({ created_at: -1 }, 'by_coin_time'),
+    index({ source: 1, created_at: -1 }, 'by_coin_source_time'),
+  ], ['user_id', 'amount', 'balance_after', 'source', 'ref_id']),
+
+  // App-wide settings editable by admins (one document per name).
+  collection('app_settings', 'setting_id', {
+    name: choice('ai_limits'),
+    free: aiLimits,
+    premium: aiLimits,
+  }, [unique({ name: 1 }, 'uq_setting_name')]),
 
   // Password reset codes. Only a SHA-256 digest is stored; MongoDB TTL removes expired rows.
   collection('password_resets', 'reset_id', {
@@ -378,4 +408,4 @@ references.push(
   { from: 'admin_logs', field: 'admin_id', to: 'users', target: 'user_id' },
 );
 
-module.exports = { collections, references, PAYMENT_PRODUCTS, QUEST_KEYS, ROLES, SCHEMA_VERSION };
+module.exports = { collections, references, PAYMENT_PRODUCTS, COIN_SOURCES, AI_KINDS, QUEST_KEYS, ROLES, SCHEMA_VERSION };

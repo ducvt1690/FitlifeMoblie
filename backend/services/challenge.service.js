@@ -5,6 +5,7 @@ const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
 const { isUuid } = require('../utils/validate');
 const { lockMember } = require('./quest.service');
+const { changeCoins } = require('../utils/coins');
 const fail = (status, message) => new HttpError(status, message);
 
 function createChallengeService({ db }) {
@@ -83,7 +84,7 @@ function createChallengeService({ db }) {
         await db.collection('user_challenges').updateOne({ id: run.id }, { $set: { current_progress: progress, is_completed: completed,
           last_checkin: now, last_checkin_date: day, updated_at: now } }, { session });
         const reward = completed ? challenge.reward_coins : 0;
-        if (reward) await db.collection('users').updateOne({ user_id: user.user_id }, { $inc: { fit_coins: reward } }, { session });
+        if (reward) await changeCoins(db, { userId: user.user_id, amount: reward, source: 'challenge', refId: run.id, now, session });
         return { success: true, message: completed ? `Hoàn thành thử thách! +${reward} xu.` : 'Check-in thành công.',
           current_progress: progress, target_days: challenge.target_days, is_completed: completed,
           reward_coins: reward, fit_coins: user.fit_coins + reward };

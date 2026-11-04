@@ -5,6 +5,7 @@ const { isUuid, isPlainBody } = require('../utils/validate');
 const { readPage } = require('../utils/fields');
 const { buildPaymentUrl, verifyCallback, vnTime } = require('../utils/vnpay');
 const { lockMember } = require('./quest.service');
+const { changeCoins } = require('../utils/coins');
 
 const fail = (status, message) => new HttpError(status, message);
 const PAGE_SIZE = 20;
@@ -17,7 +18,7 @@ const PRODUCTS = {
   coins_200: { title: 'Gói 200 xu', amount_vnd: 20000, premium_days: 0, coins: 200 },
   coins_550: { title: 'Gói 550 xu', amount_vnd: 50000, premium_days: 0, coins: 550 },
 };
-const PUBLIC_ORDER = { _id: 0, txn_ref: 0, return_url: 0 };
+const PUBLIC_ORDER = { _id: 0, txn_ref: 0, return_url: 0, vnp_response: 0 };
 
 async function membershipOf(db, userId, session) {
   const row = await db.collection('memberships').findOne({ user_id: userId }, { session });
@@ -53,14 +54,15 @@ function createPaymentService({ db, config = {} }) {
       const paid = fields.vnp_ResponseCode === '00' && fields.vnp_TransactionStatus === '00';
       const update = { status: paid ? 'paid' : 'failed', response_code: fields.vnp_ResponseCode ?? null,
         vnp_transaction_no: fields.vnp_TransactionNo ?? null, bank_code: fields.vnp_BankCode ?? null,
-        paid_at: paid ? now : null, updated_at: now };
+        // Signed callback fields without vnp_SecureHash, kept for admin reconciliation.
+        vnp_response: fields, paid_at: paid ? now : null, updated_at: now };
       // The status filter makes a concurrent duplicate callback a no-op.
       const result = await orders().updateOne({ order_id: order.order_id, status: 'pending' }, { $set: update }, { session });
       if (!result.modifiedCount) return { RspCode: '02', Message: 'Order already confirmed', order };
       if (paid) {
         const product = PRODUCTS[order.product];
         // Money was taken, so credit even if the account was locked meanwhile.
-        if (product.coins) await db.collection('users').updateOne({ user_id: order.user_id }, { $inc: { fit_coins: product.coins }, $set: { updated_at: now } }, { session });
+        if (product.coins) await changeCoins(db, { userId: order.user_id, amount: product.coins, source: 'payment', refId: order.order_id, now, session });
         if (product.premium_days) {
           const { premium_until: current } = await membershipOf(db, order.user_id, session);
           const start = current && current > now ? current : now;
