@@ -65,7 +65,7 @@ export function createApi(call) {
   return {
     profile: () => call('/api/profile'),
     updateProfile: (body) => call('/api/profile', { method: 'PATCH', body }),
-    changePassword: (current_password, new_password) => post('/api/auth/password', { current_password, new_password }),
+    changePassword: (current_password, new_password) => post('/api/auth/change-password', { current_password, new_password }),
     lifetime: () => call('/api/stats/lifetime'),
     bmi: (limit = 60) => call(`/api/bmi-records?limit=${limit}`),
     payments: {
