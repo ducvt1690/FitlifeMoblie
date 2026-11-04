@@ -1,28 +1,43 @@
 # FitLife — BE_ALL
 
-Nhánh này chứa backend được tách từ `main` tại commit `95c5c06e626ef7e5fb07f1e1df3e76016363621e`.
-
-## Nội dung
-
-- `backend/`: server Node.js/Express và dependencies.
-- `api/`: các route xác thực, sức khỏe, bài tập, AI và cửa hàng; Postman collection.
-- `database/`: module lưu dữ liệu JSON, schema SQL và dữ liệu mẫu.
-
-Ba thư mục được giữ cùng nhau vì `backend/server.js` nạp `../api` và các route dùng `../database`. Mã nguồn trong cả ba thư mục giữ nguyên từ commit nguồn; chỉ tài liệu và lệnh chạy ở thư mục gốc được điều chỉnh cho nhánh riêng.
+Backend REST API của FitLife: **Node.js + Express**, dữ liệu lưu trên **MongoDB Atlas**. Cùng một API phục vụ app mobile (nhánh `FE_Mobile`) và website (nhánh `web-fe`).
 
 ## Cài đặt và chạy
 
-Từ thư mục gốc:
-
 ```powershell
 npm --prefix backend ci
-npm start
+copy backend\.env.example backend\.env   # rồi điền MONGODB_URI thật
+npm start                                # http://localhost:5000
+npm test                                 # chạy toàn bộ test
 ```
 
-Server mặc định: `http://localhost:5000`. `GET /` kiểm tra trạng thái server. Chạy development bằng `npm run dev`.
+Biến môi trường (xem `backend/.env.example`):
 
-Cấu hình mẫu nằm tại `backend/.env.example`; nếu cần cấu hình riêng, sao chép thành `backend/.env` trước khi chạy. Bản backend này lưu dữ liệu ở `database/fitlife_db.json`.
+| Biến | Ý nghĩa |
+| --- | --- |
+| `MONGODB_URI` | Chuỗi kết nối Atlas. Không commit giá trị thật. |
+| `MONGODB_DB_NAME` | Luôn là `fitlife`. |
+| `PORT` | Cổng server, mặc định 5000. |
+| `AUTH_SESSION_TTL_SECONDS` | Thời hạn phiên đăng nhập. |
+| `CORS_ORIGINS` | Các origin web được phép gọi API, cách nhau bằng dấu phẩy. |
+| `ANTHROPIC_API_KEY` | Tùy chọn. Bỏ trống thì AI Coach trả lời theo quy tắc dựa trên nhật ký. |
 
-Xem [tài liệu API](api/README.md), [Postman collection](api/postman_collection.json) và [tài liệu database](database/README.md).
+## Vai trò
 
-Frontend mobile từ cùng commit nguồn được tách tại nhánh `FE_Mobile`.
+- **user**: thành viên, đăng ký mặc định.
+- **trainer**: huấn luyện viên, chỉ xem dữ liệu học viên đã đồng ý qua mã mời và đang có bài được giao.
+- **admin**: quản lý tài khoản, thử thách, vật phẩm, giao dịch; mọi thao tác được ghi nhật ký.
+
+Tạo admin đầu tiên: đăng ký tài khoản bình thường rồi chạy
+
+```powershell
+npm run role -- email@cua-ban.com admin
+```
+
+Sau đó admin cấp quyền huấn luyện viên ngay trong ứng dụng.
+
+## Tài liệu
+
+- [backend/README.md](backend/README.md): cấu trúc service và danh sách API.
+- [backend/api/](backend/api/): tài liệu từng nhóm API và Postman collection.
+- [backend/database/](backend/database/): schema, migration, dữ liệu mẫu MongoDB.

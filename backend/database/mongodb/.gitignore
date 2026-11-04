@@ -1,0 +1,3 @@
+# Local tooling and database secrets
+.tools/
+.env

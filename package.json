@@ -1,20 +1,13 @@
 {
   "name": "fitlife-backend-main",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "FitLife backend, API and database extracted from main",
+  "description": "FitLife REST API: Express + MongoDB Atlas",
   "scripts": {
     "start": "npm --prefix backend run start",
     "dev": "npm --prefix backend run dev",
-    "start:be": "npm --prefix backend run start"
+    "test": "npm --prefix backend test",
+    "role": "npm --prefix backend run role --"
   },
-  "keywords": [
-    "fitness",
-    "react-native",
-    "expo",
-    "express",
-    "rest-api"
-  ],
-  "author": "FitLife Team",
   "license": "MIT"
 }
