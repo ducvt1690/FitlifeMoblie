@@ -1,50 +1,82 @@
-'use strict';
+const path = require('path');
+const Module = require('module');
 
-const { loadConfig } = require('./config');
-const { connectDatabase } = require('./database/connection');
-const { createApp } = require('./app');
-const { createMailer } = require('./utils/mailer');
+// Cho phép các module tại thư mục gốc (/api, /database) sử dụng dependencies từ backend/node_modules
+process.env.NODE_PATH = path.join(__dirname, 'node_modules');
+Module._initPaths();
 
-async function startServer() {
-  const config = loadConfig();
-  const { client, db } = await connectDatabase(config);
-  const app = createApp({ db, sessionTtlSeconds: config.sessionTtlSeconds, corsOrigins: config.corsOrigins, ai: config.ai,
-    payments: config.payments, trustProxy: config.trustProxy, mailer: createMailer(config.mail) });
-  let server;
-  try {
-    server = await new Promise((resolve, reject) => {
-      const listener = app.listen(config.port, () => resolve(listener));
-      listener.once('error', reject);
-    });
-  } catch (error) {
-    await client.close();
-    throw error;
-  }
-  console.log(`FitLife API: http://localhost:${config.port}`);
-  console.log(`MongoDB connected: ${config.databaseName}`);
-  let stopping = false;
-  async function stop() {
-    if (stopping) return;
-    stopping = true;
-    server.closeIdleConnections();
-    const timer = setTimeout(() => server.closeAllConnections(), 10000);
-    timer.unref();
-    await new Promise((resolve) => server.close(resolve));
-    clearTimeout(timer);
-    await client.close();
-  }
-  for (const signal of ['SIGINT', 'SIGTERM']) {
-    process.once(signal, () => { stop().catch(() => { process.exitCode = 1; }); });
-  }
-  return { app, server, client, db, stop };
-}
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
 
-if (require.main === module) {
-  startServer().catch((error) => {
-    // Never print the URI or raw driver errors at startup.
-    console.error(`Cannot start FitLife API (${error.name || 'Error'}). Check MongoDB configuration, access and port.`);
-    process.exitCode = 1;
+const {
+  authRoutes,
+  healthRoutes,
+  aiRoutes,
+  shopRoutes,
+} = require('../api');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
+// Request logger
+app.use((req, res, next) => {
+  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Root Health Check Route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    project: 'FitLife Pro Health & MMA API (projectMMA)',
+    version: '1.0.0',
+    architecture: {
+      frontend: '/frontend',
+      backend: '/backend',
+      api: '/api',
+      database: '/database',
+    },
+    endpoints: {
+      auth: [
+        'POST /api/auth/register',
+        'POST /api/auth/login',
+        'POST /api/auth/reset-password',
+        'GET /api/auth/users',
+      ],
+      health: [
+        'GET /api/health/summary',
+        'POST /api/health/water',
+        'POST /api/health/workout',
+        'POST /api/health/meal',
+        'GET /api/health/exercises',
+      ],
+      ai: ['POST /api/ai/chat'],
+      shop: ['GET /api/shop/items', 'POST /api/shop/buy'],
+    },
   });
-}
+});
 
-module.exports = { startServer };
+// Register API Routes from /api module
+app.use('/api/auth', authRoutes);
+app.use('/api/health', healthRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/shop', shopRoutes);
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Endpoint không tồn tại trên FitLife API Server' });
+});
+
+app.listen(PORT, () => {
+  console.log('====================================================');
+  console.log(`🚀 FitLife Backend Server is running on port ${PORT}`);
+  console.log(`📡 URL: http://localhost:${PORT}`);
+  console.log('🌐 API Module: /api');
+  console.log('🗄️  Database Module: /database (schema.sql & fitlife_db.json)');
+  console.log('====================================================');
+});

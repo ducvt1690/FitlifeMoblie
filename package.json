@@ -1,13 +1,22 @@
 {
-  "name": "fitlife-backend-main",
-  "version": "2.0.0",
+  "name": "project-mma-monorepo",
+  "version": "1.0.0",
   "private": true,
-  "description": "FitLife REST API: Express + MongoDB Atlas",
+  "description": "FitLife - Trợ Lý Sức Khỏe & Thể Lực (MMA Fitness App Monorepo: Frontend + Backend)",
   "scripts": {
-    "start": "npm --prefix backend run start",
-    "dev": "npm --prefix backend run dev",
-    "test": "npm --prefix backend test",
-    "role": "npm --prefix backend run role --"
+    "start": "cd frontend && npm start",
+    "start:fe": "cd frontend && npm start",
+    "tunnel": "cd frontend && npx expo start --tunnel=ngrok",
+    "start:be": "cd backend && npm start",
+    "web": "cd frontend && npm run web"
   },
+  "keywords": [
+    "fitness",
+    "react-native",
+    "expo",
+    "express",
+    "rest-api"
+  ],
+  "author": "FitLife Team",
   "license": "MIT"
 }
