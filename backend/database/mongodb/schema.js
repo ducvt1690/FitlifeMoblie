@@ -124,6 +124,8 @@ const collections = [
     target_muscles_vi: textArray(20),
     secondary_muscles_vi: textArray(20),
     instructions_vi: textArray(50, 2000),
+    description_vi: text(600, 0),
+    tips_vi: textArray(10, 500),
     is_active: bool,
     synced_at: timestamp,
   }, [

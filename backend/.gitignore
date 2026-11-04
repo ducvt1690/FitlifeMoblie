@@ -6,3 +6,4 @@ yarn-debug.log*
 yarn-error.log*
 .tools/
 /database/fitlife_db.json
+.expand-exercises.json

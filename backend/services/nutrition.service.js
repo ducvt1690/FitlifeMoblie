@@ -247,7 +247,8 @@ Thứ không ăn được hoặc vô nghĩa thì không đưa vào items mà ghi
     },
 
     // One meal idea for what is left today: a light snack late in the evening, a proper meal earlier.
-    async suggest(member) {
+    // `offer` (after a workout, rules only so it is instant) keeps it out of the Ăn uống tab until the member accepts it in the coach chat.
+    async suggest(member, { offer = false } = {}) {
       const state = await status(member);
       const { user, day, remaining, allergies } = state;
       if (remaining.calories < 100) return { success: true, suggestion: null, message: 'Bạn đã ăn gần đủ mục tiêu hôm nay.' };
@@ -256,7 +257,7 @@ Thứ không ăn được hoặc vô nghĩa thì không đưa vào items mà ghi
       const budget = Math.min(remaining.calories, { snack: 300, breakfast: 600, lunch: 800, dinner: 700 }[kind]);
       let idea;
       let engine = 'rules';
-      if (ai.apiKey) {
+      if (ai.apiKey && !offer) {
         try {
           idea = await withAiQuota(db, user, () => complete(ai, { json: true, maxTokens: 600,
             system: `Bạn là chuyên gia dinh dưỡng ở Việt Nam. Gợi ý MỘT ${kind === 'snack' ? 'bữa phụ nhẹ' : MEAL_LABEL[kind].toLowerCase()}
@@ -281,11 +282,25 @@ Dạng: {"meal_name":"...","note":"một câu lý do","items":[{"name":"...","gr
       const now = new Date();
       const suggestion = { suggestion_id: randomUUID(), user_id: user.user_id, day, meal_type: kind, meal_name: idea.meal_name,
         note: idea.note, items: idea.items.map(({ per100, source, ...i }) => i), calories: Math.max(Math.round(total('calories')), 1),
-        protein: total('protein'), carbs: total('carbs'), fat: total('fat'), engine, status: 'open', created_at: now, updated_at: now };
-      await db.collection('meal_suggestions').updateMany({ user_id: user.user_id, day, status: 'open' }, { $set: { status: 'dismissed', updated_at: now } });
+        protein: total('protein'), carbs: total('carbs'), fat: total('fat'), engine, status: offer ? 'offered' : 'open', created_at: now, updated_at: now };
+      if (!offer) await db.collection('meal_suggestions').updateMany({ user_id: user.user_id, day, status: 'open' }, { $set: { status: 'dismissed', updated_at: now } });
       await db.collection('meal_suggestions').insertOne(suggestion);
       delete suggestion._id;
       return { success: true, suggestion };
+    },
+
+    // "Thêm vào thực đơn" from the coach chat: the offered meal becomes today's suggestion in the Ăn uống tab.
+    async acceptSuggestion(member, suggestionId) {
+      if (!isUuid(suggestionId)) throw fail(400, 'suggestionId không hợp lệ.');
+      const s = await db.collection('meal_suggestions').findOne({ suggestion_id: suggestionId, user_id: member.user_id }, { projection: { _id: 0 } });
+      if (!s) throw fail(404, 'Không tìm thấy gợi ý.');
+      if (s.status === 'offered') {
+        const now = new Date();
+        await db.collection('meal_suggestions').updateMany({ user_id: member.user_id, day: s.day, status: 'open' }, { $set: { status: 'dismissed', updated_at: now } });
+        await db.collection('meal_suggestions').updateOne({ suggestion_id: suggestionId }, { $set: { status: 'open', updated_at: now } });
+        s.status = 'open';
+      }
+      return { success: true, suggestion: s };
     },
 
     // "Đã ăn": logs the suggested meal once (the suggestion id doubles as the meal id, so retries are safe).

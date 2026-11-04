@@ -177,6 +177,18 @@ test('AI workout plans are Premium, use only catalog exercises and fit the chose
   assert.equal(done.status, 200);
   assert.equal(done.body.after.tips.length, 4);
   assert.ok(done.body.after.reminders.every(r => r.in_minutes > 0 && r.title && r.body));
+  // The coach drops the tips into the chat; the offered meal stays out of the Ăn uống tab until accepted.
+  const { session_id, suggestion } = done.body.coach;
+  const note = (await call(`/api/chat/sessions/${session_id}/messages`)).body.messages.at(-1);
+  assert.equal(note.sender, 'ai');
+  assert.match(note.content, /Bù nước/);
+  if (suggestion) {
+    assert.equal(note.ai_engine, `after-workout:${suggestion.suggestion_id}`);
+    assert.notEqual((await call('/api/nutrition/today')).body.suggestion?.suggestion_id, suggestion.suggestion_id);
+    assert.equal((await call(`/api/nutrition/suggestions/${suggestion.suggestion_id}/accept`, 'POST')).body.suggestion.status, 'open');
+    assert.equal((await call('/api/nutrition/today')).body.suggestion.suggestion_id, suggestion.suggestion_id);
+  }
+  assert.equal((await call(`/api/workout-plans/${plan.plan_id}/complete`, 'POST')).body.coach, null);
   const logs = await call('/api/workout-logs');
   assert.equal(logs.body.logs[0].workout_id, plan.plan_id);
 });
