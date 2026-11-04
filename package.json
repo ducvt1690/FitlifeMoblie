@@ -1,14 +1,12 @@
 {
-  "name": "project-mma-monorepo",
+  "name": "fitlife-backend-main",
   "version": "1.0.0",
   "private": true,
-  "description": "FitLife - Trợ Lý Sức Khỏe & Thể Lực (MMA Fitness App Monorepo: Frontend + Backend)",
+  "description": "FitLife backend, API and database extracted from main",
   "scripts": {
-    "start": "cd frontend && npm start",
-    "start:fe": "cd frontend && npm start",
-    "tunnel": "cd frontend && npx expo start --tunnel=ngrok",
-    "start:be": "cd backend && npm start",
-    "web": "cd frontend && npm run web"
+    "start": "npm --prefix backend run start",
+    "dev": "npm --prefix backend run dev",
+    "start:be": "npm --prefix backend run start"
   },
   "keywords": [
     "fitness",
