@@ -44,9 +44,9 @@ function createMealService({ db }) {
       total_fat: logs.reduce((sum, row) => sum + row.fat, 0) };
   }
 
-  async function create(userInput, body) {
+  async function create(userInput, body, { session: parentSession } = {}) {
     const input = validateMeal(body);
-    return transaction(db, async session => {
+    const action = async session => {
       const now = new Date();
       const user = await db.collection('users').findOneAndUpdate({ user_id: userInput.user_id, is_active: true, role: 'user' },
         { $set: { updated_at: now } }, { session, returnDocument: 'after' });
@@ -61,7 +61,8 @@ function createMealService({ db }) {
       const reward = await quests.rewardMeal(user, log.meal_date, now, session);
       delete log._id;
       return { log, replayed: false, reward_coins: reward, fit_coins: user.fit_coins + reward };
-    });
+    };
+    return parentSession ? action(parentSession) : transaction(db, action);
   }
 
   async function update(userInput, mealId, body) {

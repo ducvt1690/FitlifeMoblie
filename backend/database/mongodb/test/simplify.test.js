@@ -8,7 +8,7 @@ const { MongoClient, BSON } = require('mongodb');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { collections } = require('../schema');
 const { initializeDatabase, verifyDatabase } = require('../database');
-const { seedCatalogs, seedDemo, DEMO_USER_ID } = require('../seed');
+const { seedCatalogs, seedDemo, DEMO_USER_ID, demoId } = require('../seed');
 const { initializeAuthSessions } = require('../../../database/connection');
 const { simplifyDatabase, planSimplification } = require('../simplify');
 let replica, client, db, directory;
@@ -22,6 +22,16 @@ beforeEach(async () => {
  db = client.db('fitlife'); await db.dropDatabase(); await client.db('fitlife_demo').dropDatabase();
  await initializeDatabase(db); await seedCatalogs(db); await seedDemo(db,client,'simplification-test-password');
  await initializeAuthSessions(db);
+ await db.collection('ai_plans').insertOne({
+  plan_id:demoId('simplify-preserved-ai-plan'),user_id:DEMO_USER_ID,kind:'nutrition',
+  preferences:{diet:'none',allergies:[],dislikes:[],meals_per_day:4,place:'home',minutes_per_session:30,days_per_week:3,note:''},
+  input:{gender:'male',age:23,height:170,weight:65,activity_level:'moderate',goal:'maintain',target_calories:2484,
+   target_water:2625,bmi:22.49,health_context:{pregnant:false,has_medical_condition:false}},
+  result:{calories:2484,protein_g:104,carbs_g:362,fat_g:69,water_ml:2625,
+   tips:['Chia đều bữa ăn.','Ưu tiên rau xanh.','Uống nước rải đều.','Ăn đủ đạm.','Theo dõi khẩu phần.'],avoid:[]},
+  source:'fitlife-rules',disclaimer:'Gợi ý tham khảo, không thay thế tư vấn y tế',status:'ready',logged_meals:[],
+  created_at:new Date(),updated_at:new Date(),
+ });
  for(const name of ['users','trainer_assignments','user_challenges']) {
   const definition = structuredClone(collections.find(entry=>entry.name===name));
   definition.validator.$jsonSchema.properties.revision={bsonType:'int',minimum:0};
@@ -45,14 +55,18 @@ test('plan writes nothing and names only removable collections', async()=>{
 test('simplification preserves all core documents and auth sessions, exports backups and removes only approved extras/demo',async()=>{
  await db.collection('users').updateOne({user_id:DEMO_USER_ID},{$set:{date_of_birth:'2003-10-20'}});
  const before=await db.collection('users').findOne({user_id:DEMO_USER_ID});
+ const existingPlan=await db.collection('ai_plans').findOne();
  const result=await simplifyDatabase(db,client,{apply:true,backupDirectory:directory,deleteDemo:true});
- assert.equal(result.applied,true);assert.equal(result.audit.ok,true);assert.equal(result.visibleCollections.length,18);
+ assert.equal(result.applied,true);assert.equal(result.audit.ok,true);
+ assert.deepEqual(result.visibleCollections,[...collections.map(def=>def.name),'auth_sessions'].sort());
+ assert.deepEqual(await db.collection('ai_plans').findOne(),existingPlan);
  const after=await db.collection('users').findOne({user_id:DEMO_USER_ID});delete before.revision;assert.deepEqual(after,before);
  assert.equal(await db.collection('purchases').countDocuments(),1);assert.equal(result.deletedDemoDatabase,true);
  const names=(await client.db('admin').admin().listDatabases({nameOnly:true})).databases.map(row=>row.name);
  assert.equal(names.includes('fitlife_demo'),false);
  const backup=BSON.EJSON.parse(fs.readFileSync(path.join(result.backupDirectory,'fitlife.ejson'),'utf8'));
  assert.equal(backup.find(row=>row.name==='users').documents[0].revision,0);
+ assert.deepEqual(backup.find(row=>row.name==='ai_plans').documents,[existingPlan]);
  assert.ok(fs.existsSync(path.join(result.backupDirectory,'fitlife_demo.ejson')));
  assert.equal((await verifyDatabase(db)).ok,true);
  const rerun=await planSimplification(db);assert.deepEqual(rerun.removeCollections,[]);assert.equal(rerun.removedFieldValues,0);

@@ -193,6 +193,21 @@ Biến môi trường: `VNP_TMN_CODE`, `VNP_HASH_SECRET` (thiếu thì API tạo
 
 AI chat dùng `/api/chat`. Khi bổ sung chức năng, tạo route và service cùng tên; dùng middleware xác thực và truyền transaction giữa các service có bước ghi liên quan.
 
+### API kế hoạch AI `/api/ai-plans`
+
+Gemini tạo thực đơn ngày (`meal_day`), kế hoạch dinh dưỡng (`nutrition`) và lịch tập tuần (`workout_week`) từ hồ sơ đã lưu. Gói Free được tạo tổng cộng 3 kế hoạch trong 24 giờ gần nhất; Premium còn hạn được 20. Vượt hạn mức trả `402`. Gửi lại cùng `plan_id` và nội dung trả kế hoạch cũ, không gọi AI hay dùng thêm lượt.
+
+- `POST /api/ai-plans`: nhận `{ plan_id: UUID, kind, preferences?, health_context? }`, tạo mới trả `201`; retry kế hoạch xong trả `200`; request trùng đang xử lý trả `202` kèm `Retry-After: 2`.
+- `GET /api/ai-plans?kind=&page=` và `GET /api/ai-plans/:planId`: xem lịch sử/chi tiết của chính mình.
+- `POST /api/ai-plans/:planId/meals/:index/log`: nhận `{ meal_id: UUID }`, ghi món vào nhật ký và thưởng nhiệm vụ theo meal service; chống ghi lặp cùng món.
+- `POST /api/ai-plans/:planId/workouts/:day/start`: trả buổi tập kèm GIF/hướng dẫn từ exercises; khi tập xong vẫn ghi qua `/api/workout-logs`.
+
+Tất cả yêu cầu Bearer token và role `user`. Kế hoạch của người khác trả `404`; trainer/admin trả `403`. Kết quả có `source` (`gemini`, `groq`, `fitlife-rules`) và dòng `Gợi ý tham khảo, không thay thế tư vấn y tế`. Trường hợp sức khỏe không được hỗ trợ trả lời khuyên gặp chuyên gia.
+
+Lấy key tại [Google AI Studio](https://aistudio.google.com/api-keys), đặt `GEMINI_API_KEY` trong `backend/.env`; model mặc định `GEMINI_MODEL=gemini-3.5-flash-lite`. `GROQ_API_KEY` là dự phòng tùy chọn. Không có key hoặc AI lỗi vẫn dùng bộ luật. Key chỉ nằm ở backend, không gửi vào app/web hoặc commit Git. Chuẩn bị collection mới bằng `npm run db:init -- --only ai_plans` từ `backend/`, không cần seed lại dữ liệu.
+
+Xem [hợp đồng API, sở thích, cấu hình và cách nối frontend](api/ai-plans.md), [collection Postman AI plans](api/ai-plans.postman_collection.json). Giao diện mobile/web được tích hợp trên các nhánh frontend.
+
 ## Kiểm thử
 
 `npm test` chạy kiểm thử tích hợp với MongoDB replica set tạm, không đọc `.env` hoặc kết nối Atlas. Lần chạy đầu có thể tải MongoDB binary. Bộ test kiểm tra phiên, thu hồi token, expiry, account bị khóa và các lỗi xác thực; không chứng minh frontend đã tích hợp.

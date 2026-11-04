@@ -319,6 +319,35 @@ const collections = [
     premium_until: timestamp,
   }, [index({ premium_until: -1 }, 'by_premium_until')]),
 
+  collection('ai_plans', 'plan_id', {
+    user_id: identity,
+    kind: choice('meal_day', 'nutrition', 'workout_week'),
+    preferences: { bsonType: 'object', additionalProperties: false,
+      required: ['diet', 'allergies', 'dislikes', 'meals_per_day', 'place', 'minutes_per_session', 'days_per_week', 'note'],
+      properties: {
+        diet: choice('none', 'vegetarian', 'vegan'), allergies: textArray(10, 40), dislikes: textArray(10, 40),
+        meals_per_day: { bsonType: 'int', enum: [3, 4] }, budget_vnd_per_day: { ...integer(30000), maximum: 500000 },
+        place: choice('home', 'gym'), minutes_per_session: { ...integer(15), maximum: 90 },
+        days_per_week: { ...integer(2), maximum: 6 }, note: text(300, 0),
+      } },
+    input: { bsonType: 'object', additionalProperties: false,
+      required: ['gender', 'age', 'height', 'weight', 'activity_level', 'goal', 'target_calories', 'target_water', 'bmi', 'health_context'],
+      properties: {
+        gender: choice('male', 'female'), age: { ...integer(16), maximum: 100 }, height, weight,
+        activity_level: choice('sedentary', 'light', 'moderate', 'active'), goal: choice('lose', 'maintain', 'gain'),
+        target_calories: integer(1200), target_water: { ...integer(500), maximum: 4350 }, bmi: number(0),
+        health_context: { bsonType: 'object', additionalProperties: false, required: ['pregnant', 'has_medical_condition'],
+          properties: { pregnant: bool, has_medical_condition: bool } },
+      } },
+    // The kind-specific result is validated with the provider JSON schema plus business rules before every write.
+    result: { bsonType: 'object' }, source: choice('gemini', 'groq', 'fitlife-rules'), disclaimer: text(200),
+    status: choice('generating', 'ready'), generation_id: uuid, generation_expires_at: timestamp,
+    logged_meals: { bsonType: 'array', maxItems: 4, items: { bsonType: 'object', additionalProperties: false,
+      required: ['index', 'meal_id'], properties: { index: { ...integer(), maximum: 3 }, meal_id: uuid } } },
+  }, [index({ user_id: 1, kind: 1, created_at: -1 }, 'by_user_kind_plan_time'),
+    index({ user_id: 1, created_at: -1 }, 'by_user_plan_time')],
+  ['user_id', 'kind', 'preferences', 'input', 'result', 'source', 'disclaimer', 'status', 'logged_meals']),
+
   collection('ai_chat_sessions', 'session_id', {
     user_id: identity,
     title: text(150),

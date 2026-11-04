@@ -41,6 +41,8 @@ function loadConfig(env = process.env) {
     sessionTtlSeconds: integerOption('AUTH_SESSION_TTL_SECONDS', DEFAULT_SESSION_TTL_SECONDS, 60, DEFAULT_SESSION_TTL_SECONDS),
     // Optional: without a key, AI Coach answers with built-in rules from the member's logs.
     ai: { apiKey: values.ANTHROPIC_API_KEY || '', model: values.AI_MODEL || 'claude-sonnet-5' },
+    aiPlans: { geminiKey: values.GEMINI_API_KEY || '', groqKey: values.GROQ_API_KEY || '',
+      model: values.GEMINI_MODEL || 'gemini-3.5-flash-lite' },
     // Optional VNPay sandbox. Without both keys the payment API answers 503.
     payments: {
       tmnCode: values.VNP_TMN_CODE || '',

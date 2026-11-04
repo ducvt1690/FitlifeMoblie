@@ -1,0 +1,103 @@
+{
+  "info": {
+    "name": "FitLife — AI plans (Gemini / rules)",
+    "description": "Set baseUrl and token in a local Postman environment. Login with the existing auth API first. No Gemini/Groq key belongs in Postman. Run in order; the three create requests consume three Free plan slots. Workout requires active exercises. Generated plan IDs are saved for subsequent requests, never credentials.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:5000", "type": "string" }],
+  "item": [
+    {
+      "name": "1. Create meal_day — consumes one slot",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.unset('mealPlanId'); pm.collectionVariables.unset('nutritionPlanId'); pm.collectionVariables.unset('workoutPlanId'); pm.collectionVariables.unset('workoutDay');", "pm.variables.set('newPlanId', pm.variables.replaceIn('{{$guid}}'));" ] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('Created meal plan', () => pm.expect(pm.response.code).to.eql(201));",
+          "if (pm.response.code === 201) { const data = pm.response.json(); pm.collectionVariables.set('mealPlanId', data.plan.plan_id); pm.test('Safe calorie total', () => pm.expect(Math.abs(data.plan.result.total_calories - data.plan.input.target_calories)).to.be.at.most(data.plan.input.target_calories * 0.1)); }"
+        ] } }
+      ],
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/ai-plans",
+        "body": { "mode": "raw", "raw": "{\n  \"plan_id\": \"{{newPlanId}}\",\n  \"kind\": \"meal_day\",\n  \"preferences\": { \"allergies\": [\"tôm\"], \"meals_per_day\": 4 }\n}", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "2. Replay meal_day — no extra slot",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('Saved plan replayed', () => { pm.expect(pm.response.code).to.eql(200); pm.expect(pm.response.json().replayed).to.eql(true); });"
+      ] } }],
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/ai-plans",
+        "body": { "mode": "raw", "raw": "{\n  \"plan_id\": \"{{mealPlanId}}\",\n  \"kind\": \"meal_day\",\n  \"preferences\": { \"allergies\": [\"tôm\"], \"meals_per_day\": 4 }\n}", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "3. List saved meal plans",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('Paginated history', () => { pm.expect(pm.response.code).to.eql(200); pm.expect(pm.response.json().page_size).to.eql(20); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/ai-plans?kind=meal_day&page=1" }
+    },
+    {
+      "name": "4. Read meal plan",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('Read stored plan', () => { pm.expect(pm.response.code).to.eql(200); pm.expect(pm.response.json().plan.plan_id).to.eql(pm.collectionVariables.get('mealPlanId')); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/ai-plans/{{mealPlanId}}" }
+    },
+    {
+      "name": "5. Add first meal to diary — rerun to check deduplication",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('Meal created or replayed', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+      ] } }],
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/ai-plans/{{mealPlanId}}/meals/0/log",
+        "body": { "mode": "raw", "raw": "{ \"meal_id\": \"{{$guid}}\" }", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "6. Create nutrition — consumes one slot",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.variables.set('newPlanId', pm.variables.replaceIn('{{$guid}}'));" ] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('Created nutrition plan', () => pm.expect(pm.response.code).to.eql(201));",
+          "if (pm.response.code === 201) { const plan = pm.response.json().plan; pm.collectionVariables.set('nutritionPlanId', plan.plan_id); pm.test('Uses existing calorie target', () => pm.expect(plan.result.calories).to.eql(plan.input.target_calories)); }"
+        ] } }
+      ],
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/ai-plans",
+        "body": { "mode": "raw", "raw": "{ \"plan_id\": \"{{newPlanId}}\", \"kind\": \"nutrition\", \"preferences\": { \"diet\": \"vegetarian\" } }", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "7. Create workout_week — consumes one slot",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.variables.set('newPlanId', pm.variables.replaceIn('{{$guid}}'));" ] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('Created workout plan', () => pm.expect(pm.response.code).to.eql(201));",
+          "if (pm.response.code === 201) { const plan = pm.response.json().plan; pm.collectionVariables.set('workoutPlanId', plan.plan_id); pm.collectionVariables.set('workoutDay', String(plan.result.days.find(day => !day.rest).day)); pm.test('Seven days', () => pm.expect(plan.result.days).to.have.lengthOf(7)); }"
+        ] } }
+      ],
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/ai-plans",
+        "body": { "mode": "raw", "raw": "{ \"plan_id\": \"{{newPlanId}}\", \"kind\": \"workout_week\", \"preferences\": { \"place\": \"home\", \"minutes_per_session\": 30, \"days_per_week\": 3 } }", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "8. Start active workout day — no workout log yet",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('Exercise details hydrated', () => { pm.expect(pm.response.code).to.eql(200); const items = pm.response.json().day.exercises; pm.expect(items.length).to.be.above(0); pm.expect(items[0].exercise).to.have.property('gif_url'); });"
+      ] } }],
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/ai-plans/{{workoutPlanId}}/workouts/{{workoutDay}}/start",
+        "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }
+      }
+    }
+  ]
+}

@@ -8,7 +8,7 @@ async function startServer() {
   const config = loadConfig();
   const { client, db } = await connectDatabase(config);
   const app = createApp({ db, sessionTtlSeconds: config.sessionTtlSeconds, corsOrigins: config.corsOrigins, ai: config.ai,
-    payments: config.payments, trustProxy: config.trustProxy });
+    aiPlans: config.aiPlans, payments: config.payments, trustProxy: config.trustProxy });
   let server;
   try {
     server = await new Promise((resolve, reject) => {

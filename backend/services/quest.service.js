@@ -10,7 +10,10 @@ const STREAK_MIN_QUESTS = 5;
 // Lock the member's document first, so concurrent rewards retry against a fresh balance.
 async function lockMember(db, userId, session, now) {
   const user = await db.collection('users').findOneAndUpdate({ user_id: userId, is_active: true, role: 'user' },
-    { $set: { updated_at: now } }, { session, returnDocument: 'after' });
+    // A timestamp equal to the stored value is a no-op and would not acquire a
+    // write conflict. Advance at least 1ms so simultaneous quota/reward checks serialize.
+    [{ $set: { updated_at: { $cond: [{ $gte: ['$updated_at', now] }, { $add: ['$updated_at', 1] }, now] } } }],
+    { session, returnDocument: 'after' });
   if (!user) throw new HttpError(403, 'Tài khoản không còn khả dụng.');
   return user;
 }

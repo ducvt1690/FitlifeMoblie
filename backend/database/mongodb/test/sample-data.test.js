@@ -6,7 +6,7 @@ const { MongoClient } = require('mongodb');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { initializeDatabase, verifyDatabase } = require('../database');
 const { collections, QUEST_KEYS } = require('../schema');
-const { seedCatalogs, seedDemo, localDate } = require('../seed');
+const { seedCatalogs, seedDemo, localDate, DEMO_USER_ID, demoId } = require('../seed');
 const { planSampleData, applySampleData, verifySamplePlan } = require('../sample-data');
 
 const password = 'FitLife-sample-test-only-password';
@@ -34,6 +34,18 @@ async function sampleDatabase() {
   await initializeDatabase(db);
   await seedCatalogs(db, now);
   await seedDemo(db, client, password, now);
+  // An existing generated plan must survive both the supplement and later no-op reruns.
+  await db.collection('ai_plans').insertOne({
+    plan_id: demoId('sample-preserved-ai-plan'), user_id: DEMO_USER_ID, kind: 'nutrition',
+    preferences: { diet: 'none', allergies: [], dislikes: [], meals_per_day: 4, place: 'home', minutes_per_session: 30,
+      days_per_week: 3, note: '' },
+    input: { gender: 'male', age: 23, height: 170, weight: 65, activity_level: 'moderate', goal: 'maintain',
+      target_calories: 2484, target_water: 2625, bmi: 22.49, health_context: { pregnant: false, has_medical_condition: false } },
+    result: { calories: 2484, protein_g: 104, carbs_g: 362, fat_g: 69, water_ml: 2625,
+      tips: ['Chia đều bữa ăn.', 'Ưu tiên rau xanh.', 'Uống nước rải đều.', 'Ăn đủ đạm.', 'Theo dõi khẩu phần.'], avoid: [] },
+    source: 'fitlife-rules', disclaimer: 'Gợi ý tham khảo, không thay thế tư vấn y tế', status: 'ready', logged_meals: [],
+    created_at: now, updated_at: now,
+  });
   // Migration artifacts are outside the sample-data scope and must survive untouched.
   for (const name of ['__fitlife_v1_users', '__fitlife_migrations', 'archived_daily_quest_logs']) {
     await db.collection(name).insertOne({ marker: `preserve-${name}`, created_at: now });
@@ -54,7 +66,7 @@ async function assertOldDocumentsPreserved(db, old) {
       assert.deepEqual(await db.collection(name).findOne({ _id: document._id }), document,
         `Existing ${name} document changed`);
     }
-    if (name.startsWith('__') || name === 'archived_daily_quest_logs') {
+    if (name.startsWith('__') || name === 'archived_daily_quest_logs' || name === 'ai_plans') {
       assert.deepEqual(await db.collection(name).find().sort({ _id: 1 }).toArray(), rows,
         `Migration artifact changed: ${name}`);
     }
@@ -114,7 +126,7 @@ async function assertCohortConsistency(db, userIds) {
   }
 }
 
-test('sample plan is read-only and application tops up every business collection coherently', async () => {
+test('sample plan tops up fixture collections and preserves API-owned data', async () => {
   const db = await sampleDatabase();
   const old = await snapshot(db);
   const plan = await planSampleData(db, password, now);
@@ -124,14 +136,19 @@ test('sample plan is read-only and application tops up every business collection
   assert.equal(plan.documents.users.length, 3);
   assert.equal(plan.beforeCounts.users, 3);
   assert.equal(plan.afterCounts.users, 6);
+  assert.equal(Object.hasOwn(plan.documents, 'ai_plans'), false);
+  assert.equal(Object.hasOwn(plan.afterCounts, 'ai_plans'), false);
   assert.deepEqual(await snapshot(db), old, 'Planning must not change the database');
   await applySampleData(db, client, plan);
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  for (const { name } of collections.filter(entry => entry.name !== 'exercises')) {
+  const apiOwned = ['exercises', 'trainer_links', 'admin_logs', 'steps_logs', 'payment_orders', 'memberships', 'ai_plans'];
+  for (const { name } of collections.filter(entry => !apiOwned.includes(entry.name))) {
     assert.ok(report.counts[name] >= 6, `${name} must have at least six documents`);
     assert.equal(report.counts[name], plan.afterCounts[name]);
   }
+  for (const name of apiOwned) assert.deepEqual(await db.collection(name).find().sort({ _id: 1 }).toArray(), old[name],
+    `API-owned collection changed: ${name}`);
   await assertOldDocumentsPreserved(db, old);
   await assertCohortConsistency(db, plan.userIds);
 });

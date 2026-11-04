@@ -20,11 +20,12 @@ const { createTrainerRouter } = require('./routes/trainer.routes');
 const { createAdminRouter } = require('./routes/admin.routes');
 const { createPaymentRouter } = require('./routes/payment.routes');
 const { createStepsRouter } = require('./routes/steps.routes');
+const { createAiPlanRouter } = require('./routes/ai-plan.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
 const { corsOptions } = require('./utils/cors-options');
 
-function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, payments = {}, trustProxy = false, logger = console }) {
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, aiPlans, payments = {}, trustProxy = false, logger = console }) {
   if (!db) throw new Error('A connected MongoDB database is required.');
   const app = express();
   app.disable('x-powered-by');
@@ -72,6 +73,8 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
         stats: ['GET /api/stats'],
         chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'POST /api/chat/messages'],
+        ai_plans: ['GET|POST /api/ai-plans', 'GET /api/ai-plans/:planId',
+          'POST /api/ai-plans/:planId/meals/:index/log', 'POST /api/ai-plans/:planId/workouts/:day/start'],
         coaching: ['GET /api/coaching', 'POST /api/coaching/links', 'DELETE /api/coaching/links/:linkId',
           'POST /api/coaching/assignments/:id/complete', 'POST /api/coaching/assignments/:id/decline'],
         trainer: ['GET /api/trainer/overview', 'GET|POST /api/trainer/links', 'DELETE /api/trainer/links/:linkId',
@@ -105,6 +108,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
   app.use('/api/rewards', createRewardRouter({ db }));
   app.use('/api/stats', createStatsRouter({ db }));
   app.use('/api/chat', createChatRouter({ db, ai }));
+  app.use('/api/ai-plans', createAiPlanRouter({ db, aiPlans }));
   app.use('/api/coaching', createCoachingRouter({ db }));
   app.use('/api/trainer', createTrainerRouter({ db }));
   app.use('/api/admin', createAdminRouter({ db }));

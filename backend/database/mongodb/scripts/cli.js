@@ -11,11 +11,21 @@ const { migrateDatabase } = require('../migrations/v2');
 
 async function main() {
   const command = process.argv[2];
+  const args = process.argv.slice(3);
+  if (args.length && (command !== 'init' || args.length !== 2 || args[0] !== '--only'
+    || !collections.some(c => c.name === args[1]))) throw new Error('Use db:init -- --only <collection>.');
   if (!['init', 'seed', 'demo', 'verify', 'migrate-plan', 'migrate', 'simplify-plan', 'simplify'].includes(command)) {
     throw new Error('Use db:init, db:seed, db:seed:demo, db:verify, db:migrate:plan or db:migrate.');
   }
-  const envPath = path.resolve(__dirname, '..', '.env');
-  if (fs.existsSync(envPath)) loadEnvFile(envPath);
+  // Match API precedence: process environment, backend/.env, then database/mongodb/.env.
+  const configured = new Set(Object.keys(process.env));
+  for (const envPath of [path.resolve(__dirname, '..', '..', '..', '.env'), path.resolve(__dirname, '..', '.env')]) {
+    if (!fs.existsSync(envPath)) continue;
+    const before = new Map(Object.entries(process.env));
+    loadEnvFile(envPath);
+    for (const key of configured) process.env[key] = before.get(key);
+    for (const key of Object.keys(process.env)) configured.add(key);
+  }
   const uri = process.env.MONGODB_URI;
   const name = process.env.MONGODB_DB_NAME;
   if (!uri || !/^mongodb(?:\+srv)?:\/\//.test(uri) || /[<>]/.test(uri)) {
@@ -35,8 +45,8 @@ async function main() {
       console.log(JSON.stringify(report, null, 2));
       if (report.issues.length) process.exitCode = 1;
     } else if (command === 'init') {
-      await initializeDatabase(db);
-      console.log(`Schema and indexes ready: ${name} (${collections.length} collections).`);
+      await initializeDatabase(db, args.length ? { only: [args[1]] } : {});
+      console.log(`Schema and indexes ready: ${name} (${args.length ? args[1] : `${collections.length} collections`}).`);
     } else if (command === 'seed') {
       await seedCatalogs(db);
       console.log('Catalog seed ready: 6 reward items, 3 challenges. Existing entries preserved.');

@@ -3,12 +3,16 @@
 const { isDeepStrictEqual } = require('node:util');
 const { collections, references } = require('./schema');
 
-async function initializeDatabase(db, { migrating = false } = {}) {
+async function initializeDatabase(db, { migrating = false, only } = {}) {
+  if (only !== undefined && (!Array.isArray(only) || !only.length || only.some(name => !collections.some(c => c.name === name)))) {
+    throw new Error('Unknown collection requested for initialization.');
+  }
+  const definitions = only ? collections.filter(c => only.includes(c.name)) : collections;
   const metadata = await db.listCollections().toArray();
   const existing = new Set(metadata.map((c) => c.name));
   // Never tighten an existing populated schema before migrating its documents.
   if (!migrating) {
-    for (const definition of collections) {
+    for (const definition of definitions) {
       const actual = metadata.find((entry) => entry.name === definition.name);
       if (!actual) continue;
       if (!isDeepStrictEqual(actual.options.validator, definition.validator)
@@ -21,7 +25,7 @@ async function initializeDatabase(db, { migrating = false } = {}) {
       }
     }
   }
-  for (const definition of collections) {
+  for (const definition of definitions) {
     const { name, validator, validationLevel, validationAction, indexes } = definition;
     const options = { validator, validationLevel, validationAction };
     if (existing.has(name)) {

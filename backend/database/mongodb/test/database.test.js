@@ -38,15 +38,32 @@ after(async () => {
   if (replica) await replica.stop();
 });
 
-test('all 17 collections, validators, role fixtures and demo references pass the audit', async () => {
+test('all collections, validators, role fixtures and demo references pass the audit', async () => {
   const report = await verifyDatabase(db);
   assert.equal(report.ok, true, report.issues.join('\n'));
-  assert.equal(Object.keys(report.counts).length, 22);
+  assert.equal(Object.keys(report.counts).length, collections.length);
   assert.equal(report.counts.users, 3);
   assert.equal(report.counts.reward_items, 6);
   assert.equal(report.counts.challenges, 3);
   assert.equal(report.counts.daily_quest_logs, 7);
-  assert.ok(Object.entries(report.counts).filter(([name]) => name !== 'exercises').every(([, count]) => count > 0));
+  for (const [name, rows] of Object.entries(fixture)) {
+    assert.equal(report.counts[name], rows.length, `Demo fixture count differs: ${name}`);
+  }
+  for (const name of ['exercises', 'trainer_links', 'admin_logs', 'steps_logs', 'payment_orders', 'memberships', 'ai_plans']) {
+    assert.equal(report.counts[name], 0, `Demo must not invent API-owned records: ${name}`);
+  }
+});
+
+test('selective initialization creates ai_plans without changing existing collections', async () => {
+  const isolated = client.db('fitlife_ai_plan_init_test');
+  await isolated.createCollection('users', { validator: { marker: { $exists: true } } });
+  await isolated.collection('users').insertOne({ marker: true });
+  const before = await isolated.listCollections({ name: 'users' }).next();
+  await initializeDatabase(isolated, { only: ['ai_plans'] });
+  assert.deepEqual(await isolated.listCollections({ name: 'users' }).next(), before);
+  assert.equal(await isolated.collection('users').countDocuments(), 1);
+  assert.deepEqual((await isolated.listCollections().toArray()).map(c => c.name).sort(), ['ai_plans', 'users']);
+  assert.ok((await isolated.collection('ai_plans').listIndexes().toArray()).some(i => i.name === 'uq_plan_id' && i.unique));
 });
 
 test('schema and catalog reruns preserve catalog edits and existing user data', async () => {

@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "node scripts/check-syntax.js",
+    "db:init": "node database/mongodb/scripts/cli.js init",
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "test:postman": "node scripts/run-postman-regression.js",
     "test:postman:atlas": "node scripts/run-postman-regression.js --atlas",
