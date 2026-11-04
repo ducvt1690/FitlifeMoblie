@@ -86,7 +86,7 @@ function createAdminService({ db }) {
   const service = {
     async overview() {
       const weekAgo = new Date(Date.now() - 7 * 86400000);
-      const [roles, locked, newUsers, purchases, activeChallenges, availableRewards, activeLinks, recentLogs] = await Promise.all([
+      const [roles, locked, newUsers, purchases, activeChallenges, availableRewards, activeLinks, recentLogs, paid, premium] = await Promise.all([
         users().aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]).toArray(),
         users().countDocuments({ is_active: false }),
         users().countDocuments({ created_at: { $gte: weekAgo } }),
@@ -96,12 +96,16 @@ function createAdminService({ db }) {
         db.collection('reward_items').countDocuments({ is_available: true }),
         db.collection('trainer_links').countDocuments({ status: 'active' }),
         service.logs(1).then(result => result.logs.slice(0, 8)),
+        db.collection('payment_orders').aggregate([{ $match: { status: 'paid' } },
+          { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$amount_vnd' } } }]).toArray(),
+        db.collection('memberships').countDocuments({ premium_until: { $gt: new Date() } }),
       ]);
       const byRole = Object.fromEntries(roles.map(row => [row._id, row.count]));
       return { success: true, counts: {
         users: byRole.user ?? 0, trainers: byRole.trainer ?? 0, admins: byRole.admin ?? 0, locked,
         new_users_7d: newUsers, purchases_7d: purchases[0]?.count ?? 0, coins_spent_7d: purchases[0]?.coins ?? 0,
         active_challenges: activeChallenges, available_rewards: availableRewards, active_trainer_links: activeLinks,
+        paid_orders: paid[0]?.count ?? 0, revenue_vnd: paid[0]?.revenue ?? 0, premium_members: premium,
       }, recent_logs: recentLogs };
     },
 
@@ -204,6 +208,23 @@ function createAdminService({ db }) {
         db.collection('purchases').countDocuments(),
       ]);
       return { success: true, transactions: rows, page: current, page_size: PAGE_SIZE, total };
+    },
+
+    async payments({ status, page }) {
+      const current = readPage(page);
+      if (status !== undefined && !['pending', 'paid', 'failed'].includes(status)) throw fail(400, 'status phải là pending, paid hoặc failed.');
+      const filter = status ? { status } : {};
+      const [rows, total] = await Promise.all([
+        db.collection('payment_orders').aggregate([
+          { $match: filter }, { $sort: { created_at: -1 } }, { $skip: (current - 1) * PAGE_SIZE }, { $limit: PAGE_SIZE },
+          { $lookup: { from: 'users', localField: 'user_id', foreignField: 'user_id', as: 'user' } },
+          { $project: { _id: 0, order_id: 1, user_id: 1, product: 1, amount_vnd: 1, status: 1, response_code: 1,
+            vnp_transaction_no: 1, bank_code: 1, created_at: 1, paid_at: 1,
+            email: { $first: '$user.email' }, full_name: { $first: '$user.full_name' } } },
+        ]).toArray(),
+        db.collection('payment_orders').countDocuments(filter),
+      ]);
+      return { success: true, payments: rows, page: current, page_size: PAGE_SIZE, total };
     },
 
     async logs(page) {

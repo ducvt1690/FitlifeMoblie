@@ -18,6 +18,7 @@ function createAdminRouter({ db }) {
   router.post('/rewards', asyncHandler(async (req, res) => res.status(201).json(await service.createReward(admin(req), req.body))));
   router.patch('/rewards/:itemId', asyncHandler(async (req, res) => res.json(await service.updateReward(admin(req), req.params.itemId, req.body))));
   router.get('/transactions', asyncHandler(async (req, res) => res.json(await service.transactions(req.query.page))));
+  router.get('/payments', asyncHandler(async (req, res) => res.json(await service.payments({ status: req.query.status, page: req.query.page }))));
   router.get('/logs', asyncHandler(async (req, res) => res.json(await service.logs(req.query.page))));
   return router;
 }

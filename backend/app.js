@@ -18,14 +18,18 @@ const { createChatRouter } = require('./routes/chat.routes');
 const { createCoachingRouter } = require('./routes/coaching.routes');
 const { createTrainerRouter } = require('./routes/trainer.routes');
 const { createAdminRouter } = require('./routes/admin.routes');
+const { createPaymentRouter } = require('./routes/payment.routes');
+const { createStepsRouter } = require('./routes/steps.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
 const { corsOptions } = require('./utils/cors-options');
 
-function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, logger = console }) {
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, payments = {}, trustProxy = false, logger = console }) {
   if (!db) throw new Error('A connected MongoDB database is required.');
   const app = express();
   app.disable('x-powered-by');
+  // Behind Vercel the client IP is in X-Forwarded-For; trust it only when configured.
+  if (trustProxy) app.set('trust proxy', 1);
   app.use(cors(corsOptions(corsOrigins)));
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
@@ -62,6 +66,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         quests: ['GET /api/quests', 'POST /api/quests/checkin'],
         sleep: ['GET /api/sleep-logs', 'PUT /api/sleep-logs'],
         mood: ['GET /api/mood-logs', 'PUT /api/mood-logs'],
+        steps: ['GET /api/steps-logs', 'POST /api/steps-logs'],
         bmi: ['GET /api/bmi-records', 'POST /api/bmi-records'],
         challenges: ['GET /api/challenges', 'POST /api/challenges/:challengeId/join', 'POST /api/challenges/:challengeId/checkin'],
         rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
@@ -74,7 +79,9 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
           'POST /api/trainer/assignments/:id/cancel', 'GET /api/trainer/students/:userId'],
         admin: ['GET /api/admin/overview', 'GET /api/admin/accounts', 'PATCH /api/admin/accounts/:userId',
           'GET|POST /api/admin/challenges', 'PATCH /api/admin/challenges/:challengeId', 'GET|POST /api/admin/rewards',
-          'PATCH /api/admin/rewards/:itemId', 'GET /api/admin/transactions', 'GET /api/admin/logs'],
+          'PATCH /api/admin/rewards/:itemId', 'GET /api/admin/transactions', 'GET /api/admin/payments', 'GET /api/admin/logs'],
+        payments: ['GET /api/payments/plans', 'GET|POST /api/payments/orders', 'GET /api/payments/orders/:orderId',
+          'GET /api/payments/vnpay/ipn', 'GET /api/payments/vnpay/return'],
       },
     });
   });
@@ -101,6 +108,8 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
   app.use('/api/coaching', createCoachingRouter({ db }));
   app.use('/api/trainer', createTrainerRouter({ db }));
   app.use('/api/admin', createAdminRouter({ db }));
+  app.use('/api/payments', createPaymentRouter({ db, payments }));
+  app.use('/api/steps-logs', createStepsRouter({ db }));
   app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Endpoint không tồn tại.' });
   });

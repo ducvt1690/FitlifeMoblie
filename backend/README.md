@@ -157,12 +157,12 @@ Ví dụ request/response, giới hạn và hướng dẫn nối FE: [API nhật
 
 ### Huấn luyện viên và quản trị
 
-Mỗi khu chỉ nhận đúng role (`requireRole`), sai role trả `403`. Trainer/admin chỉ dùng trên website; app mobile dành cho thành viên.
+Mỗi khu chỉ nhận đúng role (`requireRole`), sai role trả `403`. Cả ba role dùng được trên website và app mobile.
 
 - Trainer (`/api/trainer`): `GET overview`; `GET/POST links` (tạo mã mời 8 ký tự, tối đa 10 mã chưa dùng); `DELETE links/:linkId` (hủy mã hoặc kết thúc kết nối, đồng thời hủy bài đang giao); `GET/POST templates`, `PATCH templates/:id` (chỉ giáo án của mình, `is_active` để ngừng dùng); `GET assignments?status=`, `POST assignments` (`id` UUID, `user_id`, `template_id`, `note`), `POST assignments/:id/cancel`; `GET students/:userId?days=7`.
 - Thành viên (`/api/coaching`): `GET` kết nối và bài được giao; `POST links` nhập `{ "code" }` để đồng ý; `DELETE links/:linkId`; `POST assignments/:id/complete|decline`.
 - Quyền xem dữ liệu: trainer chỉ thấy học viên đã nhập mã mời. Nhật ký sức khỏe (`health`) chỉ trả về khi kết nối còn mở **và** có ít nhất một bài đang giao; ngược lại `health: null`. Không có API nào cho trainer/admin đọc chat AI.
-- Admin (`/api/admin`): `GET overview`; `GET accounts?q=&role=&status=&page=`; `PATCH accounts/:userId` nhận `is_active`, `role` (`user`|`trainer`), `note` — không sửa được chính mình hay admin khác, đổi role sẽ kết thúc kết nối/bài giao liên quan và đăng xuất tài khoản đó; `GET/POST challenges`, `PATCH challenges/:id`; `GET/POST rewards`, `PATCH rewards/:id`; `GET transactions?page=`; `GET logs?page=`. Mọi thao tác ghi vào `admin_logs`.
+- Admin (`/api/admin`): `GET overview`; `GET accounts?q=&role=&status=&page=`; `PATCH accounts/:userId` nhận `is_active`, `role` (`user`|`trainer`), `note` — không sửa được chính mình hay admin khác, đổi role sẽ kết thúc kết nối/bài giao liên quan và đăng xuất tài khoản đó; `GET/POST challenges`, `PATCH challenges/:id`; `GET/POST rewards`, `PATCH rewards/:id`; `GET transactions?page=`; `GET payments?status=pending|paid|failed&page=` (đơn VNPay kèm email người mua); `GET logs?page=`. `overview` có thêm `paid_orders`, `revenue_vnd`, `premium_members`. Mọi thao tác ghi vào `admin_logs`.
 
 Admin đầu tiên không tạo qua API. Đăng ký tài khoản bình thường rồi chạy trong `backend/`:
 
@@ -171,6 +171,25 @@ npm run role -- <email> admin     # hoặc trainer / user
 ```
 
 Script đọc `.env`, đổi role, xóa phiên cũ và ghi `admin_logs`. Sau đó admin cấp/thu hồi quyền huấn luyện viên trên web (Quản trị → Tài khoản).
+
+### Bước chân
+
+- `GET /api/steps-logs?date=YYYY-MM-DD`: trả `{ date, steps }` của ngày (mặc định hôm nay theo timezone tài khoản).
+- `POST /api/steps-logs` nhận `{ "amount": 1..50000 }`, cộng dồn vào tổng của ngày, tối đa 200000 bước/ngày (vượt trả `409`).
+
+### Thanh toán VNPay và Premium
+
+Giá nằm ở server; client chỉ gửi mã sản phẩm. `premium_month` 49.000đ (30 ngày + 100 xu), `premium_year` 399.000đ (365 ngày + 1500 xu), `coins_200` 20.000đ, `coins_550` 50.000đ.
+
+- `GET /api/payments/plans`: danh sách gói, trạng thái `membership { premium, premium_until }`, `configured`.
+- `POST /api/payments/orders` nhận `{ order_id: UUID, product, return_url? }`, trả `201 { order, payment_url }`. Gửi lại cùng `order_id` khi đơn còn chờ trả lại đúng link cũ; đơn đã kết thúc trả `409`. Đơn hết hạn sau 15 phút. `return_url` chỉ nhận `fitlife://…`, `exp://…` (Expo Go) hoặc trang thuộc `WEB_APP_URL`.
+- `GET /api/payments/orders?page=`, `GET /api/payments/orders/:orderId`: chỉ đơn của chính mình (đơn người khác trả `404`).
+- `GET /api/payments/vnpay/ipn` (public, VNPay gọi server-to-server): kiểm chữ ký HMAC-SHA512 → `97`, không có đơn → `01`, sai số tiền → `04`, đã xử lý → `02`, thành công → `00`. Cộng xu/gia hạn Premium trong cùng transaction, chỉ một lần dù VNPay gọi lại.
+- `GET /api/payments/vnpay/return` (public, trình duyệt quay về): xử lý giống IPN (để chạy local không cần IPN), hiện trang kết quả rồi chuyển về `return_url?order=…&status=paid|failed`.
+
+Premium gia hạn nối tiếp từ ngày hết hạn hiện tại. Gói miễn phí được hỏi AI Coach 10 tin/24 giờ, tin thứ 11 trả `402`.
+
+Biến môi trường: `VNP_TMN_CODE`, `VNP_HASH_SECRET` (thiếu thì API tạo đơn trả `503`), `VNP_PAY_URL` (mặc định sandbox), `PUBLIC_API_URL` (URL công khai của backend để dựng return URL), `WEB_APP_URL`, `TRUST_PROXY=1` khi chạy sau proxy (Vercel). Khai IPN URL `https://<backend>/api/payments/vnpay/ipn` trong trang quản trị sandbox VNPay. Thẻ test NCB: xem tài liệu sandbox của VNPay.
 
 AI chat dùng `/api/chat`. Khi bổ sung chức năng, tạo route và service cùng tên; dùng middleware xác thực và truyền transaction giữa các service có bước ghi liên quan.
 

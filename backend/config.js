@@ -41,6 +41,15 @@ function loadConfig(env = process.env) {
     sessionTtlSeconds: integerOption('AUTH_SESSION_TTL_SECONDS', DEFAULT_SESSION_TTL_SECONDS, 60, DEFAULT_SESSION_TTL_SECONDS),
     // Optional: without a key, AI Coach answers with built-in rules from the member's logs.
     ai: { apiKey: values.ANTHROPIC_API_KEY || '', model: values.AI_MODEL || 'claude-sonnet-5' },
+    // Optional VNPay sandbox. Without both keys the payment API answers 503.
+    payments: {
+      tmnCode: values.VNP_TMN_CODE || '',
+      hashSecret: values.VNP_HASH_SECRET || '',
+      payUrl: values.VNP_PAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
+      publicApiUrl: (values.PUBLIC_API_URL || `http://localhost:${values.PORT || 5000}`).replace(/\/+$/, ''),
+      webAppUrl: (values.WEB_APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
+    },
+    trustProxy: values.TRUST_PROXY === '1',
   };
 }
 

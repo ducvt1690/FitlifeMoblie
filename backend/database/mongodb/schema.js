@@ -27,6 +27,7 @@ const userDayIndex = (field) => index({ user_id: 1, [field]: -1 }, `by_user_${fi
 
 const SCHEMA_VERSION = 2;
 const ROLES = ['user', 'trainer', 'admin'];
+const PAYMENT_PRODUCTS = ['premium_month', 'premium_year', 'coins_200', 'coins_550'];
 const QUEST_KEYS = ['q_water', 'q_workout', 'q_meal', 'q_sleep', 'q_mood', 'q_checkin', 'q_chat'];
 const dailyUnique = (field) => unique({ user_id: 1, [field]: 1 }, `uq_user_${field}`);
 
@@ -287,6 +288,37 @@ const collections = [
     index({ item_id: 1 }, 'by_purchased_item'),
   ]),
 
+  collection('steps_logs', 'steps_id', {
+    user_id: identity,
+    steps: { ...integer(), maximum: 200000 },
+    step_date: day,
+  }, [dailyUnique('step_date')]),
+
+  // VNPay orders. Amounts and products are set by the server; only a signed VNPay callback marks an order paid.
+  collection('payment_orders', 'order_id', {
+    user_id: identity,
+    product: choice(...PAYMENT_PRODUCTS),
+    amount_vnd: integer(1000),
+    status: choice('pending', 'paid', 'failed'),
+    txn_ref: { bsonType: 'string', pattern: '^[0-9a-f]{32}$' },
+    return_url: text(500),
+    expires_at: timestamp,
+    response_code: { bsonType: ['string', 'null'], maxLength: 10 },
+    vnp_transaction_no: { bsonType: ['string', 'null'], maxLength: 50 },
+    bank_code: { bsonType: ['string', 'null'], maxLength: 50 },
+    paid_at: { bsonType: ['date', 'null'] },
+  }, [
+    unique({ txn_ref: 1 }, 'uq_payment_txn_ref'),
+    index({ user_id: 1, created_at: -1 }, 'by_user_payment_time'),
+    index({ status: 1, created_at: -1 }, 'by_payment_status_time'),
+  ], ['user_id', 'product', 'amount_vnd', 'status', 'txn_ref', 'return_url', 'expires_at', 'response_code',
+    'vnp_transaction_no', 'bank_code', 'paid_at']),
+
+  // One row per member who has ever bought Premium.
+  collection('memberships', 'user_id', {
+    premium_until: timestamp,
+  }, [index({ premium_until: -1 }, 'by_premium_until')]),
+
   collection('ai_chat_sessions', 'session_id', {
     user_id: identity,
     title: text(150),
@@ -323,4 +355,4 @@ references.push(
   { from: 'admin_logs', field: 'admin_id', to: 'users', target: 'user_id' },
 );
 
-module.exports = { collections, references, QUEST_KEYS, ROLES, SCHEMA_VERSION };
+module.exports = { collections, references, PAYMENT_PRODUCTS, QUEST_KEYS, ROLES, SCHEMA_VERSION };

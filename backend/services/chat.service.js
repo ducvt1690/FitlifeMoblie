@@ -5,8 +5,11 @@ const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
 const { isUuid, isText, isPlainBody } = require('../utils/validate');
 const { createQuestService, lockMember } = require('./quest.service');
+const { membershipOf } = require('./payment.service');
 const fail = (status, message) => new HttpError(status, message);
 const RULE_ENGINE = 'fitlife-rules';
+// Free members get this many questions per rolling 24 hours; Premium is unlimited.
+const FREE_DAILY_MESSAGES = 10;
 const fmt = n => Math.round(n).toLocaleString('vi-VN');
 
 // Today's numbers give both the AI model and the rule-based coach something concrete to say.
@@ -108,6 +111,11 @@ function createChatService({ db, ai = {} }) {
           }
           return { user, message: existing, replayed: true, reward: 0 };
         }
+        if (!(await membershipOf(db, user.user_id, session)).premium) {
+          const recent = await db.collection('ai_chat_messages').countDocuments({ user_id: user.user_id, sender: 'user',
+            timestamp: { $gte: new Date(now.getTime() - 86400000) } }, { session });
+          if (recent >= FREE_DAILY_MESSAGES) throw fail(402, `Gói miễn phí được hỏi ${FREE_DAILY_MESSAGES} câu mỗi 24 giờ. Nâng cấp Premium để hỏi không giới hạn.`);
+        }
         const chat = await db.collection('ai_chat_sessions').findOne({ session_id: body.session_id }, { session });
         if (chat && chat.user_id !== user.user_id) throw fail(404, 'Cuộc trò chuyện không tồn tại.');
         if (chat) await db.collection('ai_chat_sessions').updateOne({ session_id: body.session_id }, { $set: { updated_at: now } }, { session });
@@ -144,4 +152,4 @@ function createChatService({ db, ai = {} }) {
     },
   };
 }
-module.exports = { createChatService };
+module.exports = { FREE_DAILY_MESSAGES, createChatService };
