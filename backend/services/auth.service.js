@@ -9,7 +9,7 @@ const { currentWaterTarget } = require('../utils/water-target');
 const { withCurrentAge } = require('../utils/birth-date');
 const { HttpError } = require('../utils/http-error');
 const { transaction } = require('../database/transaction');
-const { isPlainBody } = require('../utils/validate');
+const { isPlainBody, isNewPassword } = require('../utils/validate');
 const { quest_templates: questTemplates } = require('../database/mongodb/data/catalogs.json');
 
 async function registerUser(db, input, sessions) {
@@ -49,10 +49,6 @@ async function registerUser(db, input, sessions) {
   };
 }
 
-
-// Same rule as registration: 8+ characters, not only spaces, at most 1024 bytes.
-const isNewPassword = value => typeof value === 'string' && [...value].length >= 8
-  && Buffer.byteLength(value, 'utf8') <= 1024 && value.trim().length > 0;
 
 function createAuthService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS }) {
   const sessions = createSessionService({ db, sessionTtlSeconds });
