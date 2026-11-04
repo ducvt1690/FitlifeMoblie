@@ -1,0 +1,1220 @@
+[
+  {
+    "name": "users",
+    "id": "user_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife users",
+        "additionalProperties": false,
+        "required": [
+          "user_id",
+          "created_at",
+          "updated_at",
+          "email",
+          "password_hash",
+          "full_name",
+          "gender",
+          "age",
+          "height",
+          "weight",
+          "activity_level",
+          "goal",
+          "target_water",
+          "target_calories",
+          "fit_coins",
+          "streak_days",
+          "timezone"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "email": {
+            "bsonType": "string",
+            "minLength": 3,
+            "maxLength": 100,
+            "pattern": "^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\\.[a-z]{2,}$"
+          },
+          "password_hash": {
+            "bsonType": "string",
+            "minLength": 40,
+            "maxLength": 1024,
+            "pattern": "^(scrypt\\$|\\$2[aby]\\$|\\$argon2(id|i|d)\\$)"
+          },
+          "full_name": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "gender": {
+            "bsonType": "string",
+            "enum": [
+              "male",
+              "female"
+            ]
+          },
+          "age": {
+            "bsonType": "int",
+            "minimum": 5,
+            "maximum": 100
+          },
+          "height": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 80,
+            "maximum": 250
+          },
+          "weight": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 25,
+            "maximum": 300
+          },
+          "activity_level": {
+            "bsonType": "string",
+            "enum": [
+              "sedentary",
+              "light",
+              "moderate",
+              "active"
+            ]
+          },
+          "goal": {
+            "bsonType": "string",
+            "enum": [
+              "lose",
+              "maintain",
+              "gain"
+            ]
+          },
+          "target_water": {
+            "bsonType": "int",
+            "minimum": 500
+          },
+          "target_calories": {
+            "bsonType": "int",
+            "minimum": 800
+          },
+          "fit_coins": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "streak_days": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "timezone": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z_+-]+(?:/[A-Za-z0-9_+.-]+)*$"
+          },
+          "streak_last_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "user_id": 1
+        },
+        "name": "uq_user_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "email": 1
+        },
+        "name": "uq_user_email",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "water_logs",
+    "id": "log_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife water_logs",
+        "additionalProperties": false,
+        "required": [
+          "log_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "amount",
+          "log_time",
+          "log_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "log_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "amount": {
+            "bsonType": "int",
+            "minimum": 1
+          },
+          "log_time": {
+            "bsonType": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "log_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "log_id": 1
+        },
+        "name": "uq_log_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "log_date": -1
+        },
+        "name": "by_user_log_date"
+      }
+    ]
+  },
+  {
+    "name": "workout_logs",
+    "id": "workout_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife workout_logs",
+        "additionalProperties": false,
+        "required": [
+          "workout_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "title",
+          "category",
+          "duration_seconds",
+          "calories_burned",
+          "workout_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "workout_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "title": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "category": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "duration_seconds": {
+            "bsonType": "int",
+            "minimum": 1
+          },
+          "calories_burned": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "workout_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "workout_id": 1
+        },
+        "name": "uq_workout_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "workout_date": -1
+        },
+        "name": "by_user_workout_date"
+      }
+    ]
+  },
+  {
+    "name": "meal_logs",
+    "id": "meal_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife meal_logs",
+        "additionalProperties": false,
+        "required": [
+          "meal_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "meal_name",
+          "calories",
+          "protein",
+          "carbs",
+          "fat",
+          "meal_type",
+          "meal_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "meal_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "meal_name": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "calories": {
+            "bsonType": "int",
+            "minimum": 1
+          },
+          "protein": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 0
+          },
+          "carbs": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 0
+          },
+          "fat": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 0
+          },
+          "meal_type": {
+            "bsonType": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner",
+              "snack"
+            ]
+          },
+          "meal_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "meal_id": 1
+        },
+        "name": "uq_meal_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "meal_date": -1
+        },
+        "name": "by_user_meal_date"
+      }
+    ]
+  },
+  {
+    "name": "daily_quest_logs",
+    "id": "quest_log_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife daily_quest_logs",
+        "additionalProperties": false,
+        "required": [
+          "quest_log_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "quest_key",
+          "quest_title",
+          "reward_coins",
+          "is_completed",
+          "quest_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "quest_log_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "quest_key": {
+            "bsonType": "string",
+            "enum": [
+              "q_weight",
+              "q_water",
+              "q_meals",
+              "q_sleep",
+              "q_mood",
+              "q_bowel",
+              "q_workout"
+            ]
+          },
+          "quest_title": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "reward_coins": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "is_completed": {
+            "bsonType": "bool"
+          },
+          "extra_value": {
+            "bsonType": "string",
+            "minLength": 0,
+            "maxLength": 500
+          },
+          "quest_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          },
+          "completed_at": {
+            "bsonType": [
+              "date",
+              "null"
+            ]
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "is_completed": {
+                "enum": [
+                  true
+                ]
+              },
+              "completed_at": {
+                "bsonType": "date"
+              }
+            },
+            "required": [
+              "completed_at"
+            ]
+          },
+          {
+            "properties": {
+              "is_completed": {
+                "enum": [
+                  false
+                ]
+              },
+              "completed_at": {
+                "bsonType": "null"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "quest_log_id": 1
+        },
+        "name": "uq_quest_log_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "quest_date": 1,
+          "quest_key": 1
+        },
+        "name": "uq_user_day_quest",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "bmi_history",
+    "id": "record_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife bmi_history",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "weight",
+          "height",
+          "bmi_value",
+          "bmi_status",
+          "record_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "record_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "weight": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 25,
+            "maximum": 300
+          },
+          "height": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 80,
+            "maximum": 250
+          },
+          "bmi_value": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 0.01
+          },
+          "bmi_status": {
+            "bsonType": "string",
+            "enum": [
+              "Thiếu cân",
+              "Cân đối",
+              "Thừa cân nhẹ",
+              "Tiền béo phì / Béo phì"
+            ]
+          },
+          "record_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "record_id": 1
+        },
+        "name": "uq_record_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "record_date": -1
+        },
+        "name": "by_user_record_date"
+      }
+    ]
+  },
+  {
+    "name": "sleep_logs",
+    "id": "sleep_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife sleep_logs",
+        "additionalProperties": false,
+        "required": [
+          "sleep_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "hours",
+          "quality",
+          "sleep_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "sleep_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "hours": {
+            "bsonType": [
+              "int",
+              "long",
+              "double",
+              "decimal"
+            ],
+            "minimum": 0,
+            "maximum": 24
+          },
+          "quality": {
+            "bsonType": "string",
+            "enum": [
+              "Sâu",
+              "Bình thường",
+              "Chập chờn"
+            ]
+          },
+          "sleep_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "sleep_id": 1
+        },
+        "name": "uq_sleep_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "sleep_date": -1
+        },
+        "name": "by_user_sleep_date"
+      }
+    ]
+  },
+  {
+    "name": "mood_logs",
+    "id": "mood_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife mood_logs",
+        "additionalProperties": false,
+        "required": [
+          "mood_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "mood_label",
+          "mood_date"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "mood_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "mood_label": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "note": {
+            "bsonType": "string",
+            "minLength": 0,
+            "maxLength": 2000
+          },
+          "mood_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "mood_id": 1
+        },
+        "name": "uq_mood_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "mood_date": -1
+        },
+        "name": "by_user_mood_date"
+      }
+    ]
+  },
+  {
+    "name": "challenges",
+    "id": "challenge_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife challenges",
+        "additionalProperties": false,
+        "required": [
+          "challenge_id",
+          "created_at",
+          "updated_at",
+          "title",
+          "description",
+          "target_days",
+          "reward_coins",
+          "badge_icon",
+          "is_active"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "challenge_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "title": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "description": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "target_days": {
+            "bsonType": "int",
+            "minimum": 1
+          },
+          "reward_coins": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "badge_icon": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "is_active": {
+            "bsonType": "bool"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "challenge_id": 1
+        },
+        "name": "uq_challenge_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "is_active": 1,
+          "target_days": 1
+        },
+        "name": "by_active_duration"
+      }
+    ]
+  },
+  {
+    "name": "user_challenges",
+    "id": "id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife user_challenges",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "challenge_id",
+          "current_progress",
+          "is_completed",
+          "joined_at",
+          "last_checkin"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "challenge_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "current_progress": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "is_completed": {
+            "bsonType": "bool"
+          },
+          "joined_at": {
+            "bsonType": "date"
+          },
+          "last_checkin": {
+            "bsonType": [
+              "date",
+              "null"
+            ]
+          },
+          "last_checkin_date": {
+            "bsonType": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "id": 1
+        },
+        "name": "uq_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "challenge_id": 1
+        },
+        "name": "uq_user_challenge",
+        "unique": true
+      },
+      {
+        "key": {
+          "challenge_id": 1,
+          "is_completed": 1
+        },
+        "name": "by_challenge_completion"
+      }
+    ]
+  },
+  {
+    "name": "reward_items",
+    "id": "item_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife reward_items",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "created_at",
+          "updated_at",
+          "title",
+          "category",
+          "cost_coins",
+          "icon",
+          "is_available"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "item_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "title": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "category": {
+            "bsonType": "string",
+            "enum": [
+              "badge",
+              "theme",
+              "voucher"
+            ]
+          },
+          "cost_coins": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "icon": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "is_available": {
+            "bsonType": "bool"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "item_id": 1
+        },
+        "name": "uq_item_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "is_available": 1,
+          "category": 1,
+          "cost_coins": 1
+        },
+        "name": "by_available_category_price"
+      }
+    ]
+  },
+  {
+    "name": "purchases",
+    "id": "purchase_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife purchases",
+        "additionalProperties": false,
+        "required": [
+          "purchase_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "item_id",
+          "item_category",
+          "spent_coins",
+          "purchased_at"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "purchase_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "item_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "item_category": {
+            "bsonType": "string",
+            "enum": [
+              "badge",
+              "theme",
+              "voucher"
+            ]
+          },
+          "spent_coins": {
+            "bsonType": "int",
+            "minimum": 0
+          },
+          "purchased_at": {
+            "bsonType": "date"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "purchase_id": 1
+        },
+        "name": "uq_purchase_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "item_id": 1
+        },
+        "name": "uq_user_badge",
+        "unique": true,
+        "partialFilterExpression": {
+          "item_category": "badge"
+        }
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "purchased_at": -1
+        },
+        "name": "by_user_purchased_at"
+      },
+      {
+        "key": {
+          "item_id": 1
+        },
+        "name": "by_purchased_item"
+      }
+    ]
+  },
+  {
+    "name": "ai_chat_messages",
+    "id": "message_id",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "title": "FitLife ai_chat_messages",
+        "additionalProperties": false,
+        "required": [
+          "message_id",
+          "created_at",
+          "updated_at",
+          "user_id",
+          "sender",
+          "content",
+          "timestamp"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "message_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "created_at": {
+            "bsonType": "date"
+          },
+          "updated_at": {
+            "bsonType": "date"
+          },
+          "user_id": {
+            "bsonType": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "sender": {
+            "bsonType": "string",
+            "enum": [
+              "user",
+              "ai"
+            ]
+          },
+          "content": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "ai_engine": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "timestamp": {
+            "bsonType": "date"
+          }
+        }
+      }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "indexes": [
+      {
+        "key": {
+          "message_id": 1
+        },
+        "name": "uq_message_id",
+        "unique": true
+      },
+      {
+        "key": {
+          "user_id": 1,
+          "timestamp": -1,
+          "message_id": 1
+        },
+        "name": "by_user_chat_time"
+      }
+    ]
+  }
+]

@@ -1,0 +1,134 @@
+'use strict';
+
+const express = require('express');
+const cors = require('cors');
+const { createProfileRouter } = require('./routes/profile.routes');
+const { createWaterRouter } = require('./routes/water.routes');
+const { createWorkoutRouter } = require('./routes/workout.routes');
+const { createExerciseRouter } = require('./routes/exercise.routes');
+const { createMealRouter } = require('./routes/meal.routes');
+const { createQuestRouter } = require('./routes/quest.routes');
+const { createAuthRouter } = require('./routes/auth.routes');
+const { createPasswordResetRouter } = require('./routes/password-reset.routes');
+const { createDailyLogRouter } = require('./routes/daily-log.routes');
+const { createBmiRouter } = require('./routes/bmi.routes');
+const { createChallengeRouter } = require('./routes/challenge.routes');
+const { createRewardRouter } = require('./routes/reward.routes');
+const { createStatsRouter } = require('./routes/stats.routes');
+const { createChatRouter } = require('./routes/chat.routes');
+const { createNutritionRouter, createWorkoutPlanRouter } = require('./routes/nutrition.routes');
+const { createAdminRouter } = require('./routes/admin.routes');
+const { createPaymentRouter } = require('./routes/payment.routes');
+const { createStepsRouter } = require('./routes/steps.routes');
+const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
+const { HttpError } = require('./utils/http-error');
+const { corsOptions } = require('./utils/cors-options');
+
+function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOrigins, ai, payments = {}, trustProxy = false, mailer, logger = console }) {
+  if (!db) throw new Error('A connected MongoDB database is required.');
+  const app = express();
+  app.disable('x-powered-by');
+  // Behind Vercel the client IP is in X-Forwarded-For; trust it only when configured.
+  if (trustProxy) app.set('trust proxy', 1);
+  app.use(cors(corsOptions(corsOrigins)));
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
+    next();
+  });
+  const parseJSON = express.json({ limit: '16kb' });
+  app.use((req, res, next) => {
+    parseJSON(req, res, (error) => {
+      if (!error) return next();
+      // Only parser errors can set these client statuses. Never expose the
+      // parser's raw error: it may contain the submitted login credentials.
+      const messages = {
+        400: 'JSON hoặc nội dung nén không hợp lệ.',
+        413: 'Nội dung yêu cầu quá lớn.',
+        415: 'Charset hoặc encoding của yêu cầu không được hỗ trợ.',
+      };
+      if (Object.hasOwn(messages, error.status)) {
+        return res.status(error.status).json({ success: false, message: messages[error.status] });
+      }
+      return next(error);
+    });
+  });
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'online', project: 'FitLife Health & MMA API', version: '2.0.0',
+      endpoints: {
+        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me', 'POST /api/auth/change-password',
+          'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/auth/logout-all'],
+        profile: ['GET /api/profile', 'PATCH /api/profile'],
+        water: ['GET /api/water-logs', 'POST /api/water-logs', 'DELETE /api/water-logs?date=', 'DELETE /api/water-logs/:logId'],
+        workouts: ['GET /api/workout-logs', 'POST /api/workout-logs', 'DELETE /api/workout-logs/:workoutId'],
+        exercises: ['GET /api/exercises', 'GET /api/exercises/:exerciseId'],
+        meals: ['GET /api/meal-logs', 'POST /api/meal-logs', 'PATCH /api/meal-logs/:mealId', 'DELETE /api/meal-logs/:mealId'],
+        quests: ['GET /api/quests?date=', 'POST /api/quests/checkin'],
+        sleep: ['GET /api/sleep-logs', 'PUT /api/sleep-logs'],
+        mood: ['GET /api/mood-logs', 'PUT /api/mood-logs'],
+        steps: ['GET /api/steps-logs', 'POST /api/steps-logs'],
+        bmi: ['GET /api/bmi-records', 'POST /api/bmi-records'],
+        challenges: ['GET /api/challenges', 'POST /api/challenges/:challengeId/join', 'POST /api/challenges/:challengeId/checkin', 'POST /api/challenges/:challengeId/leave'],
+        rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
+        stats: ['GET /api/stats', 'GET /api/stats/lifetime'],
+        chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'DELETE /api/chat/sessions/:sessionId', 'POST /api/chat/messages', 'GET /api/chat/memory', 'DELETE /api/chat/memory'],
+        nutrition: ['GET /api/nutrition/today', 'POST /api/nutrition/parse', 'POST /api/nutrition/suggestions', 'POST /api/nutrition/suggestions/:suggestionId/accept',
+          'POST /api/nutrition/suggestions/:suggestionId/eat', 'PUT /api/nutrition/day', 'PUT /api/nutrition/allergies'],
+        workout_plans: ['GET /api/workout-plans/options', 'GET /api/workout-plans/today', 'POST /api/workout-plans',
+          'PUT /api/workout-plans/:planId/items', 'POST /api/workout-plans/:planId/complete'],
+        admin: ['GET /api/admin/overview', 'GET /api/admin/stats', 'GET /api/admin/accounts', 'GET|PATCH /api/admin/accounts/:userId',
+          'POST /api/admin/accounts/:userId/logout', 'GET /api/admin/challenges/:challengeId',
+          'GET|POST /api/admin/challenges', 'PATCH /api/admin/challenges/:challengeId', 'GET|POST /api/admin/rewards',
+          'PATCH /api/admin/rewards/:itemId', 'GET /api/admin/transactions', 'GET /api/admin/payments', 'GET /api/admin/logs'],
+        payments: ['GET /api/payments/plans', 'GET|POST /api/payments/orders', 'GET /api/payments/orders/:orderId',
+          'GET /api/payments/vnpay/ipn', 'GET /api/payments/vnpay/return'],
+      },
+    });
+  });
+  app.get('/health', async (req, res, next) => {
+    try {
+      await db.command({ ping: 1 });
+      res.json({ status: 'ok', database: 'connected' });
+    } catch (error) { next(error); }
+  });
+  app.use('/api/auth', createAuthRouter({ db, sessionTtlSeconds }));
+  app.use('/api/auth', createPasswordResetRouter({ db, mailer }));
+  app.use('/api/profile', createProfileRouter({ db }));
+  app.use('/api/water-logs', createWaterRouter({ db }));
+  app.use('/api/workout-logs', createWorkoutRouter({ db }));
+  app.use('/api/exercises', createExerciseRouter({ db }));
+  app.use('/api/meal-logs', createMealRouter({ db }));
+  app.use('/api/quests', createQuestRouter({ db }));
+  app.use('/api/sleep-logs', createDailyLogRouter({ db, kind: 'sleep' }));
+  app.use('/api/mood-logs', createDailyLogRouter({ db, kind: 'mood' }));
+  app.use('/api/bmi-records', createBmiRouter({ db }));
+  app.use('/api/challenges', createChallengeRouter({ db }));
+  app.use('/api/rewards', createRewardRouter({ db }));
+  app.use('/api/stats', createStatsRouter({ db }));
+  app.use('/api/chat', createChatRouter({ db, ai }));
+  app.use('/api/nutrition', createNutritionRouter({ db, ai }));
+  app.use('/api/workout-plans', createWorkoutPlanRouter({ db, ai }));
+  app.use('/api/admin', createAdminRouter({ db }));
+  app.use('/api/payments', createPaymentRouter({ db, payments }));
+  app.use('/api/steps-logs', createStepsRouter({ db }));
+  app.use((req, res) => {
+    res.status(404).json({ success: false, message: 'Endpoint không tồn tại.' });
+  });
+  app.use((error, req, res, next) => {
+    if (res.headersSent) return next(error);
+    if (error instanceof HttpError) {
+      return res.status(error.httpStatus).json({ success: false, message: error.message });
+    }
+    const unavailable = /^(MongoNetwork|MongoServerSelection|MongoTopologyClosed|MongoNotConnected)/.test(error.name || '');
+    // Driver errors can contain credentials or query data; log only the type.
+    logger.error?.('API request failed:', error.name || 'Error');
+    return res.status(unavailable ? 503 : 500).json({
+      success: false,
+      message: unavailable ? 'Tạm thời không kết nối được database.' : 'Không thể xử lý yêu cầu lúc này.',
+    });
+  });
+  return app;
+}
+
+module.exports = { createApp };
