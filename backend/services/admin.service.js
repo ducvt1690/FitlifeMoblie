@@ -60,7 +60,7 @@ function createAdminService({ db }) {
   const users = () => db.collection('users');
 
   // Shared create/update for the two catalogs admins own: challenges and reward items.
-  function catalog({ name, id, spec, target, label }) {
+  function catalog({ name, id, spec, target, label, guard }) {
     const coll = () => db.collection(name);
     return {
       async create(admin, body) {
@@ -86,6 +86,7 @@ function createAdminService({ db }) {
         return transaction(db, async session => {
           const now = new Date();
           await lockAdmin(db, admin.user_id, session, now);
+          if (guard) await guard(itemId, changes, session);
           const item = await coll().findOneAndUpdate({ [id]: itemId }, { $set: { ...changes, updated_at: now } },
             { session, returnDocument: 'after', projection: { _id: 0 } });
           if (!item) throw fail(404, `Không tìm thấy ${label}.`);
@@ -96,7 +97,22 @@ function createAdminService({ db }) {
     };
   }
 
-  const challenges = catalog({ name: 'challenges', id: 'challenge_id', spec: challengeSpec, target: 'challenge', label: 'thử thách' });
+  // Members who already joined keep the rules they joined under: while a run is open,
+  // the number of days and the reward cannot change. Title, description, icon and closing stay editable.
+  async function guardChallengeRules(challengeId, changes, session) {
+    if (changes.target_days === undefined && changes.reward_coins === undefined) return;
+    const current = await db.collection('challenges').findOne({ challenge_id: challengeId }, { session, projection: { _id: 0, target_days: 1, reward_coins: 1 } });
+    if (!current) return;
+    const rulesChange = (changes.target_days !== undefined && changes.target_days !== current.target_days)
+      || (changes.reward_coins !== undefined && changes.reward_coins !== current.reward_coins);
+    if (!rulesChange) return;
+    const running = await db.collection('user_challenges').countDocuments({ challenge_id: challengeId, is_completed: false }, { session });
+    if (running) {
+      throw fail(409, `Đang có ${running} người tham gia nên không thể đổi số ngày hoặc phần thưởng. Hãy tắt thử thách này và tạo thử thách mới.`);
+    }
+  }
+  const challenges = catalog({ name: 'challenges', id: 'challenge_id', spec: challengeSpec, target: 'challenge', label: 'thử thách',
+    guard: guardChallengeRules });
   const rewards = catalog({ name: 'reward_items', id: 'item_id', spec: rewardSpec, target: 'reward_item', label: 'vật phẩm' });
 
   const service = {

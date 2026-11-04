@@ -36,6 +36,8 @@ Nguyên tắc riêng tư: admin quản lý tài khoản, danh mục và vận h�
 - `GET /api/admin/challenges/:challengeId?status=active|completed` → thông tin thử thách, `summary { active, completed }` và danh sách người tham gia (email, tên, tiến độ, ngày tham gia, lần check-in gần nhất), phân trang.
 - `POST /api/admin/challenges` body `{ challenge_id: UUID, title, description, target_days 1–365, reward_coins, badge_icon, is_active }` → `201`; gửi lại cùng ID trả `replayed`.
 - `PATCH /api/admin/challenges/:challengeId` → sửa một phần, kèm `note` tùy chọn.
+  - **Khi còn người đang chơi**, đổi `target_days` hoặc `reward_coins` sang giá trị khác trả `409` (người đã tham gia giữ luật lúc tham gia). Muốn đổi luật: tắt thử thách này (`is_active: false`) rồi tạo thử thách mới. Tên, mô tả, biểu tượng vẫn sửa được.
+  - `is_active: false` chỉ **ngừng nhận người mới**; người đang chơi vẫn check-in đến khi hoàn thành hoặc tự rời.
 
 ## Vật phẩm đổi thưởng
 

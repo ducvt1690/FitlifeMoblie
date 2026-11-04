@@ -25,9 +25,10 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 
 ## Thử thách
 
-- `GET /api/challenges` → thử thách đang mở, kèm `joined`, `current_progress`, `checked_in_today`, `completed_count` của bạn.
-- `POST /api/challenges/:challengeId/join` → `201`; đang tham gia rồi → `409`.
-- `POST /api/challenges/:challengeId/checkin` → `current_progress + 1`, tối đa 1 lần/ngày (`409` nếu lặp). Đủ `target_days` thì hoàn thành và cộng `reward_coins` một lần; có thể tham gia lượt mới sau đó.
+- `GET /api/challenges` → thử thách đang mở **và** thử thách đã đóng mà bạn còn đang chơi dở, kèm `accepting_new` (false = admin đã đóng, không nhận người mới), `joined`, `current_progress`, `checked_in_today`, `completed_count` của bạn.
+- `POST /api/challenges/:challengeId/join` → `201`; đang tham gia rồi → `409`; thử thách đã đóng → `404`.
+- `POST /api/challenges/:challengeId/checkin` → `current_progress + 1`, tối đa 1 lần/ngày (`409` nếu lặp). Đủ `target_days` thì hoàn thành và cộng `reward_coins` một lần; có thể tham gia lượt mới sau đó. Admin đóng thử thách thì người đang chơi **vẫn check-in tiếp** đến khi hoàn thành.
+- **Luật được giữ nguyên cho người đã tham gia:** khi còn người đang chơi, admin không đổi được `target_days` hay `reward_coins` (xem `admin.md`).
 - `POST /api/challenges/:challengeId/leave` → rời lượt đang tham gia, **xóa tiến độ** của lượt đó (chưa có xu nào được cộng trước khi hoàn thành nên không trừ xu). Chưa tham gia → `404`. Rời được cả khi admin đã đóng thử thách. Sau khi rời có thể tham gia lại từ đầu.
 
 ## Đổi thưởng

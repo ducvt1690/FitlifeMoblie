@@ -16,17 +16,18 @@ function createChallengeService({ db }) {
   }
 
   return {
-    // Active challenges with the member's current run and how many runs they finished.
+    // Open challenges, plus closed ones the member is still running, with progress and finished runs.
+    // accepting_new: false means admin closed it to new members; the member can still finish their run.
     async list(user) {
       const today = localDay(new Date(), user.timezone);
-      const [challenges, runs] = await Promise.all([
-        db.collection('challenges').find({ is_active: true }, { projection: { _id: 0 } }).sort({ target_days: 1, title: 1 }).toArray(),
-        db.collection('user_challenges').find({ user_id: user.user_id }, { projection: { _id: 0 } }).toArray(),
-      ]);
+      const runs = await db.collection('user_challenges').find({ user_id: user.user_id }, { projection: { _id: 0 } }).toArray();
+      const running = runs.filter(r => !r.is_completed).map(r => r.challenge_id);
+      const challenges = await db.collection('challenges').find({ $or: [{ is_active: true }, { challenge_id: { $in: running } }] },
+        { projection: { _id: 0 } }).sort({ target_days: 1, title: 1 }).toArray();
       return { success: true, date: today, challenges: challenges.map(c => {
         const mine = runs.filter(r => r.challenge_id === c.challenge_id);
         const current = mine.find(r => !r.is_completed) || null;
-        return { ...c, joined: !!current, current_progress: current?.current_progress ?? 0,
+        return { ...c, accepting_new: c.is_active, joined: !!current, current_progress: current?.current_progress ?? 0,
           checked_in_today: current?.last_checkin_date === today, completed_count: mine.filter(r => r.is_completed).length };
       }) };
     },
@@ -64,10 +65,13 @@ function createChallengeService({ db }) {
       return transaction(db, async session => {
         const now = new Date();
         const user = await lockMember(db, member.user_id, session, now);
-        const challenge = await activeChallenge(challengeId, session);
+        if (!isUuid(challengeId)) throw fail(400, 'challenge_id không hợp lệ.');
         const day = localDay(now, user.timezone);
-        const run = await db.collection('user_challenges').findOne({ user_id: user.user_id, challenge_id: challenge.challenge_id, is_completed: false }, { session });
+        const run = await db.collection('user_challenges').findOne({ user_id: user.user_id, challenge_id: challengeId, is_completed: false }, { session });
         if (!run) throw fail(404, 'Bạn chưa tham gia thử thách này.');
+        // A run already started keeps going even if admin closed the challenge to new members.
+        const challenge = await db.collection('challenges').findOne({ challenge_id: challengeId }, { session, projection: { _id: 0 } });
+        if (!challenge) throw fail(404, 'Thử thách không tồn tại.');
         if (run.last_checkin_date === day) throw fail(409, 'Hôm nay bạn đã check-in thử thách này.');
         const progress = run.current_progress + 1;
         const completed = progress >= challenge.target_days;
