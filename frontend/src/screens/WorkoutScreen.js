@@ -414,9 +414,8 @@ export default function WorkoutScreen() {
       {/* Category Filter */}
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionHeaderTitle}>
-          Kho bài tập API ({filteredExercises.length} / {totalApiCount})
+          Danh sách bài tập ({filteredExercises.length} bài)
         </Text>
-        {isLoadingApi && <ActivityIndicator size="small" color="#159C7A" />}
       </View>
 
       <ScrollView
