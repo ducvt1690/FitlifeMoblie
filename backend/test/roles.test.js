@@ -32,6 +32,7 @@ beforeEach(async () => {
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -42,7 +43,7 @@ async function account(role = 'user') {
   const email = `${randomUUID()}@fitlife.example`;
   const password = 'role-test-password';
   const created = await request('/api/auth/register', null, 'POST', {
-    email, password, full_name: `Role ${role}`, gender: 'male', age: 30, height: 172, weight: 70,
+    email, password, confirm_password: password, full_name: `Role ${role}`, gender: 'male', age: 30, height: 172, weight: 70,
     activity_level: 'moderate', goal: 'maintain', timezone: 'Asia/Ho_Chi_Minh',
   });
   assert.equal(created.status, 201);
@@ -55,7 +56,7 @@ test('each area rejects the other role', async () => {
   const [member, admin] = await Promise.all([account(), account('admin')]);
   assert.equal((await request('/api/admin/overview', member.token)).status, 403);
   assert.equal((await request('/api/quests', admin.token)).status, 403);
-  assert.equal((await request('/api/trainer/overview', member.token)).status, 404);
+  assert.equal((await request('/api/trainer/overview', member.token)).status, 403);
   assert.equal((await request('/api/admin/overview', admin.token)).status, 200);
   assert.equal((await request('/api/auth/me', admin.token)).body.user.role, 'admin');
 });
@@ -81,14 +82,25 @@ test('admin locks accounts and manages the catalogs with an audit trail', async 
   assert.ok(!(await request('/api/challenges', student.token)).body.challenges.some(c => c.challenge_id === challenge.challenge_id));
   assert.equal((await request(`/api/admin/challenges/${challenge.challenge_id}`, admin.token, 'PATCH', { target_days: 0 })).status, 400);
 
-  const item = { item_id: randomUUID(), title: 'Huy hiệu thử nghiệm', category: 'badge', cost_coins: 0, icon: 'ribbon-outline', is_available: true };
-  assert.equal((await request('/api/admin/rewards', admin.token, 'POST', item)).status, 201);
-  assert.equal((await request(`/api/rewards/${item.item_id}/purchase`, student.token, 'POST', { purchase_id: randomUUID() })).status, 201);
-  const sales = await request('/api/admin/transactions', admin.token);
-  assert.ok(sales.body.transactions.some(row => row.item_id === item.item_id && row.item_title === item.title));
-
   const logs = (await request('/api/admin/logs', admin.token)).body.logs.map(row => row.action);
-  for (const action of ['lock_account', 'unlock_account', 'create_challenge', 'update_challenge', 'create_reward_item']) {
+  for (const action of ['lock_account', 'unlock_account', 'create_challenge', 'update_challenge']) {
     assert.ok(logs.includes(action), action);
   }
+});
+
+test('admin changes user/trainer role with audit and session revocation, never admin elevation', async () => {
+  const [admin, member] = await Promise.all([account('admin'), account()]);
+  assert.equal((await request(`/api/admin/accounts/${admin.id}`, admin.token, 'PATCH', { role: 'trainer' })).status, 409);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, member.token, 'PATCH', { role: 'trainer' })).status, 403);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'trainer' })).status, 400);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'trainer', note: '   ' })).status, 400);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'user' })).status, 200, 'unchanged role needs no reason');
+  const changed = await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'trainer', note: 'Đủ điều kiện huấn luyện viên' });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.account.role, 'trainer');
+  assert.equal((await request('/api/auth/me', member.token)).status, 401);
+  assert.equal((await request('/api/admin/accounts?role=trainer', admin.token)).body.accounts.some(a => a.user_id === member.id), true);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'admin' })).status, 400);
+  assert.equal((await request(`/api/admin/accounts/${member.id}`, admin.token, 'PATCH', { role: 'user', note: 'Thu hồi vai trò huấn luyện viên' })).status, 200);
+  assert.equal(await db.collection('admin_logs').countDocuments({ target_id: member.id, action: 'change_account_role' }), 2);
 });

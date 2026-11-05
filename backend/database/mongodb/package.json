@@ -16,6 +16,8 @@
     "db:migrate": "node scripts/cli.js migrate",
     "db:profile:plan": "node scripts/profile-birth-date.js",
     "db:profile:apply": "node scripts/profile-birth-date.js --apply",
+    "db:fitness:plan": "node scripts/fitness-platform.js",
+    "db:fitness:apply": "node scripts/fitness-platform.js --apply",
     "db:exercises:import": "node scripts/import-exercisedb-v1.js",
     "db:language:vi": "node scripts/localize-vietnamese.js",
     "test": "node --test --test-concurrency=1 test/*.test.js",

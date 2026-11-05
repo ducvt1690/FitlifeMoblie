@@ -18,6 +18,12 @@ const V3_FIELDS = {
   purchases: ['item_title_snapshot'],
 };
 const V3_COLLECTIONS = ['trainer_connections', 'challenge_checkins', 'request_operations', 'admin_audit_logs', 'user_inventory'];
+const AUTH_COLLECTIONS = ['auth_sessions', 'registration_email_verifications'];
+// A former v3 field may now be authoritative in the current schema. Never strip it.
+const removableFields = name => {
+  const properties = collections.find(def => def.name === name)?.validator.$jsonSchema.properties || {};
+  return (V3_FIELDS[name] || []).filter(field => !Object.hasOwn(properties, field));
+};
 const auxiliary = (name) => V3_COLLECTIONS.includes(name) || /^__fitlife_v[12]_[a-z_]+$/.test(name)
   || ['__fitlife_migrations', 'archived_daily_quest_logs'].includes(name);
 const digest = (value) => createHash('sha256').update(BSON.EJSON.stringify(value, { relaxed: false })).digest('hex');
@@ -30,7 +36,7 @@ async function snapshot(db) {
   }
   return result;
 }
-const strip = (name, row) => Object.fromEntries(Object.entries(row).filter(([field]) => !(V3_FIELDS[name] || []).includes(field)));
+const strip = (name, row) => Object.fromEntries(Object.entries(row).filter(([field]) => !removableFields(name).includes(field)));
 
 async function planSimplification(db) {
   if (db.databaseName !== 'fitlife') throw new Error('Simplification only accepts the fitlife database.');
@@ -47,7 +53,7 @@ async function planSimplification(db) {
     }
   }
   for (const entry of original) {
-    if (collections.some((def) => def.name === entry.name) || entry.name === 'auth_sessions') continue;
+    if (collections.some((def) => def.name === entry.name) || AUTH_COLLECTIONS.includes(entry.name)) continue;
     if (!auxiliary(entry.name)) issues.push(`Unexpected collection: ${entry.name}`);
     if (V3_COLLECTIONS.includes(entry.name) && entry.name !== 'user_inventory' && entry.documents.length) {
       issues.push(`V3 collection has real activity; map it before removing: ${entry.name}`);
@@ -69,7 +75,7 @@ async function planSimplification(db) {
     removeCollections: original.filter((entry) => auxiliary(entry.name)).map((entry) => entry.name),
     retainedDocuments: Object.values(target).reduce((sum, rows) => sum + rows.length, 0),
     removedFieldValues: original.reduce((sum, entry) => sum + entry.documents.reduce((total, row) => total
-      + (V3_FIELDS[entry.name] || []).filter((field) => Object.hasOwn(row, field)).length, 0), 0) };
+      + removableFields(entry.name).filter((field) => Object.hasOwn(row, field)).length, 0), 0) };
 }
 
 async function simplifyDatabase(db, client, { apply = false, backupDirectory, deleteDemo = false } = {}) {
@@ -114,7 +120,7 @@ async function simplifyDatabase(db, client, { apply = false, backupDirectory, de
         const source = plan.original.find((entry) => entry.name === def.name).documents;
         const current = await db.collection(def.name).find({}, { session }).sort({ _id: 1 }).toArray();
         if (!isDeepStrictEqual(current, source)) throw new Error(`Concurrent writer: ${def.name}. No data committed.`);
-        const unset = Object.fromEntries((V3_FIELDS[def.name] || []).map((field) => [field, '']));
+        const unset = Object.fromEntries(removableFields(def.name).map((field) => [field, '']));
         if (Object.keys(unset).length) await db.collection(def.name).updateMany({}, { $unset: unset }, { session });
       }
     }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
@@ -142,7 +148,7 @@ async function simplifyDatabase(db, client, { apply = false, backupDirectory, de
     await client.db('fitlife_demo').dropDatabase();
   }
   const names = (await db.listCollections().toArray()).map((entry) => entry.name).sort();
-  const allowed = new Set([...collections.map((entry) => entry.name), 'auth_sessions']);
+  const allowed = new Set([...collections.map((entry) => entry.name), ...AUTH_COLLECTIONS]);
   if (names.some((name) => !allowed.has(name))) throw new Error('Unexpected collections remain after simplification.');
   const result = { ...report, applied: true, backupDirectory: backup, audit,
     deletedDemoDatabase: !!demo, visibleCollections: names, preservedCoreDocuments: plan.retainedDocuments };

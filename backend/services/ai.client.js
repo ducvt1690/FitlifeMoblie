@@ -48,28 +48,38 @@ async function post(url, headers, body, retry = true) {
   return data;
 }
 
-// messages: [{ role: 'user' | 'assistant', content }]. Returns plain text, or a parsed object when json is true.
+// messages: [{ role: 'user' | 'assistant', content, images?: [{ data (base64), mimeType }] }].
+// Returns plain text, or a parsed object when json is true.
 async function complete(ai, { system, messages, json = false, smart = false, maxTokens = 800 }) {
   if (!ai?.apiKey) throw new Error('AI chưa được cấu hình.');
   const model = smart ? ai.smart : ai.fast;
   const sys = json ? `${system}\nChỉ trả về đúng một object JSON hợp lệ, không markdown, không giải thích.` : system;
   let text;
+  const toAnthropic = (m) => m.images?.length
+    ? [...m.images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.data } })), { type: 'text', text: m.content }]
+    : m.content;
+  const toParts = (m) => m.images?.length
+    ? [{ text: m.content }, ...m.images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } }))]
+    : [{ text: m.content }];
+  const toOpenAi = (m) => m.images?.length
+    ? [{ type: 'text', text: m.content }, ...m.images.map(img => ({ type: 'image_url', image_url: { url: 'data:' + img.mimeType + ';base64,' + img.data } }))]
+    : m.content;
   if (ai.provider === 'anthropic') {
     const data = await post('https://api.anthropic.com/v1/messages', { 'x-api-key': ai.apiKey, 'anthropic-version': '2023-06-01' },
-      { model, max_tokens: maxTokens, system: sys, messages });
+      { model, max_tokens: maxTokens, system: sys, messages: messages.map(m => ({ role: m.role, content: toAnthropic(m) })) });
     text = data.content?.filter(p => p.type === 'text').map(p => p.text).join('\n');
   } else if (ai.provider === 'gemini') {
     const data = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       { 'x-goog-api-key': ai.apiKey }, {
         systemInstruction: { parts: [{ text: sys }] },
-        contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: toParts(m) })),
         // Gemini thinks by default and spends the output budget on it; these short tasks do not need it.
         generationConfig: { maxOutputTokens: maxTokens, ...(geminiThinking(model) ? { thinkingConfig: geminiThinking(model) } : {}), ...(json ? { responseMimeType: 'application/json' } : {}) },
       });
     text = data.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('');
   } else {
     const data = await post(`${ai.baseUrl}/chat/completions`, { authorization: `Bearer ${ai.apiKey}` }, {
-      model, max_tokens: maxTokens, messages: [{ role: 'system', content: sys }, ...messages],
+      model, max_tokens: maxTokens, messages: [{ role: 'system', content: sys }, ...messages.map(m => ({ role: m.role, content: toOpenAi(m) }))],
       ...(json ? { response_format: { type: 'json_object' } } : {}),
     });
     text = data.choices?.[0]?.message?.content;

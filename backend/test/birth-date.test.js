@@ -31,7 +31,7 @@ test('validation reads the clock anew and accepts a fifth birthday only when it 
   const birthday = new Date('2026-10-28T17:00:00.000Z');
   assert.equal(validateProfile(input, before), null);
   assert.equal(validateProfile(input, birthday).age, 5);
-  const registration = { ...input, email: 'birthday@fitlife.example', password: 'test-password' };
+  const registration = { ...input, email: 'birthday@fitlife.example', password: 'test-password', confirm_password: 'test-password' };
   assert.equal(validateRegistration(registration, before), null);
   assert.equal(validateRegistration(registration, birthday).age, 5);
 });

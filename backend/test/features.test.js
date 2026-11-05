@@ -33,6 +33,7 @@ beforeEach(async () => {
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -40,7 +41,7 @@ async function request(path, token, method = 'GET', body) {
 }
 async function register() {
   const response = await request('/api/auth/register', null, 'POST', {
-    email: `${randomUUID()}@fitlife.example`, password: 'feature-test-password', full_name: 'Feature test',
+    email: `${randomUUID()}@fitlife.example`, password: 'feature-test-password', confirm_password: 'feature-test-password', full_name: 'Feature test',
     gender: 'female', age: 22, height: 160, weight: 52, activity_level: 'light', goal: 'maintain', timezone: 'Asia/Ho_Chi_Minh',
   });
   assert.equal(response.status, 201);
@@ -120,23 +121,11 @@ test('challenges allow one active run, one check-in per day and pay completion o
   assert.equal((await request('/api/challenges/not-a-uuid/join', member.token, 'POST')).status, 400);
 });
 
-test('reward purchases debit once, refuse duplicates of owned badges and insufficient coins', async () => {
-  const shop = await request('/api/rewards', member.token);
-  const free = shop.body.items.find(i => i.cost_coins === 0);
-  const paid = shop.body.items.find(i => i.cost_coins === 50);
-  const purchaseId = randomUUID();
-  assert.equal((await request(`/api/rewards/${free.item_id}/purchase`, member.token, 'POST', { purchase_id: purchaseId })).status, 201);
-  assert.equal((await request(`/api/rewards/${free.item_id}/purchase`, member.token, 'POST', { purchase_id: purchaseId })).body.replayed, true);
-  assert.equal((await request(`/api/rewards/${free.item_id}/purchase`, member.token, 'POST', { purchase_id: randomUUID() })).status, 409);
-  assert.equal((await request(`/api/rewards/${paid.item_id}/purchase`, member.token, 'POST', { purchase_id: randomUUID() })).status, 409);
-
-  await db.collection('users').updateOne({ user_id: member.user.user_id }, { $set: { fit_coins: 60 } });
-  const bought = await request(`/api/rewards/${paid.item_id}/purchase`, member.token, 'POST', { purchase_id: randomUUID() });
-  assert.equal(bought.body.fit_coins, 10);
-  const after = await request('/api/rewards', member.token);
-  assert.equal(after.body.fit_coins, 10);
-  assert.equal(after.body.items.find(i => i.item_id === paid.item_id).owned, true);
-  assert.equal(after.body.purchases.length, 2);
+test('retired redemption endpoints reject new purchases and preserve legacy history', async () => {
+  const before = await db.collection('purchases').countDocuments();
+  assert.equal((await request('/api/rewards', member.token)).status, 404);
+  assert.equal((await request('/api/rewards/'+randomUUID()+'/purchase', member.token, 'POST', {purchase_id:randomUUID()})).status, 404);
+  assert.equal(await db.collection('purchases').countDocuments(), before);
 });
 
 test('stats summarise the requested days and chat stores both turns with a once-a-day reward', async () => {
@@ -163,10 +152,11 @@ test('stats summarise the requested days and chat stores both turns with a once-
   assert.equal(next.body.reward_coins, 0);
   const history = await request(`/api/chat/sessions/${sessionId}/messages`, member.token);
   assert.deepEqual(history.body.messages.map(m => m.sender), ['user', 'ai', 'user', 'ai']);
-  // Asking for a plan goes to the plan builder, which is Premium only.
+  // Free users reach the plan builder; this fixture intentionally has no exercise catalog.
   const planAsk = await request('/api/chat/messages', member.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Lên lịch tập ngực 45 phút' });
   assert.equal(planAsk.body.plan, null);
-  assert.match(planAsk.body.reply.content, /Premium/);
+  assert.match(planAsk.body.reply.content, /Thư viện bài tập chưa có bài/);
+  assert.doesNotMatch(planAsk.body.reply.content, /Premium/);
   const other = await register();
   assert.equal((await request(`/api/chat/sessions/${sessionId}/messages`, other.token)).status, 404);
   assert.equal((await request('/api/chat/messages', other.token, 'POST', { session_id: sessionId, message_id: randomUUID(), content: 'Hi' })).status, 404);

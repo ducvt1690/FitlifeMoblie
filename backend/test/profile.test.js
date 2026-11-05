@@ -35,13 +35,14 @@ beforeEach(async () => {
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   return { status: response.status, body: await response.json() };
 }
 function onboarding(extra = {}) {
-  return { email: `${randomUUID()}@fitlife.example`, password, full_name: 'Profile test',
+  return { email: `${randomUUID()}@fitlife.example`, password, confirm_password: password, full_name: 'Profile test',
     gender: 'male', age: 23, height: 170, weight: 65, activity_level: 'moderate', goal: 'maintain',
     timezone, ...extra };
 }
@@ -76,7 +77,7 @@ test('profile changes remain authenticated, private and protected against owner/
     assert.equal((await patch({ email: 'updated@fitlife.example', ...injected })).status, 400);
   }
   await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'admin' } });
-  assert.equal((await patch({ date_of_birth: birthOnJanuaryFirst(29) })).status, 403);
+  assert.equal((await patch({ date_of_birth: birthOnJanuaryFirst(29) })).status, 200);
   await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'user', is_active: false } });
   assert.equal((await patch({ email: 'updated@fitlife.example' })).status, 403);
   assert.equal((await stored(second)).email, second.user.email);
@@ -273,4 +274,27 @@ test('profile updates never accept a client supplied clock or an age that confli
   const user = await stored();
   assert.equal(Object.hasOwn(user, 'date_of_birth'), false);
   assert.equal(user.age, 23);
+});
+
+
+test('admin and trainer can read and edit only their own profile without member side effects', async () => {
+  for (const role of ['admin', 'trainer']) {
+    await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role } });
+    const read = await profile();
+    assert.equal(read.user_id, first.user.user_id);
+    assert.equal(read.role, role);
+    const result = await patch({ full_name: 'Own ' + role, weight: role === 'admin' ? 70 : 71 });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.profile.role, role);
+    assert.equal(await db.collection('bmi_history').countDocuments({user_id:first.user.user_id}), 0);
+    for (const injected of [{ role: 'admin' }, { user_id: second.user.user_id },
+      { fit_coins: 999 }, { is_active: false }, { password_hash: 'forged' }, { target_water: 9999 }]) {
+      assert.equal((await patch(injected)).status, 400);
+    }
+    assert.equal((await stored()).role, role);
+    assert.equal((await stored()).is_active, true);
+    assert.equal(Object.hasOwn(read, 'password_hash'), false);
+    assert.equal((await stored(second)).full_name, 'Profile test');
+    assert.equal((await request('/api/quests', first.token)).status, 403);
+  }
 });

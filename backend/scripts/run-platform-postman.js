@@ -1,0 +1,15 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+require('./build-platform-postman');
+const runtime = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../output/integration-runtime.local.json'), 'utf8'));
+if (runtime.database !== 'fitlife_integration_test' || !/^http:\/\/127\.0\.0\.1:\d+$/.test(runtime.apiUrl)) throw new Error('Disposable integration harness required.');
+const cli = process.env.FITLIFE_POSTMAN_CLI || path.join(process.env.LOCALAPPDATA || '', 'Microsoft/WindowsApps/postman.exe');
+const args = ['collection', 'run', path.resolve(__dirname, '../api/platform-regression.postman_collection.json'), '--no-report-events', '--timeout-request', '15000', '--timeout', '180000', '--env-var', `baseUrl=${runtime.apiUrl}`, '--env-var', `testPassword=${runtime.accounts.user.password}`];
+for (const role of ['admin', 'trainer', 'user']) args.push('--env-var', `${role}Email=${runtime.accounts[role].email}`);
+const child = spawn(cli, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+let log = '';
+for (const stream of [child.stdout, child.stderr]) stream.on('data', bytes => { log += bytes; process.stdout.write(bytes); });
+child.on('error', () => { console.error('Cannot start Postman CLI.'); process.exitCode = 1; });
+child.on('close', code => { fs.writeFileSync(path.resolve(__dirname, '../../output/fullstack-platform-postman.txt'), log); process.exitCode = code || 0; });

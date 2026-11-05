@@ -10,6 +10,10 @@ yarn-error.log*
 .env*.local
 **/.env
 **/.env*.local
+backend/postman/local-email-otp.postman_collection.json
+output/integration-runtime.local.json
+output/atlas-test-accounts.local.json
+output/*.local.*
 
 # Database runtime files
 backend/fitlife_db.json
@@ -46,3 +50,16 @@ expo-env.d.ts
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local browser sessions, captured API runs and generated artifacts
+.playwright-cli/
+.hallmark/
+**/.hallmark/
+*.local.postman_environment.json
+backend/postman/
+output/*
+!output/APP_WEB_PARITY.md
+!output/PAYMENT_SIMULATION.md
+!output/mobile-verification.md
+!output/backend-verification.md
+!output/web-verification.md

@@ -2,6 +2,7 @@
 
 const { MongoClient } = require('mongodb');
 const { isDeepStrictEqual } = require('node:util');
+const { initializeEmailVerification } = require('./email-verification');
 
 const sessionValidator = {
   $jsonSchema: {
@@ -19,6 +20,7 @@ const sessionValidator = {
 };
 
 async function initializeAuthSessions(db) {
+  await initializeEmailVerification(db);
   try {
     await db.createCollection('auth_sessions', {
       validator: sessionValidator, validationLevel: 'strict', validationAction: 'error',

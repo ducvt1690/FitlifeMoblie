@@ -44,7 +44,23 @@ Lưu lại trong cùng ngày sẽ cập nhật bản ghi cũ và giữ nguyên `
 - `POST /api/chat/messages` body `{ session_id: UUID, message_id: UUID, content: 1–4000 ký tự }` → `201 { message, reply, reward_coins }`. Session tự tạo ở tin nhắn đầu tiên. Tin nhắn đầu tiên trong ngày hoàn thành `q_chat`.
 - `GET /api/chat/sessions`, `GET /api/chat/sessions/:sessionId/messages` — chỉ chủ session đọc được (`404` với người khác).
 - `DELETE /api/chat/sessions/:sessionId` → `200 { deleted: true, session_id, deleted_messages }`: xóa cuộc trò chuyện và mọi tin nhắn của nó. FE nên hỏi xác nhận trước khi gọi. Session của người khác → `404`.
-- Gói miễn phí: tối đa 10 câu hỏi/24 giờ, đếm trong collection `ai_question_usage` (giữ 48 giờ). **Xóa hội thoại không làm mới hạn mức.** Vượt hạn mức → `402`; Premium không giới hạn.
+- Gói miễn phí: tối đa 10 câu hỏi tư vấn trong phạm vi app/24 giờ, đếm trong collection `ai_question_usage` (giữ 48 giờ). **Xóa hội thoại không làm mới hạn mức.** Vượt hạn mức → `402`; Premium không giới hạn.
 - Có `ANTHROPIC_API_KEY` trong `backend/.env` thì trả lời bằng Claude (`AI_MODEL`, mặc định `claude-sonnet-5`). Không có key hoặc gọi lỗi thì dùng coach theo quy tắc dựa trên số liệu hôm nay (`ai_engine: "fitlife-rules"`).
 
 Kiểm thử: `node --test test/features.test.js`.
+
+## Tạo lịch tập miễn phí
+
+`POST /api/workout-plans` và yêu cầu tạo lịch qua AI Coach hỗ trợ mọi tài khoản role user, không yêu cầu membership Premium. Khi có nhà cung cấp AI, lượt gọi dùng chung hạn mức AI với dinh dưỡng: miễn phí 5/ngày, Premium 50/ngày. Chọn bài bằng rules khi chưa có nhà cung cấp AI không tiêu thụ hạn mức này.
+
+## Hiểu tin nhắn và lời chào
+
+Các tin nhắn chỉ chào như `hi`, `hello`, `xin chào` được trả lời trực tiếp, không gọi model, không tạo lịch/bữa ăn hoặc ghi nhớ mới. Nội dung có thêm yêu cầu rõ ràng (ví dụ `Hi, lên lịch tập ngực 45 phút`) vẫn được xử lý. Action tạo lịch do model đề xuất chỉ được chạy khi tin nhắn hiện tại yêu cầu lên/chỉnh lịch; ngữ cảnh tab và lịch sử không tự cho phép tạo lịch. Frontend chờ tải đúng hội thoại và bỏ qua phản hồi lịch sử cũ để tránh thay thế câu trả lời mới.
+
+## Phạm vi AI Coach
+
+Coach chỉ xử lý tính năng và dữ liệu FitLife, tập luyện, dinh dưỡng, nước uống, giấc ngủ và chỉ số cơ thể. Câu ngoài phạm vi được từ chối; câu chưa rõ được hỏi lại, không trả số liệu ngày thay cho mọi câu hỏi. Hướng dẫn đổi mật khẩu/OTP không yêu cầu gửi thông tin đăng nhập vào chat. Các action do model đề xuất phải khớp yêu cầu hiện tại; câu hỏi thông tin không tự ghi bữa, nhớ thông tin hoặc tạo lịch.
+
+Khi chưa cấu hình AI_API_KEY/ANTHROPIC_API_KEY, UI ghi rõ trợ lý cơ bản; trả lời từ hướng dẫn, bảng món ăn và dữ liệu trong app. Không báo là đã kiểm chứng chất lượng model thật khi chỉ dùng luật hoặc model giả lập. Khởi động lại backend sau khi cấu hình khóa AI trong backend/.env.
+
+Lời chào, cảm ơn, hướng dẫn sử dụng, câu chưa rõ và câu ngoài phạm vi không tiêu thụ hạn mức 10 câu tư vấn. Mọi tin nhắn vẫn giới hạn 60 request/IP/phút để tránh gửi dồn.

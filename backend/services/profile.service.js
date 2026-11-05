@@ -29,7 +29,7 @@ function createProfileService({ db }) {
       if (email === null) throw fail(400, 'Email không hợp lệ.');
       try {
         return await transaction(db, async session => {
-          const current = await db.collection('users').findOne({ user_id: user.user_id, is_active: true, role: 'user' }, { session });
+          const current = await db.collection('users').findOne({ user_id: user.user_id, is_active: true }, { session });
           if (!current) throw fail(403, 'Tài khoản không còn khả dụng.');
           const now = new Date();
           const input = { ...Object.fromEntries(['timezone', ...profileFields].map(key => [key, current[key]])),
@@ -43,10 +43,10 @@ function createProfileService({ db }) {
           if (valid.date_of_birth !== undefined) update.date_of_birth = valid.date_of_birth;
           if (email !== undefined) update.email = email;
           Object.assign(update, calculateTargets(valid, now), { updated_at: now });
-          update.target_water = await currentWaterTarget(db, { ...current, ...valid }, { session, now });
+          if (current.role === 'user') update.target_water = await currentWaterTarget(db, { ...current, ...valid }, { session, now });
           await db.collection('users').updateOne({ user_id: current.user_id }, { $set: update }, { session });
           // A body/height change is also today's BMI history entry.
-          if (update.weight !== current.weight || update.height !== current.height) {
+          if (current.role === 'user' && (update.weight !== current.weight || update.height !== current.height)) {
             await upsertBmi(db, { ...current, ...update }, localDay(now, current.timezone), now, session);
           }
           return publicProfile({ ...current, ...update }, now);

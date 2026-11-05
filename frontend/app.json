@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "FitLife",
+    "slug": "fitlife-health-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fitlife.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#07090C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.fitlife.app",
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "backgroundColor": "#07090C"
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-status-bar",
+      "expo-font",
+      "expo-asset",
+      "expo-image",
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitLife cần truy cập ảnh để bạn đặt ảnh đại diện và ảnh bìa.",
+          "cameraPermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 140,
+          "resizeMode": "contain",
+          "backgroundColor": "#07090C"
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "FitLife cần quyền hoạt động thể chất để đếm bước chân và đồng bộ lên tài khoản."
+        }
+      ]
+    ],
+    "scheme": "fitlife",
+    "backgroundColor": "#07090C",
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

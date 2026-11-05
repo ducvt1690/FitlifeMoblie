@@ -59,6 +59,7 @@ after(async () => {
 });
 
 async function request(path, { method = 'GET', body, token, headers = {} } = {}) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -362,7 +363,7 @@ test('public users and legacy business routes are not exposed', async () => {
 
 function onboarding(overrides = {}) {
   return {
-    email: `register-${randomUUID()}@fitlife.example`, password,
+    email: `register-${randomUUID()}@fitlife.example`, password, confirm_password: overrides.password ?? password,
     full_name: '  Nguyễn Văn An  ', gender: 'male', age: 23, height: 170, weight: 65,
     activity_level: 'moderate', goal: 'maintain', ...overrides,
   };
@@ -658,4 +659,20 @@ test('logout-all signs out every session of the user', async () => {
   assert.equal((await request('/api/auth/me', { token: one.token })).status, 401);
   assert.equal((await request('/api/auth/me', { token: two.token })).status, 401);
   await login();
+});
+
+
+test('registration requires exact password confirmation and never persists it', async t => {
+  const body = onboarding();
+  cleanupRegistration(t, body.email);
+  for (const confirmation of [undefined, null, 123, {}, '', body.password.trim(), body.password + 'x']) {
+    const result = await request('/api/auth/register', { method: 'POST', body: { ...body, confirm_password: confirmation } });
+    assert.equal(result.status, 400);
+    assert.equal(await db.collection('users').countDocuments({ email: body.email }), 0);
+  }
+  const result = await request('/api/auth/register', { method: 'POST', body });
+  assert.equal(result.status, 201);
+  const stored = await db.collection('users').findOne({ email: body.email });
+  assert.equal(Object.hasOwn(stored, 'confirm_password'), false);
+  assert.equal(JSON.stringify(result.body).includes('confirm_password'), false);
 });

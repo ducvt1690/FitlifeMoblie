@@ -18,7 +18,8 @@ function buildPaymentUrl({ payUrl, hashSecret }, params) {
 
 // Returns the vnp_* fields when the callback signature is valid, otherwise null.
 function verifyCallback(hashSecret, query) {
-  if (!query || typeof query.vnp_SecureHash !== 'string') return null;
+  if (!query || typeof query.vnp_SecureHash !== 'string' || !/^[0-9a-f]{128}$/i.test(query.vnp_SecureHash)) return null;
+  if (Object.entries(query).some(([key, value]) => key.startsWith('vnp_') && typeof value !== 'string')) return null;
   const fields = {};
   for (const [key, value] of Object.entries(query)) {
     if (key.startsWith('vnp_') && key !== 'vnp_SecureHash' && key !== 'vnp_SecureHashType' && typeof value === 'string') fields[key] = value;

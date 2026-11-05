@@ -178,7 +178,9 @@ Mọi lỗi: `{ "success": false, "message": "..." }`. Response không bao giờ
 
 ### C7. Đăng ký và onboarding — `POST /api/auth/register`
 
-Gửi JSON gồm `email`, `password`, `full_name`, `gender`, `age`, `height`, `weight`, `activity_level`, `goal`; `timezone` tùy chọn, mặc định `Asia/Ho_Chi_Minh`. Dùng tên field snake_case; gửi tuổi/chiều cao/cân nặng dạng số, không phải chuỗi.
+Trước khi gọi đăng ký, FE phải gửi email tới `/api/auth/register/email-code`, nhập mã qua `/api/auth/register/verify-email`, rồi gửi `verification_token` trả về cùng form. `403` ở bước đăng ký yêu cầu xác minh lại. Không dùng token xác minh làm Bearer token. Chi tiết: [email-verification.md](api/email-verification.md).
+
+Gửi JSON gồm `email`, `password`, `confirm_password`, `verification_token`, `full_name`, `gender`, `age`, `height`, `weight`, `activity_level`, `goal`; `timezone` tùy chọn, mặc định `Asia/Ho_Chi_Minh`. Dùng tên field snake_case; gửi tuổi/chiều cao/cân nặng dạng số, không phải chuỗi.
 
 Có thể thay `age` bằng `date_of_birth` dạng `YYYY-MM-DD`; khi có ngày sinh, server tự tính tuổi theo ngày hiện tại. Nếu gửi cả hai thì phải khớp. Xem [API hồ sơ](api/profile.md) để đọc/sửa ngày sinh và email qua `GET/PATCH /api/profile`.
 
@@ -208,3 +210,7 @@ Collection register có thể import từ `api/registration.postman_collection.j
 - [README.md](README.md) — tài liệu kỹ thuật chi tiết Backend.
 - [database/mongodb/README.md](database/mongodb/README.md) — khởi tạo, seed, migration database.
 - [database/mongodb/ROLE_CONTRACT.md](database/mongodb/ROLE_CONTRACT.md) — hợp đồng role user/trainer/admin.
+
+### Xác nhận mật khẩu đăng ký
+
+`POST /api/auth/register` bắt buộc có `confirm_password` dạng chuỗi, giống chính xác `password` (không trim). Thiếu, sai kiểu hoặc không khớp trả HTTP 400 và không tạo tài khoản. Trường này không lưu vào database và không trả về response. Frontend cần gửi giá trị người dùng nhập lại; client cũ thiếu trường này phải cập nhật.

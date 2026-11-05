@@ -93,6 +93,7 @@ async function verifyDatabase(db) {
   }
   if (present.has('users')) {
     await reportMismatch('workout_templates', [
+      { $match: { is_active: true } },
       { $lookup: { from: 'users', localField: 'trainer_id', foreignField: 'user_id', as: '_trainer' } },
       { $match: { '_trainer.0.role': { $ne: 'trainer' } } },
     ], 'Template owner must be a trainer');
@@ -101,7 +102,7 @@ async function verifyDatabase(db) {
       { $lookup: { from: 'users', localField: 'user_id', foreignField: 'user_id', as: '_user' } },
       { $lookup: { from: 'workout_templates', localField: 'template_id', foreignField: 'template_id', as: '_template' } },
       { $match: { $or: [
-        { '_trainer.0.role': { $ne: 'trainer' } }, { '_user.0.role': { $ne: 'user' } },
+        { status: 'assigned', '_trainer.0.role': { $ne: 'trainer' } }, { status: 'assigned', '_user.0.role': { $ne: 'user' } },
         { $expr: { $ne: [{ $arrayElemAt: ['$_template.trainer_id', 0] }, '$trainer_id'] } },
       ] } },
     ], 'Assignment role or template ownership mismatch');

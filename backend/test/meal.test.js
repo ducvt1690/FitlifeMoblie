@@ -26,6 +26,7 @@ beforeEach(async () => {
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -34,7 +35,7 @@ async function request(path, token, method = 'GET', body) {
 }
 async function register() {
   const result = await request('/api/auth/register', null, 'POST', { email: `${randomUUID()}@fitlife.example`,
-    password: 'meal-test-password', full_name: 'Meal test', gender: 'male', age: 23, height: 170,
+    password: 'meal-test-password', confirm_password: 'meal-test-password', full_name: 'Meal test', gender: 'male', age: 23, height: 170,
     weight: 65, activity_level: 'moderate', goal: 'maintain' });
   assert.equal(result.status, 201); return result.body;
 }

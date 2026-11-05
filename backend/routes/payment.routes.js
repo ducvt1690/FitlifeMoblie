@@ -34,6 +34,7 @@ function createPaymentRouter({ db, payments }) {
   router.get('/orders', asyncHandler(async (req, res) => res.json(await service.myOrders(req.auth.user, req.query.page))));
   router.get('/orders/:orderId', asyncHandler(async (req, res) => res.json(await service.order(req.auth.user, req.params.orderId))));
   router.post('/orders', asyncHandler(async (req, res) => res.status(201).json(await service.createOrder(req.auth.user, req.body, clientIp(req)))));
+  router.post('/orders/:orderId/simulate', asyncHandler(async (req, res) => res.json(await service.simulate(req.auth.user, req.params.orderId, req.body))));
   return router;
 }
 

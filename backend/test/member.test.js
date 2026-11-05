@@ -31,6 +31,7 @@ beforeEach(async () => {
 });
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -38,7 +39,7 @@ async function request(path, token, method = 'GET', body) {
 }
 async function register() {
   const result = await request('/api/auth/register', null, 'POST', {
-    email: `${randomUUID()}@fitlife.example`, password: 'member-test-password', full_name: 'Member test',
+    email: `${randomUUID()}@fitlife.example`, password: 'member-test-password', confirm_password: 'member-test-password', full_name: 'Member test',
     gender: 'male', age: 23, height: 170, weight: 65, activity_level: 'moderate', goal: 'maintain',
   });
   assert.equal(result.status, 201);
@@ -49,7 +50,7 @@ test('member routers require a valid session and user role', async () => {
     assert.equal((await request(path)).status, 401);
   }
   await db.collection('users').updateOne({ user_id: first.user.user_id }, { $set: { role: 'admin' } });
-  assert.equal((await request('/api/profile', first.token)).status, 403);
+  assert.equal((await request('/api/profile', first.token)).status, 200);
   assert.equal((await request('/api/water-logs', first.token, 'POST', { log_id: randomUUID(), amount: 250 })).status, 403);
 });
 test('profile service updates only the authenticated user and rejects system fields', async () => {

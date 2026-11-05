@@ -1,7 +1,7 @@
 'use strict';
 
 const { HttpError } = require('./http-error');
-const DEFAULT_CORS_ORIGINS = ['http://localhost:8081', 'http://127.0.0.1:8081'];
+const DEFAULT_CORS_ORIGINS = ['http://localhost:8081', 'http://127.0.0.1:8081', 'http://localhost:5173', 'http://127.0.0.1:5173'];
 
 function parseCorsOrigins(value) {
   if (value === undefined) return [...DEFAULT_CORS_ORIGINS];

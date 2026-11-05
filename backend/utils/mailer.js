@@ -5,9 +5,12 @@
 function createMailer({ host, port = 587, user, pass, from, production = false } = {}, logger = console) {
   if (host && user && pass) {
     const nodemailer = require('nodemailer');
-    const transport = nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
+    const transport = nodemailer.createTransport({
+      host, port, secure: port === 465, requireTLS: port !== 465, auth: { user, pass },
+      connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 20000,
+    });
     return {
-      configured: true,
+      configured: true, smtp: true,
       send: ({ to, subject, text }) => transport.sendMail({ from: from || user, to, subject, text }),
     };
   }

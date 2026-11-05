@@ -6,6 +6,14 @@
   "scripts": {
     "start": "npm --prefix backend run start",
     "dev": "npm --prefix backend run dev",
+    "dev:all": "node scripts/dev-all.js",
+    "dev:integration": "node scripts/dev-all.js --integration",
+    "web": "npm --prefix web run dev -- --host 0.0.0.0",
+    "mobile": "npm --prefix frontend start",
+    "check:stack": "node scripts/check-stack.js",
+    "check:integration": "node scripts/check-stack.js --integration",
+    "test:platform": "node backend/scripts/run-platform-postman.js",
+    "build": "npm --prefix backend run build && npm --prefix web run build",
     "test": "npm --prefix backend test",
     "role": "npm --prefix backend run role --"
   },

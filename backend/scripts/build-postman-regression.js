@@ -7,8 +7,8 @@ const path = require('node:path');
 const collection = {
   info: { name: 'FitLife — ALL API (Run all)',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
-    description: 'Run ALL requests in order. No token/environment required. Each run creates one isolated test user, captures fresh tokens locally, tests every implemented route, then logs out both sessions. Expected 400/401/409 are negative tests. Each run retains its test account/logs for inspection. Registration is limited to 20 requests/IP/15 minutes: this collection uses three registration requests per run. On 429 the run stops with Retry-After instead of cascading authentication failures.' },
-  variable: [{ key: 'baseUrl', value: 'http://localhost:5000', type: 'string' }],
+    description: 'Local regression with disposable MongoDB and a separate fake email mailbox. Run npm run test:postman, or node scripts/run-postman-regression.js --desktop and import the generated local-email-otp collection. Tests selected API routes plus email verification before registration. Does not verify Gmail delivery. Each run creates one fixture account, then revokes its sessions. Expected 400/401/403/409 are negative tests; on 429 stop and wait for Retry-After.' },
+  variable: [{ key: 'baseUrl', value: 'http://127.0.0.1:5000', type: 'string' }],
   auth: { type: 'bearer', bearer: [{ key: 'token', value: '{{fitlifeRunToken}}', type: 'string' }] },
   event: [{ listen: 'test', script: { type: 'text/javascript', exec: [
     "if (pm.response.code === 429) { pm.test('Rate limited: wait Retry-After=' + pm.response.headers.get('Retry-After') + ' seconds before rerunning', () => pm.response.to.have.status(200)); pm.execution.setNextRequest(null); }",
@@ -30,16 +30,47 @@ function add(name, method, endpoint, { body, tests = [], pre = [], status = 200,
 const check = (name, code) => `pm.test(${JSON.stringify(name)}, () => { ${code} });`;
 const meal = { meal_id: '{{fitlifeMealId}}', meal_name: 'Phở bò', calories: 450, protein: 25, carbs: 55, fat: 14, meal_type: 'breakfast' };
 add('01 — API index', 'GET', '/', { noauth: true, pre: [
-  "pm.variables.set('baseUrl', (pm.environment.get('baseUrl') || 'http://localhost:5000').replace(/\\/$/, ''));",
+  "pm.variables.set('baseUrl', (pm.environment.get('baseUrl') || pm.collectionVariables.get('baseUrl') || 'http://127.0.0.1:5000').replace(/\\/$/, ''));",
   "['fitlifeRunToken','fitlifeRegistrationToken','fitlifeUserId','fitlifeExerciseId','fitlifeCursor'].forEach(k => pm.variables.unset(k));",
   "const id = pm.variables.replaceIn('{{$guid}}');",
   "pm.variables.set('fitlifeEmail', 'postman-all-' + (pm.variables.get('fitlifeRunTag') || 'desktop') + '-' + id + '@fitlife.example');",
   "pm.variables.set('fitlifePassword', 'FitLife-' + pm.variables.replaceIn('{{$guid}}'));",
   "['Meal','Water','Workout'].forEach(k => pm.variables.set('fitlife' + k + 'Id', pm.variables.replaceIn('{{$guid}}').toLowerCase()));",
-  "pm.variables.set('fitlifeRegistrationBody', JSON.stringify({email:pm.variables.get('fitlifeEmail'),password:pm.variables.get('fitlifePassword'),full_name:'Kiểm thử Postman',gender:'male',age:23,height:170,weight:65,activity_level:'moderate',goal:'maintain',timezone:'Asia/Ho_Chi_Minh'}));",
+  "pm.variables.set('fitlifeRegistrationBody', JSON.stringify({email:pm.variables.get('fitlifeEmail'),password:pm.variables.get('fitlifePassword'),confirm_password:pm.variables.get('fitlifePassword'),full_name:'Kiểm thử Postman',gender:'male',age:23,height:170,weight:65,activity_level:'moderate',goal:'maintain',timezone:'Asia/Ho_Chi_Minh'}));",
 ], tests: [check('Route catalog contains all business groups', "const e=pm.response.json().endpoints; ['auth','profile','water','workouts','exercises','meals','quests'].forEach(k=>pm.expect(e).to.have.property(k));")] });
 add('02 — Database health', 'GET', '/health', { noauth: true, tests: [check('Database connected', "pm.expect(pm.response.json().database).to.eql('connected');")] });
 add('03 — Invalid registration', 'POST', '/api/auth/register', { noauth: true, body: {}, status: 400 });
+for (const [label, change] of [['Missing confirmation', 'delete b.confirm_password'], ['Mismatched confirmation', "b.confirm_password='different-password'"], ['Invalid confirmation type', 'b.confirm_password=123']]) {
+  add('03b — ' + label, 'POST', '/api/auth/register', { noauth: true, body: '{{fitlifeInvalidConfirmation}}', status: 400,
+    pre: ["const b=JSON.parse(pm.variables.get('fitlifeRegistrationBody')); " + change + "; pm.variables.set('fitlifeInvalidConfirmation',JSON.stringify(b));"] });
+}
+add('03c — Registration blocked before email verification', 'POST', '/api/auth/register', {
+  noauth: true, body: '{{fitlifeRegistrationBody}}', status: 403,
+});
+add('03d — Send registration OTP', 'POST', '/api/auth/register/email-code', {
+  noauth: true, body: { email: '{{fitlifeEmail}}' }, tests: [
+    check('OTP response contains no code or login token', "const b=pm.response.json(); pm.expect(b.expires_in).to.eql(600); ['code','token','verification_token'].forEach(k=>pm.expect(b).not.to.have.property(k));"),
+  ],
+});
+collection.item.push({ name: '03e — Read disposable test mailbox', request: {
+  method: 'GET', url: '{{testMailboxUrl}}/messages?email={{fitlifeEmail}}', auth: { type: 'noauth' },
+  header: [{ key: 'X-Test-Mailbox-Key', value: '{{testMailboxKey}}' }],
+}, event: [{ listen: 'test', script: { type: 'text/javascript', exec: [
+  check('Test mailbox received a six-digit OTP', "pm.response.to.have.status(200); pm.expect(pm.response.json().code).to.match(/^\\d{6}$/);"),
+  "if(pm.response.code!==200) { pm.execution.setNextRequest(null); } else { const code=pm.response.json().code; pm.variables.set('fitlifeOtp',code); pm.variables.set('fitlifeWrongOtp',code==='000000'?'111111':'000000'); }",
+] } }] });
+add('03f — Wrong OTP rejected', 'POST', '/api/auth/register/verify-email', {
+  noauth: true, body: { email: '{{fitlifeEmail}}', code: '{{fitlifeWrongOtp}}' }, status: 400,
+});
+add('03g — Verify registration email', 'POST', '/api/auth/register/verify-email', {
+  noauth: true, body: { email: '{{fitlifeEmail}}', code: '{{fitlifeOtp}}' }, tests: [
+    check('Verification produces a registration proof, not a session', "const b=pm.response.json(); pm.expect(b.verification_token).to.match(/^[A-Za-z0-9_-]{43}$/); pm.expect(b).not.to.have.property('token');"),
+    "if(pm.response.code!==200) { pm.execution.setNextRequest(null); } else { const b=JSON.parse(pm.variables.get('fitlifeRegistrationBody')); b.verification_token=pm.response.json().verification_token; pm.variables.set('fitlifeRegistrationBody',JSON.stringify(b)); }",
+  ],
+});
+add('03h — OTP cannot be reused', 'POST', '/api/auth/register/verify-email', {
+  noauth: true, body: { email: '{{fitlifeEmail}}', code: '{{fitlifeOtp}}' }, status: 400,
+});
 add('04 — Register isolated user', 'POST', '/api/auth/register', { noauth: true, body: '{{fitlifeRegistrationBody}}', status: 201, tests: [
   "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); } else { const b=pm.response.json(); pm.variables.set('fitlifeRunToken',b.token); pm.variables.set('fitlifeRegistrationToken',b.token); pm.variables.set('fitlifeUserId',b.user.user_id); }",
   check('New account has user role, zero coins and valid token', "const b=pm.response.json(); pm.expect(b.user.role).to.eql('user'); pm.expect(b.user.profile.coins).to.eql(0); pm.expect(b.token).to.match(/^[A-Za-z0-9_-]{43}$/);"),
@@ -90,4 +121,4 @@ add('35 — Login session remains active', 'GET', '/api/auth/me', { pre: ["pm.va
 add('36 — Logout remaining session', 'POST', '/api/auth/logout', { status: 204 });
 add('37 — Session revoked immediately', 'GET', '/api/auth/me', { status: 401 });
 fs.writeFileSync(path.resolve(__dirname, '../api/all-api.postman_collection.json'), JSON.stringify(collection, null, 2) + '\n');
-console.log(`Generated ${collection.item.length} requests for every implemented API method.`);
+console.log(`Generated ${collection.item.length} requests for the covered API scenarios.`);

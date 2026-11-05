@@ -11,6 +11,7 @@ const { initializeDatabase } = require('../database/mongodb/database');
 const { initializeAuthSessions } = require('../database/connection');
 const { seedCatalogs } = require('../database/mongodb/seed');
 const { signedQuery, sign, verifyCallback } = require('../utils/vnpay');
+const { loadPaymentConfig } = require('../utils/payment-config');
 
 // VNPay orders, signed callbacks, Premium and the free AI limit against disposable MongoDB only.
 const payments = { tmnCode: 'FITTEST1', hashSecret: 'test-secret-not-real', payUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
@@ -35,6 +36,7 @@ beforeEach(async () => {
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -44,7 +46,7 @@ async function request(path, token, method = 'GET', body) {
 async function member() {
   const email = `${randomUUID()}@fitlife.example`;
   const created = await request('/api/auth/register', null, 'POST', {
-    email, password: 'payment-test-password', full_name: 'Payment Tester', gender: 'female',
+    email, password: 'payment-test-password', confirm_password: 'payment-test-password', full_name: 'Payment Tester', gender: 'female',
     age: 26, height: 160, weight: 52, activity_level: 'light', goal: 'maintain', timezone: 'Asia/Ho_Chi_Minh',
   });
   assert.equal(created.status, 201);
@@ -59,6 +61,34 @@ function callback(paymentUrl, overrides = {}) {
   return `${signedQuery(fields)}&vnp_SecureHash=${sign(payments.hashSecret, signedQuery(fields))}`;
 }
 const order = (user, product, extra = {}) => request('/api/payments/orders', user.token, 'POST', { order_id: randomUUID(), product, ...extra });
+
+test('sandbox configuration is explicit, rejects partial credentials and cannot select an unrelated gateway', () => {
+  assert.equal(loadPaymentConfig({}).environment, 'sandbox');
+  assert.equal(loadPaymentConfig({}).hashSecret, '');
+  assert.throws(() => loadPaymentConfig({VNP_TMN_CODE:'INCOMPLETE'}));
+  assert.throws(() => loadPaymentConfig({VNP_PAY_URL:'https://attacker.example/payment'}));
+  assert.throws(() => loadPaymentConfig({VNP_ENV:'sandbox',VNP_PAY_URL:'https://pay.vnpay.vn/vpcpay.html'}));
+  assert.throws(() => loadPaymentConfig({PUBLIC_API_URL:'https://api.example?secret=1'}));
+});
+
+test('signed callbacks with wrong merchant or repeated parameters never credit an order', async () => {
+  const user=await member(), created=await order(user,'coins_200');
+  const wrong=await request('/api/payments/vnpay/ipn?'+callback(created.body.payment_url,{vnp_TmnCode:'OTHER'}));
+  assert.equal(wrong.body.RspCode,'97');
+  const polluted=await request('/api/payments/vnpay/ipn?'+callback(created.body.payment_url)+'&vnp_Amount=2000000');
+  assert.equal(polluted.body.RspCode,'97');
+  assert.equal((await request('/api/payments/orders/'+created.body.order.order_id,user.token)).body.order.status,'pending');
+});
+
+test('sandbox plans expose the environment without secrets and callbacks return to native payment route', async () => {
+  const user=await member(), plans=(await request('/api/payments/plans',user.token)).body;
+  assert.equal(plans.environment,'sandbox');
+  assert.equal(plans.hashSecret,undefined);assert.equal(plans.tmnCode,undefined);
+  const created=await order(user,'premium_month',{return_url:'fitlife://payment'});
+  const returned=await request('/api/payments/vnpay/return?'+callback(created.body.payment_url));
+  assert.match(returned.body,/fitlife:\/\/payment\?order=/);
+  assert.equal((await request('/api/payments/orders/'+created.body.order.order_id,user.token)).body.order.status,'paid');
+});
 
 test('payment URL is signed, uses server prices and verifies', async () => {
   const user = await member();

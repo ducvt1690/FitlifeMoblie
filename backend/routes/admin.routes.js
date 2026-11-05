@@ -11,15 +11,15 @@ function createAdminRouter({ db }) {
   router.get('/overview', asyncHandler(async (req, res) => res.json(await service.overview())));
   router.get('/accounts', asyncHandler(async (req, res) => res.json(await service.accounts(req.query))));
   router.patch('/accounts/:userId', asyncHandler(async (req, res) => res.json(await service.updateAccount(admin(req), req.params.userId, req.body))));
-  router.get('/challenges', asyncHandler(async (req, res) => res.json(await service.listChallenges())));
+  router.get('/challenges', asyncHandler(async (req, res) => res.json(await service.listChallenges(req.query))));
   router.post('/challenges', asyncHandler(async (req, res) => res.status(201).json(await service.createChallenge(admin(req), req.body))));
   router.patch('/challenges/:challengeId', asyncHandler(async (req, res) => res.json(await service.updateChallenge(admin(req), req.params.challengeId, req.body))));
-  router.get('/rewards', asyncHandler(async (req, res) => res.json(await service.listRewards())));
-  router.post('/rewards', asyncHandler(async (req, res) => res.status(201).json(await service.createReward(admin(req), req.body))));
-  router.patch('/rewards/:itemId', asyncHandler(async (req, res) => res.json(await service.updateReward(admin(req), req.params.itemId, req.body))));
-  router.get('/transactions', asyncHandler(async (req, res) => res.json(await service.transactions(req.query.page))));
-  router.get('/payments', asyncHandler(async (req, res) => res.json(await service.payments({ status: req.query.status, page: req.query.page }))));
-  router.get('/logs', asyncHandler(async (req, res) => res.json(await service.logs(req.query.page))));
+  router.get('/payments', asyncHandler(async (req, res) => res.json(await service.payments(req.query))));
+  router.get('/logs', asyncHandler(async (req, res) => res.json(await service.logs(req.query))));
+  router.get('/revenue', asyncHandler(async (req, res) => res.json(await service.revenue(req.query))));
+  for (const name of ['challenges', 'payments', 'logs']) {
+    router.get(`/${name}/:id`, asyncHandler(async (req, res) => res.json(await service.detail(name, req.params.id))));
+  }
   return router;
 }
 module.exports = { createAdminRouter };

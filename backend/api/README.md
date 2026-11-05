@@ -1,22 +1,14 @@
-# Kiểm thử toàn bộ FitLife API trong Postman
+# Kiểm thử FitLife API trong Postman
 
-Để kiểm tra tất cả API đã triển khai, import [ALL API](all-api.postman_collection.json), chọn **No Environment**, Run đủ 37 request theo thứ tự. Collection tự lấy token mới mỗi lượt. Kết quả mong đợi: **62 Passed, 0 Failed, 0 Errors**.
+## Xác minh email Gmail trước đăng ký
 
-Xem [hướng dẫn thao tác Postman Desktop và từng API](HUONG_DAN_POSTMAN.md). Bộ Auth/Meal/Workout cũ bên dưới chỉ kiểm tra từng phần; chúng có biến và điều kiện chuẩn bị riêng.
+Xem [hợp đồng API email](email-verification.md). Import [collection Gmail thủ công](registration.postman_collection.json) và [environment mẫu](FitLife-Registration.local.postman_environment.json). Gửi mã, đọc Gmail, nhập `registrationCode`, xác minh rồi đăng ký. Không Run all trong luồng email thật.
 
-## Collection auth riêng
+## Regression local tự động
 
-1. Chạy backend tại `http://localhost:5000`.
-2. Import `registration.postman_collection.json`.
-3. Chọn collection **FitLife — Auth 12h (Run all)** → Run → chọn đủ 10 request → Start run.
+Chạy `npm run test:postman` trong backend; hoặc `node scripts/run-postman-regression.js --desktop` rồi import `backend/postman/local-email-otp.postman_collection.json`, chọn No Environment, chạy đủ **46 request**, 1 iteration. Kỳ vọng **73 Passed, 0 Failed, 0 Errors**. Database và hộp thư đều tạm, không gửi Gmail thật. Collection chỉ phủ các route được liệt kê, không phải toàn bộ endpoint backend.
 
-Collection tự tạo email/mật khẩu thử trong từng lần chạy, rồi truyền token giữa các request. Không cần chọn environment. Nếu muốn đổi địa chỉ backend, đặt `baseUrl` trong environment; `registrationPassword` là tùy chọn. Không gửi từng request phụ thuộc token bằng nút Send khi chưa chạy các bước trước.
-
-Kết quả mong đợi: **14 Passed, 0 Failed, 0 Errors**. HTTP `400` (dữ liệu sai), `409` (email trùng) và `401` (token đã logout) là các tình huống cố ý kiểm tra; xem kết quả assertion thay vì chỉ nhìn màu HTTP status.
-
-Bản **FitLife — Register + onboarding** đã import trước đó thiếu biến mật khẩu khi chọn environment cũ. Dùng collection mới có tên ở trên.
-
-Mỗi lần chạy tạo một tài khoản thử trong database `fitlife` và logout cả hai phiên ở cuối luồng. Chạy quá nhiều lần có thể nhận `429` do giới hạn 20 yêu cầu đăng ký/IP/15 phút; chờ theo `Retry-After`, hoặc khởi động lại server dev do bạn quản lý. Không tắt giới hạn trên server thật.
+`test:postman:atlas` dừng trước khi kết nối; dùng collection Gmail thủ công để test tài khoản/email thật. Các bộ Meal/Workout cần token của tài khoản đã đăng ký.
 
 ## API nhật ký tập luyện
 
@@ -45,3 +37,5 @@ Mỗi lần chạy tạo một tài khoản thử trong database `fitlife` và l
 ## Giấc ngủ, tâm trạng, BMI, thử thách, đổi thưởng, thống kê, AI Coach
 
 [Hợp đồng các API còn lại](features.md) mô tả sleep/mood upsert theo ngày, BMI, điểm danh và chuỗi ngày, thử thách, đổi thưởng có idempotency, thống kê nhiều ngày và AI Coach.
+
+Cấu hình Postman cá nhân không được commit. Sao chép `FitLife-Meal.example.postman_environment.json` thành `FitLife-Meal.local.postman_environment.json`, rồi điền thông tin của môi trường bạn sử dụng. Các file `*.local.postman_environment.json` được Git bỏ qua.

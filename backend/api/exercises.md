@@ -2,6 +2,14 @@
 
 FitLife đồng bộ dữ liệu ExerciseDB V1 vào collection `fitlife.exercises`. FE và trainer đọc qua backend; FE không gọi ExerciseDB trực tiếp.
 
+## Dữ liệu khi chạy demo
+
+`output/playwright/run-demo.cjs` nạp 30 bài thật từ bản cache ExerciseDB tại `database/mongodb/data/demo-exercises.json`, có tên và hướng dẫn hiển thị tiếng Việt. Cache ghi nguồn và thời điểm tải; demo khởi động không phụ thuộc việc gọi mạng lại. Bộ bài phủ Push/Pull/Legs, Upper/Lower và Full body.
+
+Helper `backend/scripts/prepare-demo-exercises.js` kiểm tra đủ nguồn/nhóm cơ rồi upsert trong transaction, giữ UUID để lịch cũ vẫn tham chiếu được. Chỉ ba bài QA cũ được đánh dấu ngừng dùng trong lịch mới, không xóa lịch hay tài khoản hiện có. Các test QA khác vẫn có thể dùng fixture riêng.
+
+Tạo lịch tập dành cho mọi tài khoản user, kể cả gói miễn phí. Khi có cấu hình nhà cung cấp AI, các lần gọi AI dùng hạn mức chung với dinh dưỡng: 5 lượt/ngày cho miễn phí, 50 lượt/ngày cho Premium; hết hạn mức trả HTTP 402. Khi dùng cách chọn bài mặc định từ thư viện thì không tiêu thụ lượt AI. Thiếu dữ liệu bài tập phù hợp trả 503.
+
 ## Import dữ liệu
 
 Từ thư mục `backend/database/mongodb`:

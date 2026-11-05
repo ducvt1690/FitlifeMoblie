@@ -1,5 +1,5 @@
 'use strict';
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 const { verifyPassword, hashPassword } = require('../auth/password');
 const { DEFAULT_SESSION_TTL_SECONDS, publicUser } = require('../auth/session');
 const { validateRegistration, validateProfile, localDay } = require('../auth/registration');
@@ -12,7 +12,7 @@ const { transaction } = require('../database/transaction');
 const { isPlainBody, isNewPassword } = require('../utils/validate');
 const { quest_templates: questTemplates } = require('../database/mongodb/data/catalogs.json');
 
-async function registerUser(db, input, sessions) {
+async function registerUser(db, input, sessions, verificationToken) {
   const { password, ...profile } = input;
   // Hashing happens outside the transaction so retries do not repeat expensive work.
   const passwordHash = await hashPassword(password);
@@ -37,6 +37,16 @@ async function registerUser(db, input, sessions) {
   let issuedSession;
   try {
     await session.withTransaction(async () => {
+      const proof = await db.collection('registration_email_verifications').deleteOne({
+        _id: input.email, token_hash: createHash('sha256').update(verificationToken).digest('hex'),
+        expires_at: { $gt: new Date() },
+      }, { session });
+      if (!proof.deletedCount) {
+        if (await db.collection('users').findOne({ email: input.email }, { session, projection: { _id: 1 } })) {
+          throw new HttpError(409, 'Email đã được đăng ký.');
+        }
+        throw new HttpError(403, 'Vui lòng xác minh email trước khi đăng ký.');
+      }
       await db.collection('users').insertOne(user, { session });
       await db.collection('daily_quest_logs').insertMany(quests, { session });
       issuedSession = await sessions.create(user.user_id, { session, now });
@@ -59,7 +69,10 @@ function createAuthService({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS
       if (await db.collection('users').findOne({ email: input.email }, { projection: { _id: 1 } })) {
         throw new HttpError(409, 'Email đã được đăng ký.');
       }
-      try { return await registerUser(db, input, sessions); }
+      if (typeof body.verification_token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(body.verification_token)) {
+        throw new HttpError(403, 'Vui lòng xác minh email trước khi đăng ký.');
+      }
+      try { return await registerUser(db, input, sessions, body.verification_token); }
       catch (error) {
         if (error.code === 11000 && error.keyPattern?.email === 1) throw new HttpError(409, 'Email đã được đăng ký.');
         throw error;

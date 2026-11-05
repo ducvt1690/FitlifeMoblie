@@ -33,6 +33,7 @@ beforeEach(async () => {
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -40,7 +41,7 @@ async function request(path, token, method = 'GET', body) {
 }
 async function register(timezone = 'Asia/Ho_Chi_Minh') {
   const response = await request('/api/auth/register', null, 'POST', {
-    email: `${randomUUID()}@fitlife.example`, password: 'workout-test-password', full_name: 'Workout test',
+    email: `${randomUUID()}@fitlife.example`, password: 'workout-test-password', confirm_password: 'workout-test-password', full_name: 'Workout test',
     gender: 'male', age: 23, height: 170, weight: 65, activity_level: 'moderate', goal: 'maintain', timezone,
   });
   assert.equal(response.status, 201);

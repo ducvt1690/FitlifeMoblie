@@ -119,6 +119,29 @@ function createNutritionService({ db, ai = {} }) {
     return [...cached.map(f => ({ ...f, source: 'cache' })), ...table].sort((a, b) => b.key.length - a.key.length);
   }
 
+const looksLikeDataUrl = s => typeof s === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]{100,}$/.test(s)
+  && Buffer.byteLength(s, 'utf8') <= 1500000;
+
+  // Photo → dishes. Same item shape as parse() so the app reuses its result view and save flow.
+  async function aiParsePhoto(image) {
+    const out = await complete(ai, { maxTokens: 600, json: true,
+      system: 'Bạn là chuyên gia dinh dưỡng Việt Nam. Nhìn ảnh bữa ăn, liệt kê từng món ăn thấy được. '
+        + 'Với mỗi món: tên ngắn tiếng Việt, khối lượng ước tính theo gram (so với bát cơm, bàn tay, thìa trong ảnh), '
+        + 'và giá trị trên 100 g theo bảng USDA hoặc Viện Dinh dưỡng. '
+        + 'Dạng: {"items":[{"name":"cơm","grams":200,"kcal":130,"protein":2.7,"carbs":28,"fat":0.3}],"invalid":[]}. '
+        + 'Thứ không phải đồ ăn (người, điện thoại, bàn ghế…) thì không đưa vào items mà ghi ngắn gọn vào invalid. '
+        + 'Nếu ảnh mờ hoặc không thấy món ăn nào, trả items rỗng.',
+      messages: [{ role: 'user', content: 'Ảnh bữa ăn bên dưới. Liệt kê các món và ước lượng khối lượng.',
+        images: [{ data: image.split(',')[1], mimeType: 'image/jpeg' }] }] });
+    const items = (Array.isArray(out?.items) ? out.items : []).filter(i => isText(i?.name, 80) && num(i.grams, 3000) && i.grams > 0
+      && num(i.kcal, 900) && num(i.protein, 100) && num(i.carbs, 100) && num(i.fat, 100)).slice(0, 15);
+    const now = new Date();
+    await Promise.all(items.map(i => foods().updateOne({ key: norm(i.name) }, { $setOnInsert: { key: norm(i.name), name: i.name.trim(),
+      kcal: i.kcal, protein: i.protein, carbs: i.carbs, fat: i.fat, serving: Math.round(i.grams), created_at: now } }, { upsert: true })));
+    const invalid = (Array.isArray(out?.invalid) ? out.invalid : []).filter(n => isText(n, 80)).map(n => n.trim()).slice(0, MAX_PARTS);
+    return { items: items.map(i => withAmounts(i.name.trim(), i.grams, { kcal: i.kcal, protein: i.protein, carbs: i.carbs, fat: i.fat }, 'ai-photo')), invalid };
+  }
+
   async function aiParse(text) {
     const out = await complete(ai, { maxTokens: 500, json: true,
       system: `Bạn là chuyên gia dinh dưỡng Việt Nam. Tách mô tả bữa ăn thành từng món. Với mỗi món: tên ngắn tiếng Việt,
@@ -229,6 +252,28 @@ Thứ không ăn được hoặc vô nghĩa thì không đưa vào items mà ghi
       } catch (error) {
         if (error instanceof HttpError) throw error;
         return done({ items, unknown, engine: 'table', message: 'AI đang bận, bạn nhập macro tay cho món chưa nhận ra.' });
+      }
+    },
+
+    // Photo of a meal → dishes with estimated grams. Same shape as parse() so the app reuses its view and save flow.
+    async parsePhoto(member, body) {
+      if (!isPlainBody(body, ['image']) || !looksLikeDataUrl(body.image)) {
+        throw fail(400, 'Gửi ảnh món ăn dạng data URL JPEG/PNG/WebP, tối đa khoảng 1 MB.');
+      }
+      if (!ai.apiKey) throw fail(503, 'Chưa gắn key AI nên chưa đoán món từ ảnh được.');
+      const [allergies, user] = await Promise.all([allergiesOf(member.user_id), loadUser(member)]);
+      try {
+        const out = await withAiQuota(db, user, () => aiParsePhoto(body.image.trim()));
+        if (!out.items.length) throw fail(400, 'Không thấy món ăn nào trong ảnh. Thử chụp gần hơn, đủ sáng.');
+        const flagged = out.items.map(i => ({ ...i, allergen: allergenOf(i.name, allergies) }));
+        const hits = [...new Set(flagged.filter(i => i.allergen).map(i => i.allergen))];
+        const warnings = hits.map(a => 'Cảnh báo: bữa này có món bạn dị ứng (' + a + ').');
+        const notes = out.invalid.length ? ['Bỏ qua vì không phải món ăn: ' + out.invalid.join(', ') + '.'] : [];
+        return { success: true, items: flagged, unknown: [], rejected: [], engine: 'ai-photo', warnings,
+          ...(notes.length ? { message: notes.join(' ') } : {}) };
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        throw fail(503, 'AI đang bận, bạn thử chụp lại sau ít phút.');
       }
     },
 

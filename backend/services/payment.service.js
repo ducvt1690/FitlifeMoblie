@@ -10,6 +10,8 @@ const fail = (status, message) => new HttpError(status, message);
 const PAGE_SIZE = 20;
 const ORDER_TTL_MS = 15 * 60000;
 const DAY_MS = 86400000;
+const SIMULATION_BANK = 'FITLIFE_SIMULATION';
+const publicOrder = row => { const { _id, txn_ref, return_url, ...rest } = row; return { ...rest, simulated: row.bank_code === SIMULATION_BANK }; };
 // Prices live on the server only; the client sends a product key.
 const PRODUCTS = {
   premium_month: { title: 'Premium 1 tháng', amount_vnd: 49000, premium_days: 30, coins: 100 },
@@ -25,10 +27,23 @@ async function membershipOf(db, userId, session) {
   return { premium: !!until && until > new Date(), premium_until: until };
 }
 
+async function creditOrder(db, order, now, session) {
+  const product = PRODUCTS[order.product];
+  if (product.coins) await db.collection('users').updateOne({ user_id: order.user_id }, { $inc: { fit_coins: product.coins }, $set: { updated_at: now } }, { session });
+  if (product.premium_days) {
+    const { premium_until: current } = await membershipOf(db, order.user_id, session);
+    const start = current && current > now ? current : now;
+    const until = new Date(start.getTime() + product.premium_days * DAY_MS);
+    await db.collection('memberships').updateOne({ user_id: order.user_id },
+      { $set: { premium_until: until, updated_at: now }, $setOnInsert: { user_id: order.user_id, created_at: now } }, { upsert: true, session });
+  }
+}
+
 function createPaymentService({ db, config = {} }) {
   const orders = () => db.collection('payment_orders');
   const configured = () => !!(config.tmnCode && config.hashSecret);
-  const requireConfigured = () => { if (!configured()) throw fail(503, 'Thanh toán VNPay chưa được cấu hình trên máy chủ.'); };
+  const simulated = () => config.simulation === true && config.environment !== 'production' && process.env.NODE_ENV !== 'production';
+  const requireConfigured = () => { if (!configured() && !simulated()) throw fail(503, 'Thanh toán VNPay chưa được cấu hình trên máy chủ.'); };
 
   // App deep links (fitlife://, exp:// in Expo Go) or a page of the configured website.
   function readReturnUrl(value) {
@@ -44,9 +59,11 @@ function createPaymentService({ db, config = {} }) {
   async function settle(query) {
     const fields = verifyCallback(config.hashSecret, query);
     if (!fields) return { RspCode: '97', Message: 'Invalid signature' };
+    if (fields.vnp_TmnCode !== config.tmnCode || !/^[0-9]+$/.test(fields.vnp_Amount || '') || !fields.vnp_TxnRef) return { RspCode: '97', Message: 'Invalid payment fields' };
     return transaction(db, async session => {
       const order = await orders().findOne({ txn_ref: fields.vnp_TxnRef }, { session });
       if (!order) return { RspCode: '01', Message: 'Order not found' };
+      if (order.bank_code === SIMULATION_BANK) return { RspCode: '01', Message: 'Order not payable through VNPay' };
       if (Number(fields.vnp_Amount) !== order.amount_vnd * 100) return { RspCode: '04', Message: 'Invalid amount', order };
       if (order.status !== 'pending') return { RspCode: '02', Message: 'Order already confirmed', order };
       const now = new Date();
@@ -57,18 +74,7 @@ function createPaymentService({ db, config = {} }) {
       // The status filter makes a concurrent duplicate callback a no-op.
       const result = await orders().updateOne({ order_id: order.order_id, status: 'pending' }, { $set: update }, { session });
       if (!result.modifiedCount) return { RspCode: '02', Message: 'Order already confirmed', order };
-      if (paid) {
-        const product = PRODUCTS[order.product];
-        // Money was taken, so credit even if the account was locked meanwhile.
-        if (product.coins) await db.collection('users').updateOne({ user_id: order.user_id }, { $inc: { fit_coins: product.coins }, $set: { updated_at: now } }, { session });
-        if (product.premium_days) {
-          const { premium_until: current } = await membershipOf(db, order.user_id, session);
-          const start = current && current > now ? current : now;
-          const until = new Date(start.getTime() + product.premium_days * DAY_MS);
-          await db.collection('memberships').updateOne({ user_id: order.user_id },
-            { $set: { premium_until: until, updated_at: now }, $setOnInsert: { user_id: order.user_id, created_at: now } }, { upsert: true, session });
-        }
-      }
+      if (paid) await creditOrder(db, order, now, session);
       return { RspCode: '00', Message: 'Confirm Success', order: { ...order, ...update } };
     });
   }
@@ -79,7 +85,7 @@ function createPaymentService({ db, config = {} }) {
     membership: (userId) => membershipOf(db, userId),
 
     async plans(user) {
-      return { success: true, configured: configured(), membership: await membershipOf(db, user.user_id),
+      return { success: true, configured: configured() || simulated(), simulated: simulated(), environment: simulated() ? 'simulation' : config.environment || (config.payUrl?.includes('sandbox.vnpayment.vn') ? 'sandbox' : 'production'), membership: await membershipOf(db, user.user_id),
         plans: Object.entries(PRODUCTS).map(([product, p]) => ({ product, ...p })) };
     },
 
@@ -89,23 +95,26 @@ function createPaymentService({ db, config = {} }) {
       if (!isPlainBody(body, ['order_id', 'product', 'return_url']) || !isUuid(body.order_id)) throw fail(400, 'Cần order_id UUID.');
       const product = PRODUCTS[body.product];
       if (!Object.hasOwn(PRODUCTS, body.product)) throw fail(400, `product phải là một trong: ${Object.keys(PRODUCTS).join(', ')}.`);
-      const returnUrl = readReturnUrl(body.return_url);
+      // Simulation stays inside the current client; never store or redirect to a caller's URL.
+      const returnUrl = readReturnUrl(simulated() ? undefined : body.return_url);
       const order = await transaction(db, async session => {
         const now = new Date();
         const user = await lockMember(db, member.user_id, session, now);
         const existing = await orders().findOne({ order_id: body.order_id }, { session });
         if (existing) {
+          if ((existing.bank_code === SIMULATION_BANK) !== simulated()) throw fail(409, 'Đơn thuộc chế độ thanh toán khác. Hãy tạo đơn mới.');
           if (existing.user_id !== user.user_id || existing.product !== body.product) throw fail(409, 'order_id đã được sử dụng cho yêu cầu khác.');
           if (existing.status !== 'pending' || existing.expires_at <= now) throw fail(409, 'Đơn này đã kết thúc. Hãy tạo đơn mới.');
           return existing;
         }
         const created = { order_id: body.order_id, user_id: user.user_id, product: body.product, amount_vnd: product.amount_vnd,
           status: 'pending', txn_ref: body.order_id.replace(/-/g, ''), return_url: returnUrl,
-          expires_at: new Date(now.getTime() + ORDER_TTL_MS), response_code: null, vnp_transaction_no: null, bank_code: null,
+          expires_at: new Date(now.getTime() + ORDER_TTL_MS), response_code: simulated() ? 'SIMULATED' : null, vnp_transaction_no: null, bank_code: simulated() ? SIMULATION_BANK : null,
           paid_at: null, created_at: now, updated_at: now };
         await orders().insertOne(created, { session });
         return created;
       });
+      if (order.bank_code === SIMULATION_BANK) return { success: true, simulated: true, order: publicOrder(order), payment_url: null };
       const payment_url = buildPaymentUrl(config, {
         vnp_Version: '2.1.0', vnp_Command: 'pay', vnp_TmnCode: config.tmnCode, vnp_Amount: order.amount_vnd * 100,
         vnp_CurrCode: 'VND', vnp_TxnRef: order.txn_ref, vnp_OrderInfo: `FitLife ${order.product} ${order.txn_ref}`,
@@ -123,14 +132,35 @@ function createPaymentService({ db, config = {} }) {
         orders().find(filter, { projection: PUBLIC_ORDER }).sort({ created_at: -1 }).skip((current - 1) * PAGE_SIZE).limit(PAGE_SIZE).toArray(),
         orders().countDocuments(filter),
       ]);
-      return { success: true, orders: rows, page: current, page_size: PAGE_SIZE, total };
+      return { success: true, orders: rows.map(publicOrder), page: current, page_size: PAGE_SIZE, total };
     },
 
     async order(user, orderId) {
       if (!isUuid(orderId)) throw fail(400, 'order_id không hợp lệ.');
       const order = await orders().findOne({ order_id: orderId, user_id: user.user_id }, { projection: PUBLIC_ORDER });
       if (!order) throw fail(404, 'Không tìm thấy đơn thanh toán.');
-      return { success: true, order, membership: await membershipOf(db, user.user_id) };
+      return { success: true, order: publicOrder(order), membership: await membershipOf(db, user.user_id) };
+    },
+
+    async simulate(user, id, body) {
+      if (!simulated()) throw fail(404, 'Thanh toán giả lập chưa được bật.');
+      if (!isUuid(id) || !isPlainBody(body, ['outcome']) || !['success', 'failed'].includes(body.outcome)) throw fail(400, 'Chọn kết quả giả lập thành công hoặc thất bại.');
+      return transaction(db, async session => {
+        const now = new Date();
+        await lockMember(db, user.user_id, session, now);
+        const order = await orders().findOne({ order_id: id, user_id: user.user_id, bank_code: SIMULATION_BANK }, { session });
+        if (!order) throw fail(404, 'Không tìm thấy đơn giả lập của bạn.');
+        const status = body.outcome === 'success' ? 'paid' : 'failed';
+        if (order.status !== 'pending') {
+          if (order.status !== status) throw fail(409, 'Đơn đã được xử lý với kết quả khác.');
+          return { success: true, simulated: true, replayed: true, order: publicOrder(order) };
+        }
+        if (order.expires_at <= now) throw fail(409, 'Đơn đã hết hạn. Hãy tạo đơn mới.');
+        const changes = { status, response_code: status === 'paid' ? 'SIM_OK' : 'SIM_FAIL', vnp_transaction_no: 'SIM-' + id, paid_at: status === 'paid' ? now : null, updated_at: now };
+        await orders().updateOne({ order_id: id, status: 'pending' }, { $set: changes }, { session });
+        if (status === 'paid') await creditOrder(db, order, now, session);
+        return { success: true, simulated: true, replayed: false, order: publicOrder({ ...order, ...changes }), message: status === 'paid' ? 'Giả lập thành công. Quyền lợi đã được cập nhật; không có tiền thật được thanh toán.' : 'Đã giả lập thanh toán thất bại. Quyền lợi không thay đổi.' };
+      });
     },
 
     // VNPay server-to-server call: always answer 200 with its RspCode contract.
@@ -156,4 +186,4 @@ function createPaymentService({ db, config = {} }) {
   };
 }
 
-module.exports = { createPaymentService, membershipOf, PRODUCTS };
+module.exports = { createPaymentService, membershipOf, PRODUCTS, SIMULATION_BANK };

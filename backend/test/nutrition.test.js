@@ -42,14 +42,17 @@ beforeEach(async () => { member = undefined; aiCalls = 0; });
 afterEach(async () => { if (server) await new Promise(resolve => server.close(resolve)); server = undefined; });
 
 async function start(withAi) {
+  // A scenario may switch provider configuration; close its previous listener first.
+  if (server) await new Promise(resolve => server.close(resolve));
   server = createApp({ db, ai: withAi ? ai : {}, logger: { error() {} } }).listen(0, '127.0.0.1');
   await once(server, 'listening'); baseUrl = `http://127.0.0.1:${server.address().port}`;
   const result = await request('/api/auth/register', null, 'POST', { email: `${randomUUID()}@fitlife.example`,
-    password: 'nutrition-test-password', full_name: 'Nutrition test', gender: 'male', age: 23, height: 170,
+    password: 'nutrition-test-password', confirm_password: 'nutrition-test-password', full_name: 'Nutrition test', gender: 'male', age: 23, height: 170,
     weight: 70, activity_level: 'moderate', goal: 'gain' });
   assert.equal(result.status, 201); member = result.body;
 }
 async function request(path, token, method = 'GET', body) {
+  if (path === '/api/auth/register') body = await require('./verified-registration')(db, body);
   const response = await fetch(baseUrl + path, { method,
     headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -148,13 +151,38 @@ test('unknown foods go to AI once, are cached, and the free AI quota is enforced
   assert.equal((await call('/api/nutrition/today')).body.ai.used, 5);
 });
 
-test('AI workout plans are Premium, use only catalog exercises and fit the chosen time', async () => {
+test('meal photo is read by AI and returns the same item shape as text parse', async () => {
+  await start(true);
+  const image = `data:image/jpeg;base64,${'a'.repeat(200)}`;
+  assert.equal((await call('/api/nutrition/parse-photo', 'POST', { image: 'not-an-image' })).status, 400);
+  aiReply = { items: [{ name: 'cơm', grams: 200, kcal: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+    { name: 'thịt kho', grams: 100, kcal: 250, protein: 15, carbs: 5, fat: 18 }], invalid: ['điện thoại'] };
+  const photo = await call('/api/nutrition/parse-photo', 'POST', { image });
+  assert.equal(photo.status, 200);
+  assert.equal(photo.body.engine, 'ai-photo');
+  assert.deepEqual(photo.body.items.map(i => [i.name, i.grams, i.calories]), [['cơm', 200, 260], ['thịt kho', 100, 250]]);
+  assert.match(photo.body.message, /điện thoại/);
+  // Cached like any AI-taught food: typing it later needs no AI call.
+  aiCalls = 0;
+  const cached = await call('/api/nutrition/parse', 'POST', { text: '200g thịt kho' });
+  assert.equal(cached.body.engine, 'table');
+  assert.equal(aiCalls, 0);
+});
+
+test('meal photo without AI key or with an empty photo is refused', async () => {
+  await start(false);
+  const image = `data:image/jpeg;base64,${'a'.repeat(200)}`;
+  assert.equal((await call('/api/nutrition/parse-photo', 'POST', { image })).status, 503);
+  await start(true);
+  aiReply = { items: [] };
+  assert.equal((await call('/api/nutrition/parse-photo', 'POST', { image })).status, 400);
+});
+
+test('free members can create AI workout plans using only catalog exercises within the chosen time', async () => {
   await start(true);
   const body = { split: 'ppl', focus: 'push', minutes: 30, note: 'không có tạ đòn' };
-  assert.equal((await call('/api/workout-plans', 'POST', body)).status, 402);
+  assert.equal(await db.collection('memberships').countDocuments({ user_id: member.user.user_id }), 0);
   assert.equal((await call('/api/workout-plans', 'POST', { ...body, focus: 'legs', split: 'upper_lower' })).status, 400);
-  await db.collection('memberships').insertOne({ user_id: member.user.user_id, premium_until: new Date(Date.now() + 86400000),
-    created_at: new Date(), updated_at: new Date() });
 
   aiReply = { title: 'Push nhanh', tip: 'Giữ lưng thẳng.', items: [{ i: 0, sets: 6, reps: '8-10', rest: 120 }, { i: 1, sets: 6, rest: 120 },
     { i: 2, sets: 6, rest: 120 }, { i: 99, sets: 3 }, { i: 0, sets: 3 }] };
@@ -193,6 +221,55 @@ test('AI workout plans are Premium, use only catalog exercises and fit the chose
   assert.equal(logs.body.logs[0].workout_id, plan.plan_id);
 });
 
+test('free workout planning works without an AI provider and does not consume provider quota', async () => {
+  await start(false);
+  assert.equal(await db.collection('memberships').countDocuments({ user_id: member.user.user_id }), 0);
+  for (let i = 0; i < 6; i += 1) {
+    const result = await call('/api/workout-plans', 'POST', { split: 'ppl', focus: 'push', minutes: 30 });
+    assert.equal(result.status, 201, JSON.stringify(result.body));
+    assert.equal(result.body.plan.engine, 'rules');
+    assert.ok(result.body.plan.items.length > 0);
+    assert.ok(result.body.plan.items.every(item => item.gif_url.startsWith('https://example.com/')));
+  }
+  assert.equal(aiCalls, 0);
+  assert.equal(await db.collection('ai_usage').countDocuments({ user_id: member.user.user_id }), 0);
+});
+
+test('free workout AI retains the five-call quota and Premium retains its fifty-call allowance', async () => {
+  await start(true);
+  aiReply = { title: 'Push quota test', items: [{ i: 0, sets: 3, reps: '8-10', rest: 90 }] };
+  const body = { split: 'ppl', focus: 'push', minutes: 30 };
+  for (let i = 0; i < 5; i += 1) {
+    const result = await call('/api/workout-plans', 'POST', body);
+    assert.equal(result.status, 201, JSON.stringify(result.body));
+    assert.equal(result.body.plan.engine, 'ai');
+  }
+  const blocked = await call('/api/workout-plans', 'POST', body);
+  assert.equal(blocked.status, 402);
+  assert.match(blocked.body.message, /5 lượt AI/);
+  assert.equal(aiCalls, 5);
+  assert.equal(await db.collection('workout_plans').countDocuments({ user_id: member.user.user_id }), 5);
+  const freeQuota = (await call('/api/nutrition/today')).body.ai;
+  assert.deepEqual([freeQuota.premium, freeQuota.used, freeQuota.limit], [false, 5, 5]);
+
+  const now = new Date();
+  await db.collection('memberships').insertOne({ user_id: member.user.user_id,
+    premium_until: new Date(Date.now() + 86400000), created_at: now, updated_at: now });
+  assert.equal((await call('/api/workout-plans', 'POST', body)).status, 201);
+  const premiumStatus = (await call('/api/nutrition/today')).body;
+  const premiumQuota = premiumStatus.ai;
+  assert.deepEqual([premiumQuota.premium, premiumQuota.used, premiumQuota.limit], [true, 6, 50]);
+  // Exercise the last allowed provider call rather than issuing fifty identical requests.
+  const lastAllowance = await db.collection('ai_usage').updateOne({ user_id: member.user.user_id, day: premiumStatus.day }, { $set: { count: 49 } });
+  assert.equal(lastAllowance.matchedCount, 1);
+  assert.equal((await call('/api/workout-plans', 'POST', body)).status, 201);
+  const premiumBlocked = await call('/api/workout-plans', 'POST', body);
+  assert.equal(premiumBlocked.status, 402);
+  assert.match(premiumBlocked.body.message, /50 lượt AI/);
+  assert.equal(aiCalls, 7);
+  assert.equal((await call('/api/nutrition/today')).body.ai.used, 50);
+});
+
 test('fitting a plan trims long sessions and fills short ones', () => {
   const pool = Array.from({ length: 8 }, (_, i) => ({ exercise_id: `e${i}`, name: `Press ${i}`, gif_url: 'g', target_muscles: ['x'] }));
   const item = (i, sets) => ({ exercise_id: `e${i}`, name: `Press ${i}`, sets, reps: '8', rest_seconds: 90 });
@@ -202,17 +279,22 @@ test('fitting a plan trims long sessions and fills short ones', () => {
   assert.ok(secondsOf(short, 60) <= 60 * 60 && secondsOf(short, 60) > 50 * 60);
 });
 
-test('the coach agent remembers facts and logs a meal from one chat message', async () => {
+test('the coach agent remembers facts, logs a meal and creates a free member workout from one message', async () => {
   await start(true);
   aiReply = { reply: 'Mình ghi lại rồi nhé.', actions: [{ type: 'remember', fact: 'Đau gối trái, tránh nhảy' },
     { type: 'meal', text: '200g ức gà, 1 bát cơm', meal_type: 'lunch' }, { type: 'plan', focus: 'push', minutes: 30 }] };
   const sent = await call('/api/chat/messages', 'POST', { session_id: randomUUID(), message_id: randomUUID(),
-    content: 'Trưa nay mình ăn 200g ức gà với 1 bát cơm, nhớ giúp là mình đau gối trái', context: 'nutrition' });
+    content: 'Trưa nay mình ăn 200g ức gà với 1 bát cơm, nhớ giúp là mình đau gối trái; lên lịch tập ngực 30 phút cho mình', context: 'nutrition' });
   assert.equal(sent.status, 201);
-  assert.deepEqual(sent.body.actions.sort(), ['meal', 'memory']);
+  assert.deepEqual(sent.body.actions.sort(), ['meal', 'memory', 'plan']);
   assert.match(sent.body.reply.content, /Đã ghi bữa: ức gà/);
-  assert.match(sent.body.reply.content, /Premium/); // the plan action is Premium only and becomes a note
-  assert.equal(sent.body.reply.ai_engine, 'agent:memory,meal');
+  assert.match(sent.body.reply.content, /Đã có sẵn trong tab Tập luyện/);
+  assert.doesNotMatch(sent.body.reply.content, /Premium/);
+  assert.equal(sent.body.reply.ai_engine, 'agent:memory,meal,plan');
+  const createdPlan = (await call('/api/workout-plans/today')).body.plan;
+  assert.equal(createdPlan.user_id, member.user.user_id);
+  assert.ok(createdPlan.items.length > 0);
+  assert.equal(await db.collection('memberships').countDocuments({ user_id: member.user.user_id }), 0);
   assert.equal(await db.collection('meal_logs').countDocuments({ user_id: member.user.user_id, meal_type: 'lunch' }), 1);
   assert.deepEqual((await call('/api/chat/memory')).body.facts, ['Đau gối trái, tránh nhảy']);
   assert.equal((await call('/api/chat/messages', 'POST', { session_id: randomUUID(), message_id: randomUUID(), content: 'hi', context: 'x' })).status, 400);

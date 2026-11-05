@@ -28,6 +28,10 @@ Server chỉ bắt đầu lắng nghe sau khi kết nối database và chuẩn b
 
 ## API xác thực
 
+### Xác minh email trước khi đăng ký
+
+Bắt buộc gửi OTP qua `POST /api/auth/register/email-code`, sau đó xác minh bằng `POST /api/auth/register/verify-email` để nhận `verification_token`. SMTP Gmail phải được cấu hình; xem [hợp đồng API và hướng dẫn Gmail](api/email-verification.md). Chỉ sau khi xác minh email mới được tạo tài khoản.
+
 ### `POST /api/auth/register`
 
 Đăng ký kèm onboarding. Body JSON dùng `snake_case`:
@@ -36,6 +40,8 @@ Server chỉ bắt đầu lắng nghe sau khi kết nối database và chuẩn b
 {
   "email": "new.user@example.com",
   "password": "<your-password>",
+  "confirm_password": "<your-password>",
+  "verification_token": "<token-from-verify-email>",
   "full_name": "Nguyễn Văn An",
   "gender": "male",
   "age": 23,
@@ -53,9 +59,9 @@ Chỉ nhận các field nêu trên. Field lạ hoặc field hệ thống như `r
 
 HTTP `201` trả cùng cấu trúc với login (`success`, `message`, `token`, `token_type`, `expires_at`, `user`), thông báo `Đăng ký thành công.`. Token dùng ngay với `/me` và `/logout`; thông tin nhạy cảm không xuất hiện trong response. Một transaction tạo user, 7 quest v2 của ngày theo timezone (chưa hoàn thành, thưởng 10 xu/quest, chưa cộng xu) và phiên đăng nhập. Không tạo BMI log hoặc hoàn thành quest từ onboarding. Database phải hỗ trợ transaction (Atlas hoặc replica set local); không có fallback ghi từng bước.
 
-Email đã có (kể cả đăng ký đồng thời/canonical hóa cùng email) trả `409`, không ghi đè tài khoản. Gửi lại sau lần đăng ký thành công trả `409`; nếu mất response, dùng login. Invalid body trả `400`; lỗi ghi trả `500`/`503` và transaction rollback. Register có giới hạn riêng 20 request/IP/15 phút, trả `429` cùng `Retry-After`, lưu trong bộ nhớ từng process.
+Thiếu/sai/hết hạn/đã dùng token xác minh hoặc token không thuộc email trả `403`; lỗi đăng ký rollback giữ token còn hạn để retry. Email đã có (kể cả đăng ký đồng thời/canonical hóa cùng email) trả `409`, không ghi đè tài khoản. Gửi lại sau lần đăng ký thành công trả `409`; nếu mất response, dùng login. Invalid body trả `400`; lỗi ghi trả `500`/`503` và transaction rollback. Register có giới hạn riêng 20 request/IP/15 phút, trả `429` cùng `Retry-After`, lưu trong bộ nhớ từng process.
 
-Collection Postman cho register → me → duplicate → login → logout tại [api/registration.postman_collection.json](api/registration.postman_collection.json). Import bản **FitLife — Auth 12h (Run all)** và chạy đủ 10 request theo thứ tự. Không cần environment: mỗi lần chạy tự sinh email/mật khẩu thử trong biến local và tạo một tài khoản mới. Có thể đặt `baseUrl` hoặc `registrationPassword` trong environment nếu cần. Không lưu token/mật khẩu vào collection export. Xem [hướng dẫn và các HTTP status mong đợi](api/README.md).
+Collection [Gmail verification then registration](api/registration.postman_collection.json) gửi từng bước: nhận OTP qua Gmail, xác minh, đăng ký, đăng nhập. Import [environment mẫu](api/FitLife-Registration.local.postman_environment.json); không Run all vì cần nhập OTP sau khi nhận email. Xem [hướng dẫn](api/email-verification.md).
 
 ### `POST /api/auth/login`
 
@@ -200,3 +206,7 @@ AI chat dùng `/api/chat`. Khi bổ sung chức năng, tạo route và service c
 Có thể import collection đăng ký ở trên hoặc tạo request để kiểm tra API thật: register/login → me → logout → token bị thu hồi. Collection trong `api/` không có credentials; cấu hình environment riêng trên máy, không commit mật khẩu/token. Test tự động còn kiểm tra đăng ký đồng thời, rollback, timezone và field hệ thống.
 
 Tài liệu liên quan: [sử dụng database/Compass](database/README.md), [schema và migration](database/mongodb/README.md), [role và quyền cần triển khai tiếp](database/mongodb/ROLE_CONTRACT.md).
+
+### Xác nhận mật khẩu đăng ký
+
+`POST /api/auth/register` bắt buộc có `confirm_password` dạng chuỗi, giống chính xác `password` (không trim). Thiếu, sai kiểu hoặc không khớp trả HTTP 400 và không tạo tài khoản. Trường này không lưu vào database và không trả về response. Frontend cần gửi giá trị người dùng nhập lại; client cũ thiếu trường này phải cập nhật.

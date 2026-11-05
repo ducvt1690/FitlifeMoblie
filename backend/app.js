@@ -13,13 +13,13 @@ const { createPasswordResetRouter } = require('./routes/password-reset.routes');
 const { createDailyLogRouter } = require('./routes/daily-log.routes');
 const { createBmiRouter } = require('./routes/bmi.routes');
 const { createChallengeRouter } = require('./routes/challenge.routes');
-const { createRewardRouter } = require('./routes/reward.routes');
 const { createStatsRouter } = require('./routes/stats.routes');
 const { createChatRouter } = require('./routes/chat.routes');
 const { createNutritionRouter, createWorkoutPlanRouter } = require('./routes/nutrition.routes');
 const { createAdminRouter } = require('./routes/admin.routes');
 const { createPaymentRouter } = require('./routes/payment.routes');
 const { createStepsRouter } = require('./routes/steps.routes');
+const { createTrainerRouter, createTrainerMemberRouter } = require('./routes/trainer.routes');
 const { DEFAULT_SESSION_TTL_SECONDS } = require('./auth/session');
 const { HttpError } = require('./utils/http-error');
 const { corsOptions } = require('./utils/cors-options');
@@ -37,8 +37,9 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
     next();
   });
   const parseJSON = express.json({ limit: '16kb' });
+  const parsePhoto = express.json({ limit: '2mb' }); // Meal photos are base64 data URLs (~1 MB).
   app.use((req, res, next) => {
-    parseJSON(req, res, (error) => {
+    (req.path === '/api/nutrition/parse-photo' ? parsePhoto : parseJSON)(req, res, (error) => {
       if (!error) return next();
       // Only parser errors can set these client statuses. Never expose the
       // parser's raw error: it may contain the submitted login credentials.
@@ -57,7 +58,8 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
     res.json({
       status: 'online', project: 'FitLife Health & MMA API', version: '2.0.0',
       endpoints: {
-        auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me', 'POST /api/auth/change-password',
+        auth: ['POST /api/auth/register/email-code', 'POST /api/auth/register/verify-email',
+          'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me', 'POST /api/auth/change-password',
           'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/auth/logout-all'],
         profile: ['GET /api/profile', 'PATCH /api/profile'],
         water: ['GET /api/water-logs', 'POST /api/water-logs', 'DELETE /api/water-logs?date=', 'DELETE /api/water-logs/:logId'],
@@ -68,9 +70,15 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         sleep: ['GET /api/sleep-logs', 'PUT /api/sleep-logs'],
         mood: ['GET /api/mood-logs', 'PUT /api/mood-logs'],
         steps: ['GET /api/steps-logs', 'POST /api/steps-logs'],
+        trainer: ['GET|POST /api/trainer/templates', 'PATCH|DELETE /api/trainer/templates/:id',
+          'GET /api/trainer/students', 'GET /api/trainer/students/:id/progress',
+          'GET|POST /api/trainer/invites', 'POST /api/trainer/invites/:id/revoke',
+          'GET|POST /api/trainer/assignments', 'POST /api/trainer/assignments/:id/cancel',
+          'POST /api/trainer/assignments/:id/feedback', 'POST /api/trainer/links/:id/end'],
+        trainer_links: ['GET /api/trainer-links', 'POST /api/trainer-links/accept',
+          'POST /api/trainer-links/assignments/:assignmentId/done', 'POST /api/trainer-links/:linkId/end'],
         bmi: ['GET /api/bmi-records', 'POST /api/bmi-records'],
         challenges: ['GET /api/challenges', 'POST /api/challenges/:challengeId/join', 'POST /api/challenges/:challengeId/checkin', 'POST /api/challenges/:challengeId/leave'],
-        rewards: ['GET /api/rewards', 'POST /api/rewards/:itemId/purchase'],
         stats: ['GET /api/stats', 'GET /api/stats/lifetime'],
         chat: ['GET /api/chat/sessions', 'GET /api/chat/sessions/:sessionId/messages', 'DELETE /api/chat/sessions/:sessionId', 'POST /api/chat/messages', 'GET /api/chat/memory', 'DELETE /api/chat/memory'],
         nutrition: ['GET /api/nutrition/today', 'POST /api/nutrition/parse', 'POST /api/nutrition/suggestions', 'POST /api/nutrition/suggestions/:suggestionId/accept',
@@ -78,8 +86,10 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
         workout_plans: ['GET /api/workout-plans/options', 'GET /api/workout-plans/today', 'POST /api/workout-plans',
           'PUT /api/workout-plans/:planId/items', 'POST /api/workout-plans/:planId/complete'],
         admin: ['GET /api/admin/overview', 'GET /api/admin/accounts', 'PATCH /api/admin/accounts/:userId',
-          'GET|POST /api/admin/challenges', 'PATCH /api/admin/challenges/:challengeId', 'GET|POST /api/admin/rewards',
-          'PATCH /api/admin/rewards/:itemId', 'GET /api/admin/transactions', 'GET /api/admin/payments', 'GET /api/admin/logs'],
+          'GET|POST /api/admin/challenges', 'PATCH /api/admin/challenges/:challengeId',
+          'GET /api/admin/payments', 'GET /api/admin/logs',
+          'GET /api/admin/revenue', 'GET /api/admin/challenges/:id',
+          'GET /api/admin/payments/:id', 'GET /api/admin/logs/:id'],
         payments: ['GET /api/payments/plans', 'GET|POST /api/payments/orders', 'GET /api/payments/orders/:orderId',
           'GET /api/payments/vnpay/ipn', 'GET /api/payments/vnpay/return'],
       },
@@ -91,7 +101,7 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
       res.json({ status: 'ok', database: 'connected' });
     } catch (error) { next(error); }
   });
-  app.use('/api/auth', createAuthRouter({ db, sessionTtlSeconds }));
+  app.use('/api/auth', createAuthRouter({ db, sessionTtlSeconds, mailer }));
   app.use('/api/auth', createPasswordResetRouter({ db, mailer }));
   app.use('/api/profile', createProfileRouter({ db }));
   app.use('/api/water-logs', createWaterRouter({ db }));
@@ -103,7 +113,6 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
   app.use('/api/mood-logs', createDailyLogRouter({ db, kind: 'mood' }));
   app.use('/api/bmi-records', createBmiRouter({ db }));
   app.use('/api/challenges', createChallengeRouter({ db }));
-  app.use('/api/rewards', createRewardRouter({ db }));
   app.use('/api/stats', createStatsRouter({ db }));
   app.use('/api/chat', createChatRouter({ db, ai }));
   app.use('/api/nutrition', createNutritionRouter({ db, ai }));
@@ -111,6 +120,8 @@ function createApp({ db, sessionTtlSeconds = DEFAULT_SESSION_TTL_SECONDS, corsOr
   app.use('/api/admin', createAdminRouter({ db }));
   app.use('/api/payments', createPaymentRouter({ db, payments }));
   app.use('/api/steps-logs', createStepsRouter({ db }));
+  app.use('/api/trainer', createTrainerRouter({ db }));
+  app.use('/api/trainer-links', createTrainerMemberRouter({ db }));
   app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Endpoint không tồn tại.' });
   });

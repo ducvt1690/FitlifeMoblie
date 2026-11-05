@@ -11,6 +11,7 @@ function createNutritionRouter({ db, ai }) {
   router.use(createRequireAuth({ db }), requireMember);
   router.get('/today', asyncHandler(async (req, res) => res.json(await service.today(req.auth.user))));
   router.post('/parse', asyncHandler(async (req, res) => res.json(await service.parse(req.auth.user, req.body))));
+  router.post('/parse-photo', asyncHandler(async (req, res) => res.json(await service.parsePhoto(req.auth.user, req.body))));
   router.post('/suggestions', asyncHandler(async (req, res) => res.status(201).json(await service.suggest(req.auth.user))));
   router.post('/suggestions/:suggestionId/accept', asyncHandler(async (req, res) => res.json(await service.acceptSuggestion(req.auth.user, req.params.suggestionId))));
   router.post('/suggestions/:suggestionId/eat', asyncHandler(async (req, res) => res.json(await service.eatSuggestion(req.auth.user, req.params.suggestionId))));

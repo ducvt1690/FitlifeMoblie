@@ -9,6 +9,7 @@ function createStepsRouter({ db }) {
   router.use(createRequireAuth({ db }), requireMember);
   router.get('/', asyncHandler(async (req, res) => res.json(await service.get(req.auth.user, req.query.date))));
   router.post('/', asyncHandler(async (req, res) => res.json(await service.add(req.auth.user, req.body))));
+  router.put('/sensor', asyncHandler(async (req, res) => res.json(await service.sync(req.auth.user, req.body))));
   return router;
 }
 module.exports = { createStepsRouter };

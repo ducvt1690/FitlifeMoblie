@@ -11,6 +11,16 @@ const MAX_DAY = 200000;
 function createStepsService({ db }) {
   const steps = () => db.collection('steps_logs');
   return {
+    async sync(member, body) {
+      if (!isPlainBody(body, ['date', 'total']) || !isDate(body.date) || !Number.isInteger(body.total) || body.total < 0 || body.total > MAX_DAY) throw new HttpError(400, 'Ngày hoặc tổng số bước không hợp lệ.');
+      const now = new Date(), user = await lockMember(db, member.user_id, undefined, now);
+      if (body.date !== localDay(now, user.timezone)) throw new HttpError(409, 'Chỉ đồng bộ bước chân của ngày hiện tại.');
+      const filter = { user_id: user.user_id, step_date: body.date };
+      const update = { $max: { steps: body.total }, $set: { updated_at: now }, $setOnInsert: { steps_id: randomUUID(), ...filter, created_at: now } };
+      try { await steps().updateOne(filter, update, { upsert: true }); }
+      catch(e) { if(e.code !== 11000) throw e; await steps().updateOne(filter, update); }
+      return this.get(user, body.date);
+    },
     async get(user, requestedDate) {
       const date = requestedDate ?? localDay(new Date(), user.timezone);
       if (!isDate(date)) throw new HttpError(400, 'Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD.');

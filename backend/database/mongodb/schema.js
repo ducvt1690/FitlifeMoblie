@@ -211,6 +211,19 @@ const collections = [
     assigned_at: timestamp,
     status: choice('assigned', 'done', 'cancelled'),
     done_at: { bsonType: ['date', 'null'] },
+    link_id: uuid,
+    template_snapshot: { bsonType: 'object', additionalProperties: false,
+      required: ['title', 'category', 'duration_seconds', 'calories_est', 'level', 'description'],
+      properties: { title: text(150), category: text(50), duration_seconds: integer(1), calories_est: integer(),
+        level: choice('beginner', 'intermediate', 'advanced'), description: text(5000) } },
+    cancelled_at: timestamp,
+    cancel_reason: text(500),
+    feedback: text(2000),
+    feedback_at: timestamp,
+    status_history: { bsonType: 'array', items: { bsonType: 'object', additionalProperties: false,
+      required: ['status', 'at', 'actor_id', 'reason'], properties: {
+        status: choice('assigned', 'done', 'cancelled'), at: timestamp, actor_id: identity, reason: text(500, 0),
+      } } },
   }, [
     index({ trainer_id: 1, user_id: 1, status: 1 }, 'by_trainer_user_status'),
     index({ user_id: 1, status: 1, assigned_at: -1 }, 'by_user_assignment_status'),
@@ -240,9 +253,12 @@ const collections = [
   collection('admin_logs', 'log_id', {
     admin_id: identity,
     action: text(50),
-    target_type: choice('user', 'challenge', 'reward_item'),
+    // Preserve audit target types already present in the deployed Atlas validator.
+    target_type: choice('user', 'challenge', 'reward_item', 'payment', 'exercise', 'setting'),
     target_id: text(128),
     note: text(500, 0),
+    previous_role: choice(...ROLES),
+    new_role: choice(...ROLES),
   }, [index({ created_at: -1 }, 'by_admin_log_time')], ['admin_id', 'action', 'target_type', 'target_id']),
 
   collection('challenges', 'challenge_id', {

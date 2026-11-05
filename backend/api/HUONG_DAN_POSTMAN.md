@@ -1,3 +1,9 @@
+# Cập nhật: xác minh email bắt buộc
+
+Hướng dẫn hiện tại ở [email-verification.md](email-verification.md). Test Desktop local dùng file runtime `postman/local-email-otp.postman_collection.json`: **46 request, 73 assertion**. Test Gmail thật dùng collection registration thủ công và SMTP. Không dùng luồng đăng ký trực tiếp/Run all 10 request bên dưới; các kết quả Atlas bên dưới là lịch sử, chưa xác nhận phiên bản OTP mới.
+
+---
+
 # Hướng dẫn kiểm thử FitLife bằng Postman Desktop
 
 ## 1. Chạy backend nối MongoDB Atlas
@@ -39,11 +45,11 @@ Postman không cần CORS vì request không có Origin. Nếu test bằng Expo 
 1. Mở Postman Desktop, chọn đúng workspace FitLife.
 2. Chọn Import. Nếu giao diện không có nút Import, nhấn Ctrl+O, chọn tab Import rồi chọn **files**.
 3. Chọn file `B:\DỰ ÁN HỌC\FitlifeMoblie\backend\api\all-api.postman_collection.json`.
-4. Xác nhận import. Collection có tên **FitLife — ALL API (Run all)** với 37 request.
+4. Xác nhận import. Collection có tên **FitLife — ALL API (Run all)** với 40 request.
 5. Góc trên phải chọn **No Environment**. Collection mặc định dùng `http://localhost:5000` và tự truyền token giữa các request. Không cần chép token hoặc mật khẩu vào environment cũ.
-6. Bấm tên collection → Run. Chọn **37 of 37**, Run method = **Local**, Iterations = **1**. Tắt **Keep variable values** để tránh giữ giá trị của lượt cũ.
+6. Bấm tên collection → Run. Chọn **40 of 40**, Run method = **Local**, Iterations = **1**. Tắt **Keep variable values** để tránh giữ giá trị của lượt cũ.
 7. Bấm Start run và đợi hoàn tất.
-8. Kết quả mong đợi: **62 Passed, 0 Failed, 0 Errors**, 37 request.
+8. Kết quả mong đợi: **65 Passed, 0 Failed, 0 Errors**, 40 request.
 
 Bộ test bao phủ 17 method/path nghiệp vụ đã triển khai, cùng GET `/` và `/health`: Auth, Profile, Water, Workout, Meal, Quests và Exercises. Các API sleep/mood/BMI/shop/challenge/trainer/AI chưa triển khai không nằm trong bộ này.
 
@@ -202,7 +208,7 @@ Từ `backend`:
 npm run test:postman:atlas
 ```
 
-Script chạy đúng collection 37 request trên Express thật kết nối Atlas, lưu log tại `backend/postman/all-api-atlas-run.txt`, rồi dọn đúng account/log test có marker riêng của lượt đó. Không đụng dữ liệu người khác.
+Script chạy đúng collection 40 request trên Express thật kết nối Atlas, lưu log tại `backend/postman/all-api-atlas-run.txt`, rồi dọn đúng account/log test có marker riêng của lượt đó. Không đụng dữ liệu người khác.
 
 ```powershell
 npm run test:postman

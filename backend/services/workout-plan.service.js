@@ -5,7 +5,6 @@ const { HttpError } = require('../utils/http-error');
 const { isUuid, isText, isPlainBody } = require('../utils/validate');
 const { complete } = require('./ai.client');
 const { withAiQuota } = require('./ai-usage');
-const { membershipOf } = require('./payment.service');
 const { createWorkoutService } = require('./workout.service');
 const { afterWorkout } = require('./after-workout');
 const { createNutritionService } = require('./nutrition.service');
@@ -79,14 +78,13 @@ function createWorkoutPlanService({ db, ai = {} }) {
       return { success: true, plan };
     },
 
-    // Premium: AI builds a session for the chosen split day from our own exercise catalog, then the server makes it fit the time.
+    // Every member can create a workout. Provider calls retain the shared daily AI quota.
     async create(member, body) {
       if (!isPlainBody(body, ['split', 'focus', 'minutes', 'note']) || !SPLITS[body.split] || !SPLITS[body.split].includes(body.focus)
         || !Number.isInteger(body.minutes) || body.minutes < 15 || body.minutes > 120
         || (body.note !== undefined && body.note !== '' && !isText(body.note, 300))) {
         throw fail(400, 'Cần split (ppl, upper_lower, full_body), focus đúng với split, minutes 15–120 và note tối đa 300 ký tự.');
       }
-      if (!(await membershipOf(db, member.user_id)).premium) throw fail(402, 'Lịch tập AI dành cho thành viên Premium.');
       const user = await db.collection('users').findOne({ user_id: member.user_id });
       const pool = await candidates(body.focus);
       if (!pool.length) throw fail(503, 'Thư viện bài tập chưa có bài cho nhóm cơ này.');

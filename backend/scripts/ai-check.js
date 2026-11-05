@@ -1,24 +1,29 @@
 'use strict';
-// Checks the AI key in backend/.env without printing it: npm run ai:check
-const { loadConfig } = require('../config');
+// Explicit diagnostics only: importing this module never calls a provider.
+const { loadAiConfig } = require('../config');
 const { complete } = require('../services/ai.client');
 
-(async () => {
-  const { ai } = loadConfig();
+async function runAiCheck({ ai = loadAiConfig(), log = console.log, completeImpl = complete } = {}) {
   if (!ai.apiKey) {
-    console.log('Chưa có key. Thêm AI_API_KEY=... vào backend/.env rồi chạy lại.');
-    process.exit(1);
+    log('Chưa có key. Thêm AI_API_KEY vào backend/.env rồi chạy lại.');
+    return 1;
   }
-  console.log(`Nhà cung cấp: ${ai.provider} · model nhanh: ${ai.fast} · model chính: ${ai.smart}`);
+  log(`Nhà cung cấp: ${ai.provider} · model nhanh: ${ai.fast} · model chính: ${ai.smart}`);
+  let status = 0;
   for (const smart of [false, true]) {
     const started = Date.now();
     try {
-      const out = await complete(ai, { smart, json: true, maxTokens: 200, system: 'Bạn là chuyên gia dinh dưỡng.',
-        messages: [{ role: 'user', content: 'Trả {"kcal": số kcal trong 100g ức gà luộc}' }] });
-      console.log(`OK ${smart ? ai.smart : ai.fast} (${Date.now() - started} ms):`, JSON.stringify(out));
-    } catch (error) {
-      console.log(`LỖI ${smart ? ai.smart : ai.fast}: ${error.message}`);
-      process.exitCode = 1;
+      const out = await completeImpl(ai, { smart, json: true, maxTokens: 100, system: 'Return the requested JSON connectivity probe.',
+        messages: [{ role: 'user', content: 'Return {"ok": true}.' }] });
+      if (out?.ok !== true) throw new Error('Invalid probe response');
+      log(`OK ${smart ? ai.smart : ai.fast} (${Date.now() - started} ms)`);
+    } catch {
+      // Provider error text may echo credentials; do not include it.
+      log(`LỖI ${smart ? ai.smart : ai.fast}: kiểm tra thất bại. Kiểm tra key, model và kết nối nhà cung cấp.`);
+      status = 1;
     }
   }
-})();
+  return status;
+}
+if (require.main === module) runAiCheck().then(status => { process.exitCode = status; }).catch(() => { console.error('AI check failed.'); process.exitCode = 1; });
+module.exports = { runAiCheck };

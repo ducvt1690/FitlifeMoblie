@@ -8,6 +8,8 @@ const { complete } = require('./ai.client');
 const { createWorkoutPlanService } = require('./workout-plan.service');
 const { createNutritionService } = require('./nutrition.service');
 const { createMealService } = require('./meal.service');
+const { isGreeting, greetingReply, allowsCoachAction } = require('./chat-intent');
+const { classifyCoachMessage, outOfScopeReply } = require('./coach-scope');
 
 const MAX_FACTS = 30;
 const MAX_ACTIONS = 3;
@@ -98,9 +100,17 @@ function createCoachAgent({ db, ai = {} }) {
     async clear(userId) { await memory().deleteOne({ user_id: userId }); },
 
     // Returns { text, kinds } or throws when the model is unavailable, so the caller can fall back to rules.
-    async reply(user, ctx, history, context = 'general') {
+    async reply(user, ctx, history, context = 'general', currentMessage) {
+      const latestMessage = currentMessage ?? [...history].reverse().find(m => m.sender === 'user')?.content ?? '';
+      if (isGreeting(latestMessage)) return { text: greetingReply(), kinds: [] };
+      const previousUserText = [...history].reverse().filter(m => m.sender === 'user')[1]?.content;
+      const scope = classifyCoachMessage(latestMessage, { previousUserText });
+      if (scope.kind === 'out_of_scope') return { text: outOfScopeReply(), kinds: [] };
+      if (scope.kind === 'clarify') return { text: 'Bạn muốn hỏi chức năng hoặc dữ liệu nào trong FitLife? Hãy nói rõ hơn một chút nhé.', kinds: [] };
       const [remembered, { allergies = [] }] = await Promise.all([facts(user.user_id), nutrition.today(user).catch(() => ({}))]);
-      const system = `Bạn là FitLife Coach, trợ lý sức khỏe nói tiếng Việt, ngắn gọn, thực tế, không chẩn đoán bệnh. Bạn có thể thao tác trong app.
+      const system = `Bạn là FitLife Coach, trợ lý cho ứng dụng FitLife, trả lời tiếng Việt, ngắn gọn và đúng câu hỏi.
+Chỉ hỗ trợ tính năng FitLife, dữ liệu cá nhân trong app, tập luyện, dinh dưỡng và theo dõi thói quen. Không trả lời lập trình, chính trị, thời tiết, tài chính hoặc kiến thức ngoài phạm vi app. Không chẩn đoán hay kê thuốc.
+Không biết thì nói rõ giới hạn, không tự đoán dữ liệu hoặc chức năng app không có. Không trả bản tóm tắt ngày nếu người dùng hỏi một câu cụ thể.
 Người dùng: ${user.full_name}, ${user.gender === 'male' ? 'nam' : 'nữ'}, ${user.age} tuổi, ${user.height} cm, ${user.weight} kg, mục tiêu ${user.goal}.
 Mục tiêu ngày: ${user.target_water} ml nước, ${user.target_calories} kcal. Dị ứng: ${allergies.join(', ') || 'không'}.
 Hôm nay: ${ctx.water} ml nước, ${ctx.calories} kcal, ${ctx.workoutMinutes} phút tập, ngủ ${ctx.sleepHours ?? 'chưa ghi'} giờ.
@@ -113,7 +123,9 @@ Trả về {"reply":"lời nhắn cho người dùng","actions":[]}. Chỉ thêm
 {"type":"allergy","add":["tôm"]} lưu dị ứng;
 {"type":"remember","fact":"..."} nhớ lâu dài điều quan trọng (chấn thương, thiết bị, lịch rảnh, món thích/ghét);
 {"type":"forget","fact":"..."} quên điều người dùng muốn bỏ.
-Người dùng muốn có, đổi hay chỉnh lịch tập (kể cả "chỉnh lại", "đổi bài", "ở phòng gym", "ở nhà") → LUÔN dùng action plan,
+Chỉ tạo action khi TIN NHẮN HIỆN TẠI yêu cầu rõ ràng; không lặp lại yêu cầu cũ chỉ vì có trong lịch sử hoặc ngữ cảnh tab.
+Lời chào, cảm ơn hay câu hỏi thông tin thông thường phải trả lời trực tiếp, actions rỗng.
+Người dùng muốn có, đổi hay chỉnh lịch tập trong tin nhắn hiện tại (kể cả "chỉnh lại", "đổi bài") → dùng action plan,
 đưa yêu cầu vào note (VD "tập ở phòng gym, có máy"); KHÔNG tự viết danh sách bài tập trong reply.
 Khi có action, reply chỉ cần một câu ngắn, kết quả sẽ được app nối thêm. reply là chữ thường, không markdown, tối đa 120 từ.`;
       const messages = history.map(m => ({ role: m.sender === 'ai' ? 'assistant' : 'user', content: m.content }));
@@ -126,13 +138,16 @@ Khi có action, reply chỉ cần một câu ngắn, kết quả sẽ được a
       }
       if (!isText(out?.reply, 4000) && !Array.isArray(out?.actions)) throw new Error('bad reply');
       out.reply = isText(out.reply, 4000) ? plainText(out.reply) : '';
+      if (classifyCoachMessage(out.reply).kind === 'out_of_scope') out.reply = '';
       const done = [];
+      let blocked = false;
       for (const action of (Array.isArray(out.actions) ? out.actions : []).slice(0, MAX_ACTIONS)) {
+        if (!allowsCoachAction(action?.type, latestMessage)) { blocked = true; continue; }
         const result = await run(user, action);
         if (result) done.push(result);
       }
-      const text = [isText(out.reply, 4000) ? out.reply.trim() : '', ...done.map(d => d.text).filter(Boolean)].filter(Boolean).join('\n\n');
-      return { text: text || 'Đã ghi nhớ.', kinds: [...new Set(done.map(d => d.kind).filter(k => k !== 'note'))] };
+      const text = [!blocked && isText(out.reply, 4000) ? out.reply.trim() : '', ...done.map(d => d.text).filter(Boolean)].filter(Boolean).join('\n\n');
+      return { text: text || (done.some(d => d.kind === 'memory') ? 'Đã ghi nhớ.' : ''), kinds: [...new Set(done.map(d => d.kind).filter(k => k !== 'note'))] };
     },
     run,
   };

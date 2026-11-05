@@ -6,7 +6,7 @@ const { localDay, ageFromBirthDate } = require('../utils/birth-date');
 const emailPattern = new RegExp(collections.find((entry) => entry.name === 'users')
   .validator.$jsonSchema.properties.email.pattern);
 const fields = new Set([
-  'email', 'password', 'full_name', 'gender', 'age', 'height', 'weight',
+  'email', 'password', 'confirm_password', 'verification_token', 'full_name', 'gender', 'age', 'height', 'weight',
   'activity_level', 'goal', 'timezone', 'date_of_birth',
 ]);
 const activityFactors = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
@@ -21,7 +21,8 @@ function normalizeEmail(email) {
 function validateRegistration(body, now = new Date()) {
   if (!body || typeof body !== 'object' || Array.isArray(body)
     || Object.keys(body).some((key) => !fields.has(key))) return null;
-  const { email, password } = body;
+  const { email, password, confirm_password } = body;
+  if (typeof confirm_password !== 'string' || confirm_password !== password) return null;
   if (typeof email !== 'string' || email.length > 254 || typeof password !== 'string'
     || Buffer.byteLength(password, 'utf8') > 1024 || [...password].length < 8 || !password.trim()) return null;
   const cleanEmail = normalizeEmail(email);
