@@ -2,9 +2,9 @@
 
 Mọi endpoint cần `Authorization: Bearer <token>` của tài khoản **role `admin` đang hoạt động**; user nhận `403`. Danh sách có phân trang dùng `?page=` (mặc định 1, 20 dòng/trang) và trả `{ page, page_size, total }`. Bộ lọc ngày `from`/`to` có dạng `YYYY-MM-DD`, tính theo **giờ Việt Nam**, gồm cả hai đầu. Tham số sai định dạng trả `400`.
 
-Mọi thao tác ghi đều lưu vào `admin_logs`. Các thao tác nhạy cảm (khóa/mở khóa, cấp quyền admin, cấp/thu hồi Premium, cộng/trừ xu, xóa dữ liệu AI, hoàn tiền, đổi hạn mức AI) **bắt buộc** gửi `note` (lý do, 1–500 ký tự), thiếu thì `400`.
+Mọi thao tác ghi đều lưu vào `admin_logs`. Các thao tác nhạy cảm (khóa/mở khóa, đổi quyền, sửa hồ sơ, đặt lại mật khẩu, xóa tài khoản, cấp/thu hồi Premium, cộng/trừ xu, xóa dữ liệu AI, hoàn tiền, đổi hạn mức AI) **bắt buộc** gửi `note` (lý do, 1–500 ký tự), thiếu thì `400`.
 
-Admin không thay đổi được chính mình hay admin khác (`409`). Muốn hạ quyền một admin: dùng `scripts/set-role.js` trên máy chủ.
+Admin có toàn quyền với mọi tài khoản, kể cả admin khác. Chỉ không được tự khóa, tự đổi quyền hay tự xóa mình (`409`), nên lúc nào cũng còn ít nhất một admin hoạt động.
 
 ## Tổng quan và thống kê
 
@@ -38,9 +38,13 @@ Admin không thay đổi được chính mình hay admin khác (`409`). Muốn h
   - `wallet`: `fit_coins` và 20 dòng sổ xu gần nhất.
   - `sessions`: số phiên còn hạn, lần đăng nhập gần nhất.
   - Không bao giờ trả mật khẩu, token hay **nội dung** tin nhắn AI.
-- `PATCH /api/admin/accounts/:userId` body `{ is_active?, role?: "admin", note }`:
+- `PATCH /api/admin/accounts/:userId` body `{ is_active?, role?, email?, password?, full_name?, gender?, age?, date_of_birth?, height?, weight?, activity_level?, goal?, note }` (gửi ít nhất một trường):
   - `is_active: false/true` → khóa/mở khóa (`lock_account` / `unlock_account`). Khóa sẽ đăng xuất mọi thiết bị.
-  - `role: "admin"` → cấp quyền admin (`grant_admin`), đăng xuất mọi thiết bị của người đó. Chỉ nhận giá trị `"admin"`.
+  - `role: "user" | "trainer" | "admin"` → đổi quyền (`grant_admin` khi lên admin, còn lại `change_account_role`; log lưu `previous_role`/`new_role`). Đăng xuất mọi thiết bị của người đó.
+  - Hồ sơ (tên, giới tính, tuổi/ngày sinh, chiều cao, cân nặng, mức vận động, mục tiêu) kiểm tra như khi người dùng tự sửa; mục tiêu calo/nước tính lại. Log `update_account` ghi các mục đã sửa.
+  - `email` → chuẩn hóa chữ thường; trùng email khác: `409`. Đổi email đăng xuất mọi thiết bị.
+  - `password` (tối thiểu 8 ký tự) → đặt lại mật khẩu (`reset_password`), đăng xuất mọi thiết bị. Không bao giờ trả mật khẩu hay hash.
+- `DELETE /api/admin/accounts/:userId` body `{ note }` → xóa vĩnh viễn tài khoản cùng mọi dữ liệu của nó (nhật ký, đơn thanh toán, ví xu, chat AI, phiên đăng nhập, giáo án nếu là trainer…). Trả `{ removed: { tên collection: số dòng } }`, log `delete_account` ghi email và quyền cũ. Admin đã có thao tác trong `admin_logs` không xóa được (`409`) để giữ lịch sử kiểm toán: hãy khóa hoặc hạ quyền.
 - `POST /api/admin/accounts/:userId/logout-all` body tùy chọn `{ note }` → buộc đăng xuất mọi thiết bị, trả `{ revoked_sessions }`. Tài khoản vẫn đăng nhập lại được. `POST .../logout` là tên cũ, vẫn dùng được.
 - `POST /api/admin/accounts/:userId/premium` body `{ days: 1–3650, note }` → cấp Premium. Đang có Premium thì cộng tiếp từ ngày hết hạn hiện tại. Trả `{ premium_until }`. Hạn mức AI đổi theo ngay.
 - `DELETE /api/admin/accounts/:userId/premium` body `{ note }` → thu hồi Premium ngay (`premium_until = now`). Không có Premium đang hiệu lực: `409`.

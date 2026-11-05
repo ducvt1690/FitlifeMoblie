@@ -22,6 +22,7 @@ function createAdminRouter({ db }) {
   router.post('/accounts/:userId/coins', asyncHandler(async (req, res) => res.json(await service.adjustCoins(admin(req), req.params.userId, req.body))));
   router.delete('/accounts/:userId/chat', asyncHandler(async (req, res) => res.json(await service.deleteAiData(admin(req), req.params.userId, req.body))));
   router.patch('/accounts/:userId', asyncHandler(async (req, res) => res.json(await service.updateAccount(admin(req), req.params.userId, req.body))));
+  router.delete('/accounts/:userId', asyncHandler(async (req, res) => res.json(await service.deleteAccount(admin(req), req.params.userId, req.body))));
   router.get('/challenges', asyncHandler(async (req, res) => res.json(await service.listChallenges())));
   router.get('/challenges/:challengeId', asyncHandler(async (req, res) => res.json(await service.challengeDetail(req.params.challengeId, req.query))));
   router.post('/challenges', asyncHandler(async (req, res) => res.status(201).json(await service.createChallenge(admin(req), req.body))));

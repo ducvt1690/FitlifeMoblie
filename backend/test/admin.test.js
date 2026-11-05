@@ -106,7 +106,7 @@ test('account detail shows profile, plan, 30-day activity, AI quota and wallet b
   assert.equal((await request(`/api/admin/accounts/${randomUUID()}`, admin.token)).status, 404);
 });
 
-test('logout-all revokes every session of a member, is audited, and cannot target admins', async () => {
+test('logout-all revokes every session of an account, is audited, and works on other admins', async () => {
   const [admin, otherAdmin, member] = await Promise.all([account('admin'), account('admin'), account()]);
   const second = (await request('/api/auth/login', null, 'POST', { email: member.email, password: member.password })).body.token;
   assert.equal((await request(`/api/admin/accounts/${member.id}/logout-all`, admin.token, 'POST', { role: 'admin' })).status, 400);
@@ -118,7 +118,8 @@ test('logout-all revokes every session of a member, is audited, and cannot targe
   assert.equal((await request('/api/auth/login', null, 'POST', { email: member.email, password: member.password })).status, 200);
   // Old path still works.
   assert.equal((await request(`/api/admin/accounts/${member.id}/logout`, admin.token, 'POST')).body.revoked_sessions, 1);
-  assert.equal((await request(`/api/admin/accounts/${otherAdmin.id}/logout-all`, admin.token, 'POST')).status, 409);
+  assert.equal((await request(`/api/admin/accounts/${otherAdmin.id}/logout-all`, admin.token, 'POST', { note: 'x' })).status, 200);
+  assert.equal((await request('/api/auth/me', otherAdmin.token)).status, 401);
   assert.equal((await request(`/api/admin/accounts/${admin.id}/logout-all`, admin.token, 'POST')).status, 409);
   const logs = await request(`/api/admin/logs?action=force_logout&target_id=${member.id}`, admin.token);
   assert.equal(logs.body.total, 2);
@@ -126,19 +127,87 @@ test('logout-all revokes every session of a member, is audited, and cannot targe
   assert.ok(logs.body.logs.every(row => row.target_label.includes(member.email)), 'logs name their target');
 });
 
-test('granting admin needs a reason, ends the member sessions, and admins cannot change other admins', async () => {
+test('granting admin needs a reason, ends the member sessions, and admins can lock other admins but not themselves', async () => {
   const [admin, otherAdmin, member] = await Promise.all([account('admin'), account('admin'), account()]);
   const path = `/api/admin/accounts/${member.id}`;
   assert.equal((await request(path, admin.token, 'PATCH', { role: 'admin' })).status, 400);
-  assert.equal((await request(path, admin.token, 'PATCH', { role: 'user', note: 'x' })).status, 400);
+  assert.equal((await request(path, admin.token, 'PATCH', { role: 'boss', note: 'x' })).status, 400);
   const granted = await request(path, admin.token, 'PATCH', { role: 'admin', note: 'Nhân sự vận hành mới' });
   assert.equal(granted.status, 200, JSON.stringify(granted.body));
   assert.equal(granted.body.account.role, 'admin');
   assert.equal((await request('/api/auth/me', member.token)).status, 401);
-  assert.equal((await request(`/api/admin/accounts/${otherAdmin.id}`, admin.token, 'PATCH', { is_active: false, note: 'x' })).status, 409);
+  assert.equal((await request(`/api/admin/accounts/${otherAdmin.id}`, admin.token, 'PATCH', { is_active: false, note: 'Nghỉ việc' })).status, 200);
+  assert.equal((await request('/api/auth/me', otherAdmin.token)).status, 401);
+  assert.equal((await request(`/api/admin/accounts/${admin.id}`, admin.token, 'PATCH', { role: 'user', note: 'x' })).status, 409);
+  assert.equal((await request(`/api/admin/accounts/${admin.id}`, admin.token, 'PATCH', { is_active: false, note: 'x' })).status, 409);
   assert.equal((await request(`/api/admin/logs?action=grant_admin&target_id=${member.id}`, admin.token)).body.total, 1);
   const admins = await request('/api/admin/accounts?role=admin', admin.token);
   assert.ok(admins.body.accounts.some(row => row.user_id === member.id));
+});
+
+test('admins edit any account: profile, email, password and role, each audited', async () => {
+  const [admin, otherAdmin, member, taken] = await Promise.all([account('admin'), account('admin'), account(), account()]);
+  const path = `/api/admin/accounts/${member.id}`;
+  assert.equal((await request(path, admin.token, 'PATCH', { full_name: 'Tên mới' })).status, 400, 'note required');
+  assert.equal((await request(path, admin.token, 'PATCH', { fit_coins: 9, note: 'x' })).status, 400);
+  assert.equal((await request(path, admin.token, 'PATCH', { password: 'short', note: 'x' })).status, 400);
+  assert.equal((await request(path, admin.token, 'PATCH', { weight: 5, note: 'x' })).status, 400);
+  assert.equal((await request(path, admin.token, 'PATCH', { email: taken.email.toUpperCase(), note: 'x' })).status, 409);
+
+  const edited = await request(path, admin.token, 'PATCH', { full_name: '  Nguyễn Văn Demo ', weight: 80, goal: 'lose', note: 'Hỗ trợ khách' });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  const stored = await db.collection('users').findOne({ user_id: member.id });
+  assert.equal(stored.full_name, 'Nguyễn Văn Demo');
+  assert.equal(stored.weight, 80);
+  assert.ok(stored.target_calories > 0);
+  assert.equal((await request('/api/auth/me', member.token)).status, 200, 'a profile edit keeps the session');
+  const updateLog = await request(`/api/admin/logs?action=update_account&target_id=${member.id}`, admin.token);
+  assert.equal(updateLog.body.logs[0].note, 'Hỗ trợ khách (sửa tên, cân nặng, mục tiêu)');
+
+  const email = `${randomUUID()}@fitlife.example`;
+  const reset = await request(path, admin.token, 'PATCH', { email: email.toUpperCase(), password: 'mat-khau-moi', note: 'Quên mật khẩu' });
+  assert.equal(reset.status, 200, JSON.stringify(reset.body));
+  assert.equal(reset.body.account.email, email);
+  assert.equal(JSON.stringify(reset.body).includes('password'), false);
+  assert.equal((await request('/api/auth/me', member.token)).status, 401);
+  assert.equal((await request('/api/auth/login', null, 'POST', { email: member.email, password: member.password })).status, 401);
+  assert.equal((await request('/api/auth/login', null, 'POST', { email, password: 'mat-khau-moi' })).status, 200);
+  assert.equal((await request(`/api/admin/logs?action=reset_password&target_id=${member.id}`, admin.token)).body.total, 1);
+
+  const trainer = await request(path, admin.token, 'PATCH', { role: 'trainer', note: 'Huấn luyện viên mới' });
+  assert.equal(trainer.body.account.role, 'trainer');
+  const demoted = await request(`/api/admin/accounts/${otherAdmin.id}`, admin.token, 'PATCH', { role: 'user', note: 'Hết nhiệm vụ' });
+  assert.equal(demoted.status, 200, JSON.stringify(demoted.body));
+  const roleLogs = await db.collection('admin_logs').find({ action: 'change_account_role', target_id: { $in: [member.id, otherAdmin.id] } }).toArray();
+  assert.deepEqual(roleLogs.map(row => `${row.previous_role}>${row.new_role}`).sort(), ['admin>user', 'user>trainer']);
+  assert.equal((await request('/api/admin/overview', otherAdmin.token)).status, 401);
+});
+
+test('deleting an account needs a reason, removes all its data and keeps admins with an audit trail', async () => {
+  const [admin, member, auditor] = await Promise.all([account('admin'), account(), account('admin')]);
+  await request('/api/water-logs', member.token, 'POST', { log_id: randomUUID(), amount: 250 });
+  await order(member.id, 'premium_month', 'paid');
+  const path = `/api/admin/accounts/${member.id}`;
+  assert.equal((await request(path, admin.token, 'DELETE')).status, 400);
+  assert.equal((await request(`/api/admin/accounts/${admin.id}`, admin.token, 'DELETE', { note: 'x' })).status, 409);
+  const done = await request(path, admin.token, 'DELETE', { note: 'Người dùng yêu cầu xóa' });
+  assert.equal(done.status, 200, JSON.stringify(done.body));
+  assert.ok(done.body.removed.payment_orders >= 1 && done.body.removed.water_logs >= 1, JSON.stringify(done.body.removed));
+  assert.equal(await db.collection('users').countDocuments({ user_id: member.id }), 0);
+  for (const name of ['water_logs', 'payment_orders', 'auth_sessions', 'coin_transactions']) {
+    assert.equal(await db.collection(name).countDocuments({ user_id: member.id }), 0, name);
+  }
+  assert.equal((await request('/api/auth/me', member.token)).status, 401);
+  assert.equal((await request(path, admin.token, 'DELETE', { note: 'x' })).status, 404);
+  const log = await request(`/api/admin/logs?action=delete_account&target_id=${member.id}`, admin.token);
+  assert.ok(log.body.logs[0].note.includes(member.email));
+
+  // An admin with logged actions stays for the audit trail; an admin with none can go.
+  const bystander = await account();
+  await request(`/api/admin/accounts/${bystander.id}/logout-all`, auditor.token, 'POST', { note: 'Kiểm tra' });
+  assert.equal((await request(`/api/admin/accounts/${auditor.id}`, admin.token, 'DELETE', { note: 'x' })).status, 409);
+  const spare = await account('admin');
+  assert.equal((await request(`/api/admin/accounts/${spare.id}`, admin.token, 'DELETE', { note: 'Tài khoản thừa' })).status, 200);
 });
 
 test('Premium can be granted, extended and revoked; the AI quota follows the plan immediately', async () => {

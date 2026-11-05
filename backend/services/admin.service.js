@@ -2,7 +2,7 @@
 const { randomUUID } = require('node:crypto');
 const { transaction } = require('../database/transaction');
 const { HttpError } = require('../utils/http-error');
-const { isUuid, addDays, isDate, isText, isPlainBody } = require('../utils/validate');
+const { isUuid, addDays, isDate, isText, isPlainBody, isNewPassword } = require('../utils/validate');
 const { PRODUCTS } = require('./payment.service');
 const { AI_KINDS } = require('../database/mongodb/schema');
 const { localDay } = require('../auth/registration');
@@ -10,9 +10,14 @@ const { currentStreak } = require('./quest.service');
 const { withLiveTargets } = require('./session.service');
 const { createStatsService } = require('./stats.service');
 const { aiLimits, aiQuota, DEFAULT_AI_LIMITS } = require('./ai-usage');
-const { calculateBmi } = require('../utils/bmi');
+const { calculateBmi, upsertBmi } = require('../utils/bmi');
 const { changeCoins } = require('../utils/coins');
 const { rules, readFields, escapeRegex, readPage } = require('../utils/fields');
+const { validateProfile, normalizeEmail } = require('../auth/registration');
+const { hashPassword } = require('../auth/password');
+const { calculateTargets } = require('../utils/health-targets');
+const { currentWaterTarget } = require('../utils/water-target');
+const { references, ROLES } = require('../database/mongodb/schema');
 const fail = (status, message) => new HttpError(status, message);
 
 const PAGE_SIZE = 20;
@@ -111,18 +116,24 @@ async function lockAdmin(db, adminId, session, now) {
   return admin;
 }
 
-async function writeLog(db, admin, action, targetType, targetId, note, now, session) {
+async function writeLog(db, admin, action, targetType, targetId, note, now, session, extra = {}) {
   await db.collection('admin_logs').insertOne({ log_id: randomUUID(), admin_id: admin.user_id, action, target_type: targetType,
-    target_id: targetId, note: [...(note ?? '')].slice(0, 500).join(''), created_at: now, updated_at: now }, { session });
+    target_id: targetId, note: [...(note ?? '')].slice(0, 500).join(''), ...extra, created_at: now, updated_at: now }, { session });
 }
+
+// Profile fields an admin may edit on any account; they are validated together like the member's own profile edit.
+const PROFILE_FIELDS = ['full_name', 'gender', 'age', 'date_of_birth', 'height', 'weight', 'activity_level', 'goal'];
+const PROFILE_LABELS = { full_name: 'tên', email: 'email', gender: 'giới tính', age: 'tuổi', date_of_birth: 'ngày sinh',
+  height: 'chiều cao', weight: 'cân nặng', activity_level: 'mức vận động', goal: 'mục tiêu' };
+// Every collection row that points at a user, so deleting an account leaves no orphan behind.
+const USER_REFERENCES = references.filter(ref => ref.to === 'users' && ref.from !== 'admin_logs');
 
 function createAdminService({ db }) {
   const users = () => db.collection('users');
-  // Target of an account action: must exist and must not be an admin (admins cannot change other admins).
+  // Target of an account action: any existing account, other admins included.
   async function member(userId, session) {
     const target = await users().findOne({ user_id: userId }, { session, projection: { _id: 0, user_id: 1, role: 1, fit_coins: 1 } });
     if (!target) throw fail(404, 'Không tìm thấy tài khoản.');
-    if (target.role === 'admin') throw fail(409, 'Không thể thay đổi tài khoản quản trị viên.');
     return target;
   }
   function paymentFilter({ status, userId, product, from, to }) {
@@ -264,32 +275,108 @@ function createAdminService({ db }) {
       return { success: true, accounts: rows, page: current, page_size: PAGE_SIZE, total: count[0]?.total ?? 0 };
     },
 
-    // Lock/unlock a member, or promote a member to admin. A reason (note) is required.
-    // Admins cannot change themselves or another admin (409); demoting an admin is done with scripts/set-role.js.
+    // Edit any account: lock/unlock, role, profile, email or a new password. A reason (note) is required.
+    // An admin cannot lock themselves or change their own role, so an active admin is always left.
     async updateAccount(admin, userId, body) {
-      const { note, ...changes } = readFields(body, {
-        is_active: [rules.bool(), 'is_active phải là true/false.'],
-        role: [rules.oneOf('admin'), 'Chỉ có thể cấp quyền admin: role phải là "admin".'],
-        note: noteRule,
-      }, { partial: true });
-      if (!Object.keys(changes).length) throw fail(400, 'Không có thay đổi nào.');
-      if (userId === admin.user_id) throw fail(409, 'Không thể tự thay đổi tài khoản của mình.');
+      if (!isPlainBody(body, ['is_active', 'role', 'email', 'password', 'note', ...PROFILE_FIELDS])) {
+        throw fail(400, `Chỉ được sửa: is_active, role, email, password, ${PROFILE_FIELDS.join(', ')} kèm note.`);
+      }
+      const { is_active: isActive, role, email: rawEmail, password, note: rawNote, ...profile } = body;
+      optional(isActive, value => typeof value === 'boolean', 'is_active phải là true/false.');
+      optional(role, value => ROLES.includes(value), `role phải là một trong: ${ROLES.join(', ')}.`);
+      optional(password, isNewPassword, 'Mật khẩu mới cần tối thiểu 8 ký tự.');
+      const email = rawEmail === undefined ? undefined : normalizeEmail(rawEmail);
+      if (email === null) throw fail(400, 'Email không hợp lệ.');
+      const { note } = rawNote === undefined ? {} : readFields({ note: rawNote }, { note: noteRule });
+      if ([isActive, role, email, password, ...Object.values(profile)].every(value => value === undefined)) throw fail(400, 'Không có thay đổi nào.');
+      if (userId === admin.user_id && (isActive !== undefined || role !== undefined)) {
+        throw fail(409, 'Không thể tự khóa hoặc tự đổi quyền của mình; nhờ một quản trị viên khác.');
+      }
       requireNote(note);
+      // Hash outside the transaction so a retry does not repeat the slow work.
+      const passwordHash = password === undefined ? undefined : await hashPassword(password);
+      try {
+        return await transaction(db, async session => {
+          const now = new Date();
+          await lockAdmin(db, admin.user_id, session, now);
+          const current = await users().findOne({ user_id: userId }, { session });
+          if (!current) throw fail(404, 'Không tìm thấy tài khoản.');
+          const update = {};
+          if (isActive !== undefined) update.is_active = isActive;
+          if (role !== undefined) update.role = role;
+          if (email !== undefined && email !== current.email) update.email = email;
+          if (passwordHash) update.password_hash = passwordHash;
+          if (Object.keys(profile).length) {
+            const input = { ...Object.fromEntries([...PROFILE_FIELDS, 'timezone'].map(key => [key, current[key]])), ...profile };
+            if (input.date_of_birth === undefined) delete input.date_of_birth;
+            // A saved age is derived from the birthday; recompute it unless the admin typed one.
+            else if (!Object.hasOwn(profile, 'age')) delete input.age;
+            const valid = validateProfile(input, now);
+            if (!valid) throw fail(400, 'Thông tin hồ sơ không hợp lệ.');
+            for (const key of PROFILE_FIELDS) if (valid[key] !== undefined) update[key] = valid[key];
+            Object.assign(update, calculateTargets(valid, now));
+            update.target_water = await currentWaterTarget(db, { ...current, ...valid }, { session, now });
+          }
+          const account = await users().findOneAndUpdate({ user_id: userId }, { $set: { ...update, updated_at: now } },
+            { session, returnDocument: 'after', projection: ACCOUNT_FIELDS });
+          if (update.weight !== undefined && (update.weight !== current.weight || update.height !== current.height)) {
+            await upsertBmi(db, { ...current, ...update }, localDay(now, current.timezone), now, session);
+          }
+          // A lock, a new role, a new email or a new password starts from a fresh login: end every session now.
+          const roleChanged = role !== undefined && role !== current.role;
+          if (isActive === false || roleChanged || update.email || passwordHash) {
+            await db.collection('auth_sessions').deleteMany({ user_id: userId }, { session });
+          }
+          if (isActive !== undefined && isActive !== current.is_active) {
+            await writeLog(db, admin, isActive ? 'unlock_account' : 'lock_account', 'user', userId, note, now, session);
+          }
+          if (roleChanged) {
+            await writeLog(db, admin, role === 'admin' ? 'grant_admin' : 'change_account_role', 'user', userId, note, now, session,
+              { previous_role: current.role, new_role: role });
+          }
+          if (passwordHash) await writeLog(db, admin, 'reset_password', 'user', userId, note, now, session);
+          const edited = Object.keys(PROFILE_LABELS).filter(key => update[key] !== undefined && update[key] !== current[key]);
+          if (edited.length) {
+            await writeLog(db, admin, 'update_account', 'user', userId, `${note} (sửa ${edited.map(key => PROFILE_LABELS[key]).join(', ')})`, now, session);
+          }
+          return { success: true, message: 'Đã cập nhật tài khoản.', account };
+        });
+      } catch (error) {
+        if (error.code === 11000 && error.keyPattern?.email === 1) throw fail(409, 'Email đã được đăng ký.');
+        throw error;
+      }
+    },
+
+    // Permanently delete an account and every row that belongs to it. A reason (note) is required.
+    // An admin who has authored admin logs is kept for the audit trail: lock or demote them instead.
+    async deleteAccount(admin, userId, body) {
+      const { note } = body && Object.keys(body).length ? readFields(body, { note: noteRule }) : {};
+      requireNote(note);
+      if (userId === admin.user_id) throw fail(409, 'Không thể tự xóa tài khoản của mình.');
       return transaction(db, async session => {
         const now = new Date();
         await lockAdmin(db, admin.user_id, session, now);
-        const target = await users().findOne({ user_id: userId }, { session, projection: ACCOUNT_FIELDS });
+        const target = await users().findOne({ user_id: userId }, { session, projection: { _id: 0, user_id: 1, email: 1, role: 1 } });
         if (!target) throw fail(404, 'Không tìm thấy tài khoản.');
-        if (target.role === 'admin') throw fail(409, 'Không thể thay đổi tài khoản quản trị viên.');
-        const account = await users().findOneAndUpdate({ user_id: userId }, { $set: { ...changes, updated_at: now } },
-          { session, returnDocument: 'after', projection: ACCOUNT_FIELDS });
-        // A locked account or a new role starts from a fresh login: end every session now.
-        if (changes.is_active === false || changes.role) await db.collection('auth_sessions').deleteMany({ user_id: userId }, { session });
-        if (changes.is_active !== undefined && changes.is_active !== target.is_active) {
-          await writeLog(db, admin, changes.is_active ? 'unlock_account' : 'lock_account', 'user', userId, note, now, session);
+        if (await db.collection('admin_logs').findOne({ admin_id: userId }, { session, projection: { _id: 1 } })) {
+          throw fail(409, 'Tài khoản này đã có thao tác trong nhật ký quản trị nên không xóa được. Hãy khóa hoặc hạ quyền thay vì xóa.');
         }
-        if (changes.role) await writeLog(db, admin, 'grant_admin', 'user', userId, note, now, session);
-        return { success: true, message: 'Đã cập nhật tài khoản.', account };
+        // Assignments that use this trainer's templates go with the templates.
+        const templates = await db.collection('workout_templates').find({ trainer_id: userId }, { session, projection: { _id: 0, template_id: 1 } }).toArray();
+        const removed = {};
+        if (templates.length) {
+          const res = await db.collection('trainer_assignments').deleteMany({ template_id: { $in: templates.map(t => t.template_id) } }, { session });
+          if (res.deletedCount) removed.trainer_assignments = res.deletedCount;
+        }
+        for (const ref of USER_REFERENCES) {
+          const res = await db.collection(ref.from).deleteMany({ [ref.field]: userId }, { session });
+          if (res.deletedCount) removed[ref.from] = (removed[ref.from] ?? 0) + res.deletedCount;
+        }
+        // Login sessions live outside the schema list.
+        await db.collection('auth_sessions').deleteMany({ user_id: userId }, { session });
+        await users().deleteOne({ user_id: userId }, { session });
+        await writeLog(db, admin, 'delete_account', 'user', userId, `${note} (${target.email}, ${target.role})`, now, session);
+        return { success: true, message: 'Đã xóa tài khoản.', removed };
       });
     },
 
