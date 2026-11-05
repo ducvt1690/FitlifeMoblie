@@ -1,0 +1,10 @@
+# Secrets are set as Vercel environment variables, never uploaded.
+.env
+.env.*
+database/mongodb/.env
+database/mongodb/backups
+database/fitlife_db.json
+node_modules
+test
+.tools
+.expand-exercises.json

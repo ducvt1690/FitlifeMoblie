@@ -7,3 +7,6 @@ yarn-error.log*
 .tools/
 /database/fitlife_db.json
 .expand-exercises.json
+
+.vercel
+.env.local

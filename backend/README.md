@@ -193,6 +193,16 @@ Biến môi trường: `VNP_TMN_CODE`, `VNP_HASH_SECRET` (thiếu thì API tạo
 
 AI chat dùng `/api/chat`. Khi bổ sung chức năng, tạo route và service cùng tên; dùng middleware xác thực và truyền transaction giữa các service có bước ghi liên quan.
 
+## Deploy lên Vercel
+
+Bản đang chạy: `https://fitlife-api-theta.vercel.app` (project `fitlife-api`, vùng `sin1`). Kiểm tra: `GET /health` trả `{"status":"ok","database":"connected"}`.
+
+- `api/index.js` là entry trên Vercel: mọi đường dẫn được rewrite vào đây (`vercel.json`), kết nối Atlas tạo một lần rồi dùng lại khi instance còn ấm. Chạy local vẫn dùng `server.js`.
+- `.vercelignore` không đẩy `.env` và test lên. Biến môi trường khai trong Vercel → Settings → Environment Variables (Production): `MONGODB_URI`, `MONGODB_DB_NAME`, `AUTH_SESSION_TTL_SECONDS`, `CORS_ORIGINS`, `AI_API_KEY`, `VNP_*`, `PUBLIC_API_URL=https://fitlife-api-theta.vercel.app`, `TRUST_PROXY=1`. Đổi biến xong phải deploy lại.
+- Atlas → Network Access phải có `0.0.0.0/0` vì Vercel không có IP cố định.
+- Deploy: `npx vercel deploy --prod` trong `backend/` (cần `npx vercel login` và quyền vào team).
+- Chưa cấu hình SMTP thì quên mật khẩu trên bản deploy không gửi được mã.
+
 ## Kiểm thử
 
 `npm test` chạy kiểm thử tích hợp với MongoDB replica set tạm, không đọc `.env` hoặc kết nối Atlas. Lần chạy đầu có thể tải MongoDB binary. Bộ test kiểm tra phiên, thu hồi token, expiry, account bị khóa và các lỗi xác thực; không chứng minh frontend đã tích hợp.
