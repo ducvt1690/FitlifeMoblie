@@ -5,6 +5,7 @@ import Surface from '../../ui/Surface';
 import Text from '../../ui/Text';
 import Button from '../../ui/Button';
 import TextField from '../../ui/TextField';
+import Segmented from '../../ui/Segmented';
 import { colors, radius, themed } from '../../theme/tokens';
 
 // Small pieces shared by the admin screens.
@@ -53,7 +54,8 @@ export const ACTIONS = {
   revoke_premium: 'Thu hồi Premium', adjust_coins: 'Điều chỉnh xu', force_logout: 'Buộc đăng xuất', delete_ai_data: 'Xóa dữ liệu AI',
   refund_payment: 'Hoàn tiền', update_ai_limits: 'Đổi hạn mức AI', create_challenge: 'Tạo thử thách', update_challenge: 'Sửa thử thách',
   create_reward_item: 'Tạo vật phẩm', update_reward_item: 'Sửa vật phẩm', create_exercise: 'Tạo bài tập', update_exercise: 'Sửa bài tập',
-  hide_exercise: 'Ẩn bài tập', show_exercise: 'Hiện bài tập', set_role_admin: 'Cấp quyền admin (script)', change_account_role: 'Đổi quyền (script)',
+  hide_exercise: 'Ẩn bài tập', show_exercise: 'Hiện bài tập', set_role_admin: 'Cấp quyền admin (script)', set_role_user: 'Hạ quyền (script)', set_role_trainer: 'Cấp quyền trainer (script)',
+  change_account_role: 'Đổi quyền', update_account: 'Sửa thông tin tài khoản', reset_password: 'Đặt lại mật khẩu', delete_account: 'Xóa tài khoản',
 };
 
 export function ErrorBox({ message }) {
@@ -113,9 +115,11 @@ export function Pager({ shown, total, loading, onMore }) {
   );
 }
 
-// Inline confirm form for a sensitive action: optional number, a required reason, and a confirm word when asked.
+// Inline confirm form for a sensitive action: optional number, choice or text, a required reason, and a confirm word when asked.
 export function ActionForm({ action, onCancel, onSubmit }) {
   const [amount, setAmount] = useState(action.amount?.initial ?? '');
+  const [choice, setChoice] = useState(action.choice?.initial);
+  const [text, setText] = useState('');
   const [note, setNote] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -123,10 +127,12 @@ export function ActionForm({ action, onCancel, onSubmit }) {
   const submit = async () => {
     const n = Number(amount);
     if (action.amount && (!/^-?\d+$/.test(String(amount).trim()) || !action.amount.valid(n))) return setError(action.amount.hint);
+    if (action.choice && choice === action.choice.initial) return setError(action.choice.hint);
+    if (action.text && !action.text.valid(text)) return setError(action.text.hint);
     if (!note.trim()) return setError('Nhập lý do (bắt buộc, được ghi vào nhật ký quản trị).');
     if (action.confirm && confirm.trim().toLowerCase() !== action.confirm.toLowerCase()) return setError(`Gõ đúng "${action.confirm}" để xác nhận.`);
     setBusy(true); setError('');
-    try { await onSubmit({ amount: n, note: note.trim() }); } catch (e) { setError(e.message); setBusy(false); }
+    try { await onSubmit({ amount: n, choice, text, note: note.trim() }); } catch (e) { setError(e.message); setBusy(false); }
   };
   return (
     <Surface radius={radius.lg} style={[styles.form, action.danger && styles.formDanger]}>
@@ -135,6 +141,16 @@ export function ActionForm({ action, onCancel, onSubmit }) {
       {action.amount ? (
         <TextField label={action.amount.label} value={String(amount)} onChangeText={setAmount}
           keyboardType="numbers-and-punctuation" placeholder={action.amount.placeholder} />
+      ) : null}
+      {action.choice ? (
+        <View style={styles.choice}>
+          <Text variant="caption" tone="dim">{action.choice.label}</Text>
+          <Segmented options={action.choice.options} value={choice} onChange={setChoice} />
+        </View>
+      ) : null}
+      {action.text ? (
+        <TextField label={action.text.label} value={text} onChangeText={setText} secure={action.text.secure}
+          autoCapitalize="none" autoCorrect={false} placeholder={action.text.placeholder} />
       ) : null}
       <TextField label="Lý do" value={note} onChangeText={setNote} placeholder="VD: người dùng yêu cầu, hỗ trợ sự cố…" maxLength={500} multiline />
       {action.confirm ? (
@@ -176,6 +192,7 @@ const styles = themed(() => StyleSheet.create({
   form: { padding: 16, gap: 12, borderWidth: 1, borderColor: colors.stroke },
   formDanger: { borderColor: colors.danger },
   formButtons: { flexDirection: 'row', gap: 10 },
+  choice: { gap: 6 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', height: 90, gap: 2 },
   barSlot: { flex: 1, height: '100%', justifyContent: 'flex-end' },
   bar: { borderRadius: 3, minHeight: 2 },

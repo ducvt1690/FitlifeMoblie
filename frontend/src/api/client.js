@@ -120,6 +120,7 @@ export function createApi(call) {
       accounts: (filter) => call(`/api/admin/accounts${qs(filter)}`),
       account: (id) => call(`/api/admin/accounts/${id}`),
       updateAccount: (id, body) => call(`/api/admin/accounts/${id}`, { method: 'PATCH', body }),
+      deleteAccount: (id, note) => call(`/api/admin/accounts/${id}`, { method: 'DELETE', body: { note } }),
       logoutAll: (id, note) => post(`/api/admin/accounts/${id}/logout-all`, { note }),
       grantPremium: (id, days, note) => post(`/api/admin/accounts/${id}/premium`, { days, note }),
       revokePremium: (id, note) => call(`/api/admin/accounts/${id}/premium`, { method: 'DELETE', body: { note } }),
