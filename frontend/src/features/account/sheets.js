@@ -98,7 +98,9 @@ export function PasswordSheet({ visible, onClose }) {
   );
 }
 
-const STATUS = { paid: 'Đã thanh toán', pending: 'Đang chờ', failed: 'Thất bại', expired: 'Hết hạn' };
+const STATUS = { paid: 'Đã thanh toán', pending: 'Đang chờ', failed: 'Thất bại', expired: 'Hết hạn', refunded: 'Đã hoàn tiền' };
+// The app only sells Premium; coin packs stay on the server for older orders.
+const ORDER_TITLES = { coins_200: 'Gói 200 xu', coins_550: 'Gói 550 xu' };
 
 // Premium status, the packages on sale (paid through VNPay) and the member's payment history.
 export function MembershipSheet({ visible, onClose, onChanged }) {
@@ -125,6 +127,7 @@ export function MembershipSheet({ visible, onClose, onChanged }) {
     } catch (e) { setError(e.message); } finally { setBusy(''); }
   };
   const m = data?.membership;
+  const plans = (data?.plans ?? []).filter(p => p.premium_days > 0);
   return (
     <Sheet visible={visible} title="Gói thành viên" subtitle="Thanh toán an toàn qua VNPay" onClose={onClose}>
       <Surface radius={radius.lg} style={[styles.card, m?.premium && styles.premium]}>
@@ -137,14 +140,14 @@ export function MembershipSheet({ visible, onClose, onChanged }) {
         </View>
       </Surface>
       {data && !data.configured ? <Text variant="caption" tone="faint">Máy chủ chưa bật thanh toán VNPay nên chưa mua được lúc này.</Text> : null}
-      {(data?.plans ?? []).map(p => (
+      {plans.map(p => (
         <Surface key={p.product} radius={radius.md} style={styles.plan}>
           <View style={styles.flex}>
             <Text variant="label">{p.title}</Text>
-            <Text variant="caption" tone="dim">{p.premium_days ? `${p.premium_days} ngày Premium · ` : ''}tặng {p.coins} xu</Text>
+            <Text variant="caption" tone="dim">{p.premium_days} ngày Premium</Text>
           </View>
           <Button title={vnd(p.amount_vnd)} onPress={() => buy(p.product)} loading={busy === p.product}
-            disabled={!!busy || !data.configured} variant={p.premium_days ? 'primary' : 'glass'} style={styles.buy} />
+            disabled={!!busy || !data.configured} style={styles.buy} />
         </Surface>
       ))}
       {error ? <Text tone="danger">{error}</Text> : null}
@@ -152,7 +155,7 @@ export function MembershipSheet({ visible, onClose, onChanged }) {
       {!orders.length ? <Text variant="caption" tone="faint">Chưa có giao dịch nào.</Text> : orders.map(o => (
         <View key={o.order_id} style={styles.order}>
           <View style={styles.flex}>
-            <Text variant="label">{data?.plans?.find(p => p.product === o.product)?.title ?? o.product}</Text>
+            <Text variant="label">{data?.plans?.find(p => p.product === o.product)?.title ?? ORDER_TITLES[o.product] ?? o.product}</Text>
             <Text variant="caption" tone="faint">{dmy(o.created_at)}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>

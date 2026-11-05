@@ -91,7 +91,7 @@ export default function HomeScreen() {
     { label: 'Bước chân', value: fmt(steps), unit: 'bước' },
     { label: 'Đã đốt', value: fmt(today?.calories_burned), unit: 'kcal' },
     { label: 'Chuỗi ngày', value: fmt(stats?.streak_days), unit: 'ngày' },
-    { label: 'FitCoin', value: fmt(stats?.fit_coins ?? user?.profile?.coins), unit: 'xu' },
+    { label: 'Cân nặng', value: user?.profile?.weight ?? '—', unit: 'kg' },
   ];
   const maxWater = Math.max(targetWater, ...(stats?.days ?? []).map(d => d.water_ml));
 
